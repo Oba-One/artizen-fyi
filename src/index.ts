@@ -2,6 +2,7 @@ import { Artizen } from './artizen';
 import faviconIco from './favicon.ico';
 import faviconSvg from './favicon.svg';
 import appleTouchIcon from './apple-touch-icon.png';
+import ogImage from './og.png';
 import {
   renderDrives,
   renderFund,
@@ -54,6 +55,11 @@ export default {
     }
     if (asset && path === '/apple-touch-icon.png') {
       return new Response(appleTouchIcon, {
+        headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800' },
+      });
+    }
+    if (asset && path === '/og.png') {
+      return new Response(ogImage, {
         headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800' },
       });
     }

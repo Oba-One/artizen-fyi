@@ -63,7 +63,12 @@ export function layout(opts: {
   boards?: boolean;
 }): string {
   const desc = escapeHtml(opts.description || 'Fund and project leaderboards from Artizen');
-  const ogImage = opts.image ? `<meta property="og:image" content="${escapeHtml(opts.image)}">` : '';
+  const image = escapeHtml(opts.image || 'https://artizen.fyi/og.png');
+  const imageSize = opts.image
+    ? ''
+    : `<meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="artizen.fyi">`;
   const css = [
     '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/css/bootstrap.min.css">',
     '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css">',
@@ -94,9 +99,14 @@ export function layout(opts: {
   <meta name="application-name" content="artizen.fyi">
   <title>${escapeHtml(opts.title)}</title>
   <meta name="description" content="${desc}">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="artizen.fyi">
   <meta property="og:title" content="${escapeHtml(opts.title)}">
   <meta property="og:description" content="${desc}">
-  ${ogImage}
+  <meta property="og:image" content="${image}">
+  ${imageSize}
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="${image}">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/favicon.ico" sizes="32x32">
   <link rel="apple-touch-icon" href="/apple-touch-icon.png">
