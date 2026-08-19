@@ -202,8 +202,15 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   font-size: 0.92rem;
 }
 .artizen-footer p { margin: 0; }
+.artizen-footer p + p { margin-top: 0.45rem; }
 .artizen-footer a { color: #fff; text-decoration: none; }
 .artizen-footer a:hover { color: var(--green); }
+.artizen-footer-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.artizen-footer-github .bi { font-size: 1.15em; }
 .artizen-panel {
   background: var(--panel);
   border: 1px solid var(--line);

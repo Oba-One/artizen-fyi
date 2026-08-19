@@ -164,6 +164,12 @@ const FOOTER = `
       (<a href="https://stephenreid.net" target="_blank" rel="noopener">stephenreid.net</a>)
       and is not affiliated with Artizen.
     </p>
+    <p>
+      <a class="artizen-footer-github" href="https://github.com/stephenreid321/artizen-fyi" target="_blank" rel="noopener">
+        <i class="bi bi-github" aria-hidden="true"></i>
+        GitHub
+      </a>
+    </p>
   </div>
 </footer>
 `;

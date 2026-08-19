@@ -2,6 +2,8 @@
 
 Public leaderboards for [artizen.fund](https://artizen.fund/), running on Cloudflare.
 
+By [Stephen Reid](https://stephenreid.net/).
+
 ## Infra
 
 Two products only:
@@ -18,14 +20,16 @@ Workers **Paid** is required: the free plan’s 10 ms CPU cannot rebuild a sea
 ```bash
 npm install
 npx wrangler login
+npx wrangler deploy
+```
+
+This repo already has a KV namespace id in `wrangler.jsonc`. Only create a new one if you’re forking onto another Cloudflare account:
+
+```bash
 npx wrangler kv namespace create CACHE
 ```
 
 Paste the printed id into `wrangler.jsonc` → `kv_namespaces[0].id`.
-
-```bash
-npx wrangler deploy
-```
 
 Optional: set `REFRESH_SECRET` in the Worker dashboard (or `npx wrangler secret put REFRESH_SECRET`) and POST to `/refresh` with `Authorization: Bearer …` to rebuild without waiting for the hour.
 
@@ -39,7 +43,10 @@ The first `/projects` hit with an empty cache crawls Bubble and can take ~40s. A
 
 | Path | Page |
 | --- | --- |
-| `/` | redirect to `/projects` |
-| `/projects`, `/funds`, `/drives` | season leaderboards |
+| `/` | redirect to `/projects` (keeps `?season=`) |
+| `/projects`, `/funds`, `/drives` | season leaderboards (`?season=` optional) |
+| `/search` | project/fund search (`?q=`) |
 | `/projects/:slug`, `/funds/:slug` | detail |
 | `POST /refresh` | cache rebuild (secret) |
+
+Custom domains `artizen.fyi` and `www.artizen.fyi` are in `wrangler.jsonc`. `www` 301s to the apex.
