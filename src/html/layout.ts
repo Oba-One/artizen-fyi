@@ -137,7 +137,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
   <div class="artizen-nav-inner">
     <div class="artizen-nav-side">
       <div class="d-none d-md-flex gap-2">
-        <a class="${boardsClass}" href="${boardsHref}">Leaderboards</a>
+        <a class="${boardsClass}" href="${boardsHref}">Seasons</a>
         <a class="${boostsClass}" href="/boosts">Boosts</a>
       </div>
       <button type="button" class="artizen-nav-toggle d-md-none" data-bs-toggle="offcanvas" data-bs-target="#artizen-nav-offcanvas" aria-controls="artizen-nav-offcanvas" aria-label="Menu">
@@ -162,7 +162,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
   </div>
   <div class="offcanvas-body">
     <nav class="artizen-offcanvas-nav">
-      <a class="${boards ? 'active' : ''}" href="${boardsHref}"${boards ? ' aria-current="page"' : ''}>Leaderboards</a>
+      <a class="${boards ? 'active' : ''}" href="${boardsHref}"${boards ? ' aria-current="page"' : ''}>Seasons</a>
       <a class="${boosts ? 'active' : ''}" href="/boosts"${boosts ? ' aria-current="page"' : ''}>Boosts</a>
     </nav>
   </div>
@@ -282,7 +282,7 @@ export function board(data: Leaderboard, tab: 'projects' | 'funds' | 'drives', s
   const error = boardEmpty(data);
   const tabs = error
     ? ''
-    : `<nav class="artizen-pills" aria-label="Leaderboards">
+    : `<nav class="artizen-pills" aria-label="Seasons">
         <a class="${tab === 'projects' ? 'active' : ''}" href="/projects${qs}">Projects (${data.projects.length})</a>
         <a class="${tab === 'funds' ? 'active' : ''}" href="/funds${qs}">Funds (${data.funds.length})</a>
         <a class="${tab === 'drives' ? 'active' : ''}" href="/drives${qs}">Drives (${data.drives.length})</a>
