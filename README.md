@@ -21,8 +21,11 @@ PRs are welcome. Work against a local Worker:
 
 ```bash
 npm install
+cp .dev.vars.example .dev.vars
 npm run dev          # local Worker + local KV
 ```
+
+`.dev.vars` is gitignored. `REFRESH_SECRET` is the bearer token for `POST /refresh`.
 
 The first `/projects` or `/boosts` hit with an empty local cache crawls Bubble and can take ~30–60s. After that, pages read KV. On artizen.fyi those list pages never crawl; they wait for cron or `POST /refresh`. A project or fund detail with no stash still crawls that one page.
 
