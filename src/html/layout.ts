@@ -273,13 +273,36 @@ export function board(data: Leaderboard, tab: 'projects' | 'funds' | 'drives', s
   `) + alert;
 }
 
-export function chevron(open: boolean, hasKids: boolean): string {
+export function namedLink(url: string, name: string): string {
+  return `<a href="${escapeHtml(url)}" class="text-dark">${escapeHtml(name)}</a>`;
+}
+
+function chevron(open: boolean, hasKids: boolean): string {
   if (!hasKids) return '<span class="artizen-tree-toggle"></span>';
   return `<a href="#" class="artizen-tree-toggle" aria-expanded="${open}"><i class="bi ${open ? 'bi-chevron-down' : 'bi-chevron-right'}"></i></a>`;
 }
 
-export function treeHidden(open: boolean): string {
-  return open ? '' : ' artizen-tree-hidden';
+export function treeRow(opts: {
+  className: string;
+  id?: string;
+  parent?: string;
+  hidden?: boolean;
+  open?: boolean;
+  hasKids?: boolean;
+  label: string;
+  cells: string;
+}): string {
+  const cls = opts.hidden ? `${opts.className} artizen-tree-hidden` : opts.className;
+  const attrs = [
+    opts.id ? `data-id="${opts.id}"` : '',
+    opts.parent ? `data-parent="${opts.parent}"` : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+  return `<tr class="${cls}"${attrs ? ` ${attrs}` : ''}>
+    <td>${chevron(opts.open ?? false, opts.hasKids ?? false)} ${opts.label}</td>
+    ${opts.cells}
+  </tr>`;
 }
 
 export function driveBadges(drive: { multiple?: number | null; active?: boolean | null }): string {

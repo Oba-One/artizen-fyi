@@ -1,6 +1,6 @@
 import type { ProjectPage, ProjectSubmission } from '../artizen';
-import { moneyCells, usd } from '../format';
-import { chevron, driveBadges, escapeHtml, heroSplit, layout, panel, sumField, treeHidden, videoIframe } from './layout';
+import { MONEY_COLS, moneyCells, moneyHeaders, usd } from '../format';
+import { driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow, videoIframe } from './layout';
 
 export function renderProject(project: ProjectPage): string {
   const tags = (project.tags || []).map((tag) => `<span class="badge text-bg-secondary me-1 mb-1">${escapeHtml(tag)}</span>`).join('');
@@ -34,33 +34,43 @@ function projectFundingTable(project: ProjectPage): string {
       const seasonId = `s${si}`;
       const seasonOpen = si === 0;
       const drives = season.drives || [];
-      const seasonRow = `<tr class="artizen-tree-season" data-id="${seasonId}">
-        <td>${chevron(seasonOpen, drives.length > 0)} ${escapeHtml(season.title)}</td>
-        ${moneyCells(season)}
-        <td class="text-end">${Number(season.available) > 0 ? usd(season.available) : ''}</td>
-      </tr>`;
+      const seasonRow = treeRow({
+        className: 'artizen-tree-season',
+        id: seasonId,
+        open: seasonOpen,
+        hasKids: drives.length > 0,
+        label: escapeHtml(season.title),
+        cells: `${moneyCells(season)}<td class="text-end">${Number(season.available) > 0 ? usd(season.available) : ''}</td>`,
+      });
       const driveRows = drives
         .map((drive, di) => {
           const driveId = `${seasonId}d${di}`;
           const driveOpen = seasonOpen && di === 0;
           const funds = drive.funds || [];
-          const hidden = treeHidden(seasonOpen);
-          const driveRow = `<tr class="artizen-tree-drive${hidden}" data-id="${driveId}" data-parent="${seasonId}">
-            <td>${chevron(driveOpen, funds.length > 0)} ${escapeHtml(drive.name)}${driveBadges(drive)}</td>
-            ${moneyCells(drive)}
-            <td class="text-end">${drive.active ? usd(drive.available) : ''}</td>
-          </tr>`;
+          const driveRow = treeRow({
+            className: 'artizen-tree-drive',
+            id: driveId,
+            parent: seasonId,
+            hidden: !seasonOpen,
+            open: driveOpen,
+            hasKids: funds.length > 0,
+            label: `${escapeHtml(drive.name)}${driveBadges(drive)}`,
+            cells: `${moneyCells(drive)}<td class="text-end">${drive.active ? usd(drive.available) : ''}</td>`,
+          });
           const fundRows = funds
-            .map((fund) => {
-              const fundHidden = treeHidden(driveOpen);
-              return `<tr class="artizen-tree-fund${fundHidden}" data-parent="${driveId}">
-                <td><span class="artizen-tree-toggle"></span> <a href="${escapeHtml(fund.url)}" class="text-dark">${escapeHtml(fund.name)}</a></td>
-                <td class="text-end"></td><td class="text-end"></td>
-                <td class="text-end">${usd(fund.unlocked)}</td>
-                <td class="text-end"></td><td class="text-end"></td><td class="text-end"></td><td class="text-end"></td><td class="text-end"></td><td class="text-end"></td>
-                <td class="text-end">${drive.active ? usd(fund.available) : ''}</td>
-              </tr>`;
-            })
+            .map((fund) =>
+              treeRow({
+                className: 'artizen-tree-fund',
+                parent: driveId,
+                hidden: !driveOpen,
+                label: namedLink(fund.url, fund.name),
+                // Unlocked sits in Match; other money columns stay empty so Available lines up.
+                cells:
+                  MONEY_COLS.map((col) =>
+                    `<td class="text-end">${col.field === 'match' ? usd(fund.unlocked) : ''}</td>`,
+                  ).join('') + `<td class="text-end">${drive.active ? usd(fund.available) : ''}</td>`,
+              }),
+            )
             .join('');
           return driveRow + fundRows;
         })
@@ -80,9 +90,7 @@ function projectFundingTable(project: ProjectPage): string {
     <div class="table-responsive">
       <table class="table table-sm artizen-funding-tree">
         <thead><tr>
-          <th></th><th class="text-end">Sales</th><th class="text-end">Venus</th><th class="text-end">Match</th>
-          <th class="text-end">Prize</th><th class="text-end">V+M+P</th><th class="text-end">V/S</th>
-          <th class="text-end">(V+M)/S</th><th class="text-end">(V+M+P)/S</th><th class="text-end">Raised</th>
+          <th></th>${moneyHeaders()}
           <th class="text-end">Available</th>
         </tr></thead>
         <tbody>${seasons}</tbody>
@@ -112,9 +120,14 @@ function projectSubmissions(submissions: ProjectSubmission[]): string {
     .map((group, si) => {
       const seasonId = `sub${si}`;
       const open = si === 0;
-      const head = `<tr class="artizen-tree-season" data-id="${seasonId}">
-        <td>${chevron(open, true)} ${escapeHtml(group.title)}</td><td></td>
-      </tr>`;
+      const head = treeRow({
+        className: 'artizen-tree-season',
+        id: seasonId,
+        open,
+        hasKids: true,
+        label: escapeHtml(group.title),
+        cells: '<td></td>',
+      });
       const kids = group.items
         .map((submission) => {
           const status = String(submission.status);
@@ -124,11 +137,13 @@ function projectSubmissions(submissions: ProjectSubmission[]): string {
               : status === 'Removed'
                 ? 'text-bg-danger'
                 : 'text-bg-secondary';
-          const hidden = treeHidden(open);
-          return `<tr class="artizen-tree-submission${hidden}" data-parent="${seasonId}">
-            <td><span class="artizen-tree-toggle"></span> <a href="${escapeHtml(submission.url)}" class="text-dark">${escapeHtml(submission.name)}</a></td>
-            <td class="text-end"><span class="badge ${cls}">${escapeHtml(status)}</span></td>
-          </tr>`;
+          return treeRow({
+            className: 'artizen-tree-submission',
+            parent: seasonId,
+            hidden: !open,
+            label: namedLink(submission.url, submission.name),
+            cells: `<td class="text-end"><span class="badge ${cls}">${escapeHtml(status)}</span></td>`,
+          });
         })
         .join('');
       return head + kids;

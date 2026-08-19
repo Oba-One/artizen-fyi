@@ -74,17 +74,39 @@ export function multipleLabel(multiple?: number): string {
   return multiple == null ? '' : `${multiple.toFixed(1)}x`;
 }
 
-export function moneyCells(
-  row: {
-    sales?: number | null;
-    venus?: number | null;
-    match?: number | null;
-    prize?: number | null;
-    raised?: number | null;
-  },
-  tag = 'td',
-): string {
-  const f = funding({
+export type MoneyFormat = 'usd' | 'x';
+
+export type MoneyCol = {
+  field: keyof Funded;
+  label: string;
+  as: MoneyFormat;
+};
+
+export const MONEY_COLS: readonly MoneyCol[] = [
+  { field: 'sales', label: 'Sales', as: 'usd' },
+  { field: 'venus', label: 'Venus', as: 'usd' },
+  { field: 'match', label: 'Match', as: 'usd' },
+  { field: 'prize', label: 'Prize', as: 'usd' },
+  { field: 'vmp', label: 'V+M+P', as: 'usd' },
+  { field: 'multiple_v', label: 'V/S', as: 'x' },
+  { field: 'multiple_ex', label: '(V+M)/S', as: 'x' },
+  { field: 'multiple', label: '(V+M+P)/S', as: 'x' },
+  { field: 'raised', label: 'Raised', as: 'usd' },
+];
+
+export const MONEY_INDEXES = MONEY_COLS.map((_, i) => i + 1);
+export const RAISED_INDEX = MONEY_COLS.findIndex((col) => col.field === 'raised') + 1;
+
+type MoneyRow = {
+  sales?: number | null;
+  venus?: number | null;
+  match?: number | null;
+  prize?: number | null;
+  raised?: number | null;
+};
+
+function funded(row: MoneyRow): Funded {
+  return funding({
     name: '',
     url: '',
     sales: row.sales ?? 0,
@@ -93,18 +115,23 @@ export function moneyCells(
     prize: row.prize ?? 0,
     raised: row.raised ?? 0,
   });
-  const cells = [
-    usd(f.sales),
-    usd(f.venus),
-    usd(f.match),
-    usd(f.prize),
-    usd(f.vmp),
-    multipleLabel(f.multiple_v),
-    multipleLabel(f.multiple_ex),
-    multipleLabel(f.multiple),
-    usd(f.raised),
-  ];
-  return cells.map((content) => `<${tag} class="text-end">${content}</${tag}>`).join('');
+}
+
+function endCell(content: string, tag: string): string {
+  return `<${tag} class="text-end">${content}</${tag}>`;
+}
+
+function moneyLabel(row: Funded, col: MoneyCol): string {
+  return col.as === 'x' ? multipleLabel(row[col.field] as number | undefined) : usd(row[col.field] as number);
+}
+
+export function moneyHeaders(className = 'text-end'): string {
+  return MONEY_COLS.map((col) => `<th class="${className}">${col.label}</th>`).join('');
+}
+
+export function moneyCells(row: MoneyRow, tag = 'td'): string {
+  const f = funded(row);
+  return MONEY_COLS.map((col) => endCell(moneyLabel(f, col), tag)).join('');
 }
 
 export function heatRanks<T extends Record<string, unknown>>(rows: T[], fields: (keyof T)[]): Record<string, number[]> {

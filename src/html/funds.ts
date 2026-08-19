@@ -1,6 +1,6 @@
 import type { FundRow, Leaderboard } from '../artizen';
 import { truncate, usd } from '../format';
-import { board, boardEmpty, datatable, dtPlaceholder, escapeHtml, layout, note, pageTitle, panel } from './layout';
+import { board, boardEmpty, datatable, dtPlaceholder, escapeHtml, layout, namedLink, note, pageTitle, panel } from './layout';
 
 export function renderFunds(data: Leaderboard, seasonParam: string | null): string {
   const empty = boardEmpty(data);
@@ -26,7 +26,7 @@ export function renderFunds(data: Leaderboard, seasonParam: string | null): stri
              <td class="text-end" data-order="${fund.raised ?? -1}">${usd(fund.raised)}</td>`
           : '';
         return `<tr>
-          <td><strong><a href="${escapeHtml(fund.url)}" class="text-dark">${escapeHtml(fund.name)}</a></strong>${subtitle}${inactive}</td>
+          <td><strong>${namedLink(fund.url, fund.name)}</strong>${subtitle}${inactive}</td>
           <td class="text-end" data-order="${fund.season_total}">${usd(fund.season_total)}</td>
           ${extraCols}
         </tr>`;

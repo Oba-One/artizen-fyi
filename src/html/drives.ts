@@ -1,6 +1,6 @@
 import type { Drive, Leaderboard } from '../artizen';
 import { compactNum, delimited, fmtDate, truncate, usd } from '../format';
-import { board, boardEmpty, escapeHtml, layout, pageTitle, panel } from './layout';
+import { board, boardEmpty, escapeHtml, layout, namedLink, pageTitle, panel } from './layout';
 
 export function renderDrives(data: Leaderboard, seasonParam: string | null): string {
   const empty = boardEmpty(data);
@@ -119,7 +119,7 @@ function driveCard(drive: Drive): string {
       const rows = podium
         .map(
           (row, i) => `<tr>
-            <td><span class="text-muted">${i + 1}.</span> <a href="${escapeHtml(row.url)}" class="text-dark">${escapeHtml(row.name)}</a></td>
+            <td><span class="text-muted">${i + 1}.</span> ${namedLink(row.url, row.name)}</td>
             <td class="text-end text-nowrap">${usd(prizes[i])}</td>
             <td class="text-end text-nowrap">${usd(row.sales_match)}</td>
             <td class="text-end text-nowrap">${delimited(row.points)}</td>

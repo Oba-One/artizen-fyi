@@ -297,6 +297,10 @@ function or<T>(value: unknown, fallback: T): T {
   return value as T;
 }
 
+function isHidden(row?: Row | null): unknown {
+  return row ? row['Hide'] || row['unPublished'] : undefined;
+}
+
 function compact<T>(items: Array<T | null | undefined>): T[] {
   return items.filter((item): item is T => item != null);
 }
@@ -463,7 +467,7 @@ export class Artizen {
     return sortByDesc(
       filterMap(rows, (row) => {
         const project = lookup(projects, row['project']) || {};
-        if (project['Hide'] || project['unPublished']) return undefined;
+        if (isHidden(project)) return undefined;
 
         const name = str(presence(project['Name']) ?? row['name']).trim();
         if (blank(name)) return undefined;
@@ -956,7 +960,7 @@ export class Artizen {
         name: str(project['Name']).trim(),
         url: this.localProjectPath(projectSlug),
         creator: presence(str(project[LEAD_CREATOR]).trim()),
-        hidden: project['Hide'] || project['unPublished'],
+        hidden: isHidden(project),
         ...this.driveContext(drive),
         drive_url: drive && drive.url,
         available: this.leftoverMatch(rows),
@@ -1009,7 +1013,7 @@ export class Artizen {
 
   private async findOne(type: string, slug: string, slugField = 'Slug'): Promise<Row | undefined> {
     const rows = await this.findBy(type, slugField, slug, 5);
-    const row = rows.find((r) => !r['Hide'] && !r['unPublished']) || rows[0];
+    const row = rows.find((r) => !isHidden(r)) || rows[0];
     if (row) return row;
 
     return (await this.findBy(type, '_id', slug))[0];
@@ -1108,7 +1112,7 @@ export class Artizen {
           name: presence(str(project && project['Name']).trim()) || 'Project',
           url: this.localProjectPath(projectSlug),
           creator: project ? presence(str(project[LEAD_CREATOR]).trim()) : undefined,
-          hidden: project && (project['Hide'] || project['unPublished']),
+          hidden: isHidden(project),
           drive: 'Awards',
           drive_url: null,
           drive_active: false,
@@ -1143,31 +1147,25 @@ export class Artizen {
     return results.concat(extra.flat());
   }
 
-  private async fetchByIds(type: string, ids: unknown[]): Promise<Row[]> {
+  private async inBatches(ids: unknown[], fn: (batch: unknown[]) => Promise<Row[]>): Promise<Row[]> {
     const compactIds = compactUniq(ids);
     if (compactIds.length === 0) return [];
+    return (await Promise.all(batches(compactIds, IN_BATCH).map(fn))).flat();
+  }
 
-    const pages = await Promise.all(
-      batches(compactIds, IN_BATCH).map((batch) =>
-        this.getResults(type, {
-          limit: PAGE_SIZE,
-          constraints: [{ key: '_id', constraint_type: 'in', value: batch }],
-        }),
-      ),
+  private async fetchByIds(type: string, ids: unknown[]): Promise<Row[]> {
+    return this.inBatches(ids, (batch) =>
+      this.getResults(type, {
+        limit: PAGE_SIZE,
+        constraints: [{ key: '_id', constraint_type: 'in', value: batch }],
+      }),
     );
-    return pages.flat();
   }
 
   private async listWhereIn(type: string, field: string, ids: unknown[], extra: Constraint[] = []): Promise<Row[]> {
-    const compactIds = compactUniq(ids);
-    if (compactIds.length === 0) return [];
-
-    const pages = await Promise.all(
-      batches(compactIds, IN_BATCH).map((batch) =>
-        this.list(type, { constraints: [{ key: field, constraint_type: 'in', value: batch }, ...extra] }),
-      ),
+    return this.inBatches(ids, (batch) =>
+      this.list(type, { constraints: [{ key: field, constraint_type: 'in', value: batch }, ...extra] }),
     );
-    return pages.flat();
   }
 
   private async indexed(type: string, ids: unknown[]): Promise<Record<string, Row>> {
@@ -1478,7 +1476,7 @@ export class Artizen {
     const awards = await this.curatedAwardsByProject(season.id);
     return sortByDesc(
       filterMap(await this.list('project', { constraints }), (project) => {
-        if (project['Hide'] || project['unPublished']) return undefined;
+        if (isHidden(project)) return undefined;
 
         const name = str(project['Name']).trim();
         if (blank(name)) return undefined;

@@ -1,6 +1,6 @@
 import type { FundPage } from '../artizen';
 import { delimited, usd } from '../format';
-import { chevron, driveBadges, escapeHtml, heroSplit, layout, note, panel, sumField, treeHidden, videoIframe } from './layout';
+import { driveBadges, escapeHtml, heroSplit, layout, namedLink, note, panel, sumField, treeRow, videoIframe } from './layout';
 
 export function renderFund(fund: FundPage): string {
   const prize = fund.prize_usd
@@ -32,6 +32,14 @@ export function renderFund(fund: FundPage): string {
   });
 }
 
+function fundCells(contrib: string, unlocked: string, available: string, raised: string): string {
+  return [contrib, unlocked, available, raised].map((content) => `<td class="text-end">${content}</td>`).join('');
+}
+
+function raisedLabel(unlocked?: number | null, available?: number | null, show = true): string {
+  return show ? usd((unlocked || 0) + (available || 0)) : '';
+}
+
 function fundFundingTable(fund: FundPage): string {
   const seasons = fund.seasons
     .map((season, si) => {
@@ -42,45 +50,59 @@ function fundFundingTable(fund: FundPage): string {
         Number(season.count) > 0
           ? `<small class="text-muted">${season.count} ${season.count === 1 ? 'contribution' : 'contributions'}</small>`
           : '';
-      const seasonRow = `<tr class="artizen-tree-season" data-id="${seasonId}">
-        <td>${chevron(seasonOpen, drives.length > 0)} ${escapeHtml(season.title)} ${count}</td>
-        <td class="text-end">${usd(season.total)}</td>
-        <td class="text-end">${usd(season.unlocked)}</td>
-        <td class="text-end">${Number(season.available) > 0 ? usd(season.available) : ''}</td>
-        <td class="text-end">${usd((season.unlocked || 0) + (season.available || 0))}</td>
-      </tr>`;
+      const seasonRow = treeRow({
+        className: 'artizen-tree-season',
+        id: seasonId,
+        open: seasonOpen,
+        hasKids: drives.length > 0,
+        label: `${escapeHtml(season.title)} ${count}`,
+        cells: fundCells(
+          usd(season.total),
+          usd(season.unlocked),
+          Number(season.available) > 0 ? usd(season.available) : '',
+          raisedLabel(season.unlocked, season.available),
+        ),
+      });
       const driveRows = drives
         .map((drive, di) => {
           const driveId = `${seasonId}d${di}`;
           const driveOpen = seasonOpen && di === 0;
           const live = drive.active || drive.adjustment;
-          const hidden = treeHidden(seasonOpen);
-          const adjust = drive.adjustment ? ' artizen-tree-adjust' : '';
           const projects = drive.projects || [];
-          const driveRow = `<tr class="artizen-tree-drive${adjust}${hidden}" data-id="${driveId}" data-parent="${seasonId}">
-            <td>${chevron(driveOpen, projects.length > 0)} ${escapeHtml(drive.name)}${driveBadges(drive)}</td>
-            <td class="text-end"></td>
-            <td class="text-end">${drive.adjustment ? '' : usd(drive.unlocked)}</td>
-            <td class="text-end">${live ? usd(drive.available) : ''}</td>
-            <td class="text-end">${live || Number(drive.unlocked) > 0 ? usd((drive.unlocked || 0) + (drive.available || 0)) : ''}</td>
-          </tr>`;
+          const driveRow = treeRow({
+            className: `artizen-tree-drive${drive.adjustment ? ' artizen-tree-adjust' : ''}`,
+            id: driveId,
+            parent: seasonId,
+            hidden: !seasonOpen,
+            open: driveOpen,
+            hasKids: projects.length > 0,
+            label: `${escapeHtml(drive.name)}${driveBadges(drive)}`,
+            cells: fundCells(
+              '',
+              drive.adjustment ? '' : usd(drive.unlocked),
+              live ? usd(drive.available) : '',
+              raisedLabel(drive.unlocked, drive.available, live || Number(drive.unlocked) > 0),
+            ),
+          });
           const projectRows = projects
-            .map((project) => {
-              const projectHidden = treeHidden(driveOpen);
-              return `<tr class="artizen-tree-project${projectHidden}" data-parent="${driveId}">
-                <td><span class="artizen-tree-toggle"></span>
-                  <span class="artizen-tree-label">
-                    <a href="${escapeHtml(project.url)}" class="text-dark">${escapeHtml(project.name)}</a>
+            .map((project) =>
+              treeRow({
+                className: 'artizen-tree-project',
+                parent: driveId,
+                hidden: !driveOpen,
+                label: `<span class="artizen-tree-label">
+                    ${namedLink(project.url, project.name)}
                     ${project.hidden ? ' <span class="badge text-bg-secondary">hidden</span>' : ''}
                     ${project.creator ? `<br><small class="text-muted">${escapeHtml(project.creator)}</small>` : ''}
-                  </span>
-                </td>
-                <td class="text-end"></td>
-                <td class="text-end">${usd(project.unlocked)}</td>
-                <td class="text-end">${live ? usd(project.available) : ''}</td>
-                <td class="text-end">${live || Number(project.unlocked) > 0 ? usd((project.unlocked || 0) + (project.available || 0)) : ''}</td>
-              </tr>`;
-            })
+                  </span>`,
+                cells: fundCells(
+                  '',
+                  usd(project.unlocked),
+                  live ? usd(project.available) : '',
+                  raisedLabel(project.unlocked, project.available, live || Number(project.unlocked) > 0),
+                ),
+              }),
+            )
             .join('');
           return driveRow + projectRows;
         })
