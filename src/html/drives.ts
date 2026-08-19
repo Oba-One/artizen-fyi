@@ -129,10 +129,12 @@ function driveCard(drive: Drive): string {
         .join('');
       return `<div class="artizen-nested">
         <h2 class="artizen-panel-title">${title}</h2>
-        <table class="table table-sm mb-0 artizen-podium">
-          <thead><tr><th></th><th class="text-end">Prize</th><th class="text-end">Sales+match</th><th class="text-end">Points</th><th class="text-end">Score</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
+        <div class="artizen-podium-scroll">
+          <table class="table table-sm mb-0 artizen-podium">
+            <thead><tr><th></th><th class="text-end">Prize</th><th class="text-end">Sales+match</th><th class="text-end">Points</th><th class="text-end">Score</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
       </div>`;
     })
     .join('');

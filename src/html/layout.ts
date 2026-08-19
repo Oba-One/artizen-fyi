@@ -80,7 +80,7 @@ export function layout(opts: {
     .filter(Boolean)
     .join('\n  ');
   const js = [
-    '<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script><script>document.querySelectorAll(\'[data-bs-toggle="tooltip"]\').forEach(function(el){bootstrap.Tooltip.getOrCreateInstance(el);});(function(){var nav=document.querySelector(".artizen-nav");if(!nav)return;function sync(){document.documentElement.style.setProperty("--artizen-nav-height",nav.offsetHeight+"px");}sync();window.addEventListener("resize",sync);})();</script>',
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script><script>document.querySelectorAll(\'[data-bs-toggle="tooltip"]\').forEach(function(el){bootstrap.Tooltip.getOrCreateInstance(el);});(function(){var nav=document.querySelector(".artizen-nav");var q=document.getElementById("artizen-q");var long="Search projects and funds";function sync(){if(nav)document.documentElement.style.setProperty("--artizen-nav-height",nav.offsetHeight+"px");if(q)q.placeholder=window.matchMedia("(max-width: 767px)").matches?"Search":long;}sync();window.addEventListener("resize",sync);})();</script>',
     opts.datatables
       ? '<script src="https://cdn.datatables.net/v/bs5/dt-3.0.2/datatables.min.js"></script>'
       : '',
@@ -149,7 +149,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
       <form class="artizen-search" action="/search" method="get" role="search">
         <label class="visually-hidden" for="artizen-q">Search projects and funds</label>
         <i class="bi bi-search" aria-hidden="true"></i>
-        <input id="artizen-q" type="search" name="q" placeholder="Search projects and funds" value="${escapeHtml(query || '')}" autocomplete="off">
+        <input id="artizen-q" type="search" name="q" placeholder="Search" value="${escapeHtml(query || '')}" autocomplete="off">
         ${seasonField}
       </form>
     </div>
@@ -227,7 +227,7 @@ export function datatable(
   const noun = opts?.noun ?? 'entries';
   const language = {
     search: '_INPUT_',
-    searchPlaceholder: 'Search',
+    searchPlaceholder: `Search ${noun}`,
     info: `Showing _START_ to _END_ of _TOTAL_ ${noun}`,
     infoEmpty: `No ${noun}`,
     infoFiltered: `(filtered from _MAX_ total ${noun})`,
@@ -268,7 +268,7 @@ export function datatable(
         icon.className = 'bi bi-search';
         icon.setAttribute('aria-hidden', 'true');
         searchBox.insertBefore(icon, searchInput);
-        searchInput.setAttribute('aria-label', 'Search');
+        searchInput.setAttribute('aria-label', ${JSON.stringify(`Search ${noun}`)});
       }
       container.parentNode.insertBefore(wrap, container);
       wrap.appendChild(container);

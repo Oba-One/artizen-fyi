@@ -26,7 +26,10 @@ export function compactNum(value?: number | null): string {
   const sign = n < 0 ? '-' : '';
   let suffix = '';
   let div = 1;
-  if (a >= 1_000_000) {
+  if (a >= 1_000_000_000) {
+    suffix = 'b';
+    div = 1_000_000_000;
+  } else if (a >= 1_000_000) {
     suffix = 'm';
     div = 1_000_000;
   } else if (a >= 1_000) {

@@ -85,6 +85,7 @@ export function renderBoosts(boosts: BoostsPage): string {
     extra = datatable('artizen-boosts-table', [[1, 'desc']], [1, 2, 3], {
       paging: false,
       info: false,
+      noun: 'holders',
     });
   }
   return layout({
