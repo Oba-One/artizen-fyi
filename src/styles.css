@@ -226,7 +226,6 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   max-height: 360px;
   width: 100%;
 }
-.artizen-panel-body { padding: 1.2rem 1.35rem 1.4rem; }
 .artizen-panel-title {
   font-size: 1.45rem;
   margin: 0 0 0.85rem;
