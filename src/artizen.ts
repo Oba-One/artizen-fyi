@@ -5,7 +5,19 @@ const IN_BATCH = 50;
 const LEADERBOARD_CACHE = 'artizen/leaderboard/v26';
 const PROJECT_CACHE = 'artizen/project/v20';
 const FUND_CACHE = 'artizen/fund/v10';
+const BOOSTS_CACHE = 'artizen/boosts/v2';
+const TOP_BOOST_HOLDERS = 100;
+const BOOST_LIST_CONCURRENCY = 16;
 const LEAD_CREATOR = 'Lead Creator\t(text)';
+const BOOST_BUCKETS: Array<{ label: string; min: number; max: number }> = [
+  { label: '0', min: 0, max: 0 },
+  { label: '1–99', min: 1, max: 99 },
+  { label: '100–999', min: 100, max: 999 },
+  { label: '1k–9.9k', min: 1_000, max: 9_999 },
+  { label: '10k–99k', min: 10_000, max: 99_999 },
+  { label: '100k–999k', min: 100_000, max: 999_999 },
+  { label: '1M+', min: 1_000_000, max: Infinity },
+];
 
 export type Row = Record<string, unknown>;
 
@@ -219,6 +231,40 @@ export type FundPage = {
   seasons: FundFundingSeason[];
 };
 
+export type BoostHolder = {
+  rank: number;
+  name: string;
+  url: string;
+  image?: string | null;
+  points: number;
+  share: number;
+  cumulative: number;
+  admin: boolean;
+};
+
+export type BoostBucket = {
+  label: string;
+  users: number;
+  points: number;
+};
+
+export type BoostsPage = {
+  remaining: number;
+  accounts: number;
+  holders: number;
+  zero: number;
+  mean: number;
+  median: number;
+  admin: number;
+  community: number;
+  top_points: number;
+  top_share: number;
+  updated_at: string;
+  buckets: BoostBucket[];
+  top: BoostHolder[];
+  error: boolean;
+};
+
 function num(value: unknown): number {
   if (value == null || value === '') return 0;
   if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
@@ -381,6 +427,26 @@ export class Artizen {
     return this.withArtizenErrors(null, () => this.cacheFetch(`${FUND_CACHE}/${slug}`, () => this.buildFund(slug)));
   }
 
+  async boosts(): Promise<BoostsPage> {
+    const fallback: BoostsPage = {
+      remaining: 0,
+      accounts: 0,
+      holders: 0,
+      zero: 0,
+      mean: 0,
+      median: 0,
+      admin: 0,
+      community: 0,
+      top_points: 0,
+      top_share: 0,
+      updated_at: '',
+      buckets: [],
+      top: [],
+      error: true,
+    };
+    return this.withArtizenErrors(fallback, () => this.cacheFetch(BOOSTS_CACHE, () => this.buildBoosts()));
+  }
+
   async refreshCache(): Promise<string> {
     const started = Date.now();
     const seasons = await this.fetchSeasons();
@@ -392,10 +458,13 @@ export class Artizen {
       if (season.current) await this.cacheWrite(`${LEADERBOARD_CACHE}/current`, data);
     }
 
+    console.log('[Artizen] boosts');
+    const boosts = await this.rebuild(BOOSTS_CACHE, () => this.buildBoosts());
+
     let dropped = await this.deleteByPrefix(`${PROJECT_CACHE}/`);
     dropped += await this.deleteByPrefix(`${FUND_CACHE}/`);
 
-    const summary = `[Artizen] refreshed ${seasons.length} seasons, dropped ${dropped} project/fund stashes in ${Math.round((Date.now() - started) / 1000)}s`;
+    const summary = `[Artizen] refreshed ${seasons.length} seasons, boosts ${boosts && !boosts.error ? 'ok' : 'failed'}, dropped ${dropped} project/fund stashes in ${Math.round((Date.now() - started) / 1000)}s`;
     console.log(summary);
     return summary;
   }
@@ -413,6 +482,90 @@ export class Artizen {
       funds: await this.fundRows(season.id, { current: season.current }),
       error: false,
     };
+  }
+
+  private async buildBoosts(): Promise<BoostsPage> {
+    type Candidate = { name: string; url: string; image?: string; points: number; admin: boolean };
+    const points: number[] = [];
+    const candidates: Candidate[] = [];
+    const buckets = BOOST_BUCKETS.map((bucket) => ({ label: bucket.label, users: 0, points: 0 }));
+
+    await this.listEach('useraccount', (row) => {
+      const value = num(row['points - current']);
+      points.push(value);
+      const held = value > 0 ? value : 0;
+      const bucket = buckets.find((_, i) => value >= BOOST_BUCKETS[i].min && value <= BOOST_BUCKETS[i].max);
+      if (bucket) {
+        bucket.users += 1;
+        bucket.points += held;
+      }
+      if (!(value > 0)) return;
+
+      const id = str(row['_id']);
+      const name = str(row['name']).trim() || this.unnamedHolder(row['wallet']);
+      candidates.push({
+        name,
+        url: `${SITE_URL}/index/profile/${id}`,
+        image: this.mediaUrl(row['profile image']),
+        points: value,
+        admin: this.boostAdmin(row['Role']),
+      });
+    });
+
+    const remaining = sum(points, (p) => (p > 0 ? p : 0));
+    const holders = candidates.length;
+    const admin = sum(candidates, (c) => (c.admin ? c.points : 0));
+    const sortedHolders = sortByDesc(candidates, (c) => c.points);
+    const topRows = sortedHolders.slice(0, TOP_BOOST_HOLDERS);
+    const topPoints = sum(topRows, (c) => c.points);
+    let running = 0;
+    const top = topRows.map((row, i) => {
+      running += row.points;
+      return {
+        rank: i + 1,
+        name: row.name,
+        url: row.url,
+        image: row.image,
+        points: row.points,
+        share: remaining > 0 ? row.points / remaining : 0,
+        cumulative: remaining > 0 ? running / remaining : 0,
+        admin: row.admin,
+      } satisfies BoostHolder;
+    });
+
+    return {
+      remaining,
+      accounts: points.length,
+      holders,
+      zero: points.filter((p) => p === 0).length,
+      mean: holders > 0 ? remaining / holders : 0,
+      median: this.median(points),
+      admin,
+      community: remaining - admin,
+      top_points: topPoints,
+      top_share: remaining > 0 ? topPoints / remaining : 0,
+      updated_at: new Date().toISOString(),
+      buckets,
+      top,
+      error: false,
+    };
+  }
+
+  private unnamedHolder(wallet: unknown): string {
+    const w = str(wallet).trim();
+    if (w.length < 10) return 'Unnamed';
+    return `${w.slice(0, 6)}…${w.slice(-4)}`;
+  }
+
+  private boostAdmin(role: unknown): boolean {
+    const value = str(role).trim().toLowerCase();
+    return value.includes('admin') || value === 'scott';
+  }
+
+  private median(values: number[]): number {
+    if (values.length === 0) return 0;
+    const sorted = [...values].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
   }
 
   private async fetchSeasons(): Promise<Season[]> {
@@ -1141,6 +1294,42 @@ export class Artizen {
     const cursors = Array.from({ length: pageCount }, (_, i) => (i + 1) * PAGE_SIZE);
     const extra = await Promise.all(cursors.map((cursor) => this.getResults(type, { ...params, cursor })));
     return results.concat(extra.flat());
+  }
+
+  private async listEach(
+    type: string,
+    fn: (row: Row) => void,
+    opts: { constraints?: Constraint[]; sortField?: string; descending?: boolean; concurrency?: number } = {},
+  ): Promise<void> {
+    const params: Record<string, unknown> = { limit: PAGE_SIZE };
+    if (opts.constraints) params.constraints = opts.constraints;
+    if (opts.sortField) params.sort_field = opts.sortField;
+    if (opts.descending) params.descending = true;
+
+    const first = await this.get(type, { ...params, cursor: 0 });
+    for (const row of first.results || []) fn(row);
+    const remaining = toInt(first.remaining);
+    if (remaining <= 0) return;
+
+    const cursors = Array.from({ length: Math.ceil(remaining / PAGE_SIZE) }, (_, i) => (i + 1) * PAGE_SIZE);
+    const conc = opts.concurrency ?? BOOST_LIST_CONCURRENCY;
+    for (const batch of batches(cursors, conc)) {
+      const pages = await Promise.all(batch.map((cursor) => this.getResultsRetry(type, { ...params, cursor })));
+      for (const page of pages) for (const row of page) fn(row);
+    }
+  }
+
+  private async getResultsRetry(type: string, params: Record<string, unknown>, attempts = 4): Promise<Row[]> {
+    let last: unknown;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        return await this.getResults(type, params);
+      } catch (e) {
+        last = e;
+        await new Promise((resolve) => setTimeout(resolve, 200 * 2 ** i));
+      }
+    }
+    throw last instanceof Error ? last : new Error(String(last));
   }
 
   private async inBatches(ids: unknown[], fn: (batch: unknown[]) => Promise<Row[]>): Promise<Row[]> {

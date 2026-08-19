@@ -61,6 +61,7 @@ export function layout(opts: {
   query?: string;
   season?: string | null;
   boards?: boolean;
+  boosts?: boolean;
 }): string {
   const desc = escapeHtml(opts.description || 'Fund and project leaderboards from Artizen');
   const image = escapeHtml(opts.image || 'https://artizen.fyi/og.png');
@@ -79,9 +80,7 @@ export function layout(opts: {
     .filter(Boolean)
     .join('\n  ');
   const js = [
-    opts.boards
-      ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script><script>document.querySelectorAll(\'[data-bs-toggle="tooltip"]\').forEach(function(el){bootstrap.Tooltip.getOrCreateInstance(el);});</script>'
-      : '',
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script><script>document.querySelectorAll(\'[data-bs-toggle="tooltip"]\').forEach(function(el){bootstrap.Tooltip.getOrCreateInstance(el);});</script>',
     opts.datatables
       ? '<script src="https://cdn.datatables.net/v/bs5/dt-3.0.2/datatables.min.js"></script>'
       : '',
@@ -116,7 +115,7 @@ export function layout(opts: {
   <style>${styles}</style>
 </head>
 <body>
-  ${nav(opts.query, opts.season, opts.boards)}
+  ${nav(opts.query, opts.season, opts.boards, opts.boosts)}
   <div class="artizen-shell">
     ${opts.body}
   </div>
@@ -126,19 +125,26 @@ export function layout(opts: {
 </html>`;
 }
 
-function nav(query?: string, season?: string | null, boards?: boolean): string {
+function nav(query?: string, season?: string | null, boards?: boolean, boosts?: boolean): string {
   const seasonField = season
     ? `<input type="hidden" name="season" value="${escapeHtml(season)}">`
     : '';
   const boardsHref = season ? `/projects?season=${encodeURIComponent(season)}` : '/projects';
   const boardsClass = boards ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
+  const boostsClass = boosts ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
   return `
 <header class="artizen-nav">
   <div class="artizen-nav-inner">
-    <div class="artizen-nav-side artizen-nav-boards">
-      <a class="${boardsClass}" href="${boardsHref}">Leaderboards</a>
+    <div class="artizen-nav-side">
+      <div class="d-none d-md-flex gap-2">
+        <a class="${boardsClass}" href="${boardsHref}">Leaderboards</a>
+        <a class="${boostsClass}" href="/boosts">Boosts</a>
+      </div>
+      <button type="button" class="artizen-nav-toggle d-md-none" data-bs-toggle="offcanvas" data-bs-target="#artizen-nav-offcanvas" aria-controls="artizen-nav-offcanvas" aria-label="Menu">
+        <i class="bi bi-list" aria-hidden="true"></i>
+      </button>
     </div>
-    <a class="artizen-wordmark" href="${boardsHref}"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i> artizen.fyi</a>
+    <a class="artizen-wordmark" href="${boardsHref}" aria-label="artizen.fyi"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i><span class="d-none d-md-inline">artizen.fyi</span></a>
     <div class="artizen-nav-side artizen-nav-side-end">
       <form class="artizen-search" action="/search" method="get" role="search">
         <label class="visually-hidden" for="artizen-q">Search projects and funds</label>
@@ -149,6 +155,18 @@ function nav(query?: string, season?: string | null, boards?: boolean): string {
     </div>
   </div>
 </header>
+<div class="offcanvas offcanvas-start" tabindex="-1" id="artizen-nav-offcanvas" aria-labelledby="artizen-nav-offcanvas-label">
+  <div class="offcanvas-header">
+    <h2 class="offcanvas-title" id="artizen-nav-offcanvas-label">Menu</h2>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body">
+    <nav class="artizen-offcanvas-nav">
+      <a class="${boards ? 'active' : ''}" href="${boardsHref}"${boards ? ' aria-current="page"' : ''}>Leaderboards</a>
+      <a class="${boosts ? 'active' : ''}" href="/boosts"${boosts ? ' aria-current="page"' : ''}>Boosts</a>
+    </nav>
+  </div>
+</div>
 `;
 }
 
@@ -198,18 +216,28 @@ export function dtPlaceholder(): string {
   </div>`;
 }
 
-export function datatable(tableId: string, order: Array<[number, string]>, numeric: number[]): string {
+export function datatable(
+  tableId: string,
+  order: Array<[number, string]>,
+  numeric: number[],
+  opts?: { pageLength?: number; lengthMenu?: number[]; paging?: boolean; info?: boolean },
+): string {
+  const pageLength = opts?.pageLength ?? 25;
+  const lengthMenu = opts?.lengthMenu ?? [10, 25, 50, 100];
+  const paging = opts?.paging ?? true;
+  const info = opts?.info ?? true;
   return `<script>
     document.addEventListener('DOMContentLoaded', function() {
       var table = document.getElementById('${tableId}');
       if (!table) return;
       var ph = table.previousElementSibling;
       new DataTable(table, {
-        paging: true,
-        pageLength: 25,
-        lengthMenu: [10, 25, 50, 100],
+        paging: ${paging},
+        pageLength: ${pageLength},
+        lengthMenu: ${JSON.stringify(lengthMenu)},
+        lengthChange: ${paging},
         searching: true,
-        info: true,
+        info: ${info},
         autoWidth: false,
         order: ${JSON.stringify(order)},
         columnDefs: [{ type: 'num', targets: ${JSON.stringify(numeric)} }]

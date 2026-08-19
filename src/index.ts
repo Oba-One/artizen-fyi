@@ -4,6 +4,7 @@ import faviconSvg from './favicon.svg';
 import appleTouchIcon from './apple-touch-icon.png';
 import ogImage from './og.png';
 import {
+  renderBoosts,
   renderDrives,
   renderFund,
   renderFunds,
@@ -74,6 +75,10 @@ export default {
     if (request.method === 'GET' && path === '/search') {
       const q = url.searchParams.get('q') || '';
       return html(renderSearch(await artizen.leaderboard(season), q, season));
+    }
+
+    if (request.method === 'GET' && path === '/boosts') {
+      return html(renderBoosts(await artizen.boosts()));
     }
 
     if (request.method === 'GET' && path in BOARDS) {
