@@ -384,7 +384,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   .artizen-stat-row-boosts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (min-width: 1100px) {
-  .artizen-stat-row-boosts { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .artizen-stat-row-boosts { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 .artizen-stat {
   border: 1px solid var(--line);

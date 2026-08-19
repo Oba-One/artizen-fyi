@@ -1,6 +1,6 @@
 import type { BoostsPage } from '../artizen';
 import { compactNum, delimited } from '../format';
-import { datatable, dtPlaceholder, escapeHtml, layout, note, panel } from './layout';
+import { datatable, dtPlaceholder, escapeHtml, layout, panel } from './layout';
 
 function pct(share: number): string {
   const p = share * 100;
@@ -61,11 +61,9 @@ export function renderBoosts(boosts: BoostsPage): string {
         ${stat('Median', delimited(boosts.median))}
         ${stat('Mean', compactNum(boosts.mean))}
         ${stat('Top 100', pct(boosts.top_share), `${delimited(boosts.top_points)} of remaining`)}
-        ${stat('Community', compactNum(boosts.community), `${compactNum(boosts.admin)} held by admin wallets`)}
       </div>`;
     body = panel(`
       <h1>Boosts</h1>
-      ${note(`Unspent boosts are remaining voting points on Artizen accounts. Totals include admin wallets (${compactNum(boosts.admin)}). The table is the 100 largest balances.`)}
       ${stats}
       <div class="artizen-nested mb-3">
         <h2 class="artizen-panel-title">Distribution</h2>
