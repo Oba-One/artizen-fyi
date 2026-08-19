@@ -6,14 +6,14 @@ By [Stephen Reid](https://stephenreid.net/).
 
 ## Infra
 
-Two products only:
+artizen.fyi is a Worker plus KV. No D1, R2, Queues, Durable Objects, or Pages.
 
 - **Worker** — HTML routes, Bubble API crawler, hourly cron
 - **KV** — JSON cache (`artizen/leaderboard/…`, `artizen/project/…`, `artizen/fund/…`)
 
-Cron Triggers are a Worker feature, not a separate service. No D1, R2, Queues, Durable Objects, or Pages.
+It runs on Workers Paid so a season rebuild has enough CPU (free is 10 ms) and the hourly cron can run up to 15 minutes. Cron refreshes every season and drops project/fund pages so they rebuild on next visit. POST `/refresh` with `Authorization: Bearer …` (`REFRESH_SECRET` in the Worker dashboard) rebuilds without waiting for the hour.
 
-Workers **Paid** is required: the free plan’s 10 ms CPU cannot rebuild a season, and cron wall time is 15 minutes on paid.
+artizen.fyi is the apex; `www` 301s there.
 
 ## Local development
 
@@ -24,9 +24,7 @@ npm install
 npm run dev          # local Worker + local KV
 ```
 
-The first `/projects` hit with an empty cache crawls Bubble and can take ~40s. After that, pages read KV. Hourly cron refreshes every season and drops project/fund pages so they rebuild on next visit.
-
-`REFRESH_SECRET` is set in the Worker dashboard for production. POST to `/refresh` with `Authorization: Bearer …` to rebuild without waiting for the hour.
+The first `/projects` hit with an empty cache crawls Bubble and can take ~40s. After that, pages read KV.
 
 ## Routes
 
@@ -37,5 +35,3 @@ The first `/projects` hit with an empty cache crawls Bubble and can take ~40s. A
 | `/search` | project/fund search (`?q=`) |
 | `/projects/:slug`, `/funds/:slug` | detail |
 | `POST /refresh` | cache rebuild (secret) |
-
-Custom domains `artizen.fyi` and `www.artizen.fyi` are in `wrangler.jsonc`. `www` 301s to the apex.
