@@ -17,7 +17,7 @@ artizen.fyi is the apex; `www` 301s there.
 
 ## Local development
 
-PRs are welcome. Run the Worker locally; don’t deploy a second copy.
+PRs are welcome. Work against a local Worker:
 
 ```bash
 npm install
