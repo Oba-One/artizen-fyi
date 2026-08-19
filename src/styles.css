@@ -232,8 +232,6 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-panel > .artizen-panel-title:first-child,
 .artizen-panel > h1:first-child { margin-top: 0; }
-.artizen-video-panel { padding: 0; }
-.artizen-video-panel .ratio { margin: 0; }
 .artizen-nested {
   background: var(--paper);
   border-radius: 0.9rem;

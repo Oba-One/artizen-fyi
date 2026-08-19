@@ -1,12 +1,11 @@
 import type { ProjectPage, ProjectSubmission } from '../artizen';
 import { MONEY_COLS, moneyCells, moneyHeaders, usd } from '../format';
-import { driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow, videoIframe } from './layout';
+import { driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow } from './layout';
 
 export function renderProject(project: ProjectPage): string {
   const tags = (project.tags || []).map((tag) => `<span class="badge text-bg-secondary me-1 mb-1">${escapeHtml(tag)}</span>`).join('');
   const fundingTable = project.seasons.length ? projectFundingTable(project) : '';
   const submissions = project.submissions?.length ? projectSubmissions(project.submissions) : '';
-  const video = videoIframe(project.video) || '';
   return layout({
     title: project.name,
     description: project.logline || `Artizen project: ${project.name}`,
@@ -23,7 +22,6 @@ export function renderProject(project: ProjectPage): string {
       )}
       ${fundingTable}
       ${submissions}
-      ${video ? panel(video, { flush: true, className: 'artizen-video-panel' }) : ''}
     `,
   });
 }

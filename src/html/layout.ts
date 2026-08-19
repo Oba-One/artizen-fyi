@@ -10,20 +10,6 @@ export function escapeHtml(value: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
-export function videoIframe(url?: string | null): string | undefined {
-  if (url == null || url === '') return undefined;
-
-  const youtube = String(url).match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]+)/);
-  if (youtube) {
-    return `<div class="ratio ratio-16x9"><iframe src="https://www.youtube.com/embed/${youtube[1]}" allowfullscreen></iframe></div>`;
-  }
-  const vimeo = String(url).match(/vimeo\.com\/(?:video\/)?(\d+)/);
-  if (vimeo) {
-    return `<div class="ratio ratio-16x9"><iframe src="https://player.vimeo.com/video/${vimeo[1]}" allowfullscreen></iframe></div>`;
-  }
-  return `<p><a href="${url}" target="_blank" rel="noopener">Watch presentation</a></p>`;
-}
-
 const TREE_SCRIPT = `
 <script>
   document.addEventListener('DOMContentLoaded', function() {

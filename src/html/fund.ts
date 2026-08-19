@@ -1,6 +1,6 @@
 import type { FundPage } from '../artizen';
 import { delimited, usd } from '../format';
-import { driveBadges, escapeHtml, heroSplit, layout, namedLink, note, panel, sumField, treeRow, videoIframe } from './layout';
+import { driveBadges, escapeHtml, heroSplit, layout, namedLink, note, panel, sumField, treeRow } from './layout';
 
 export function renderFund(fund: FundPage): string {
   const prize = fund.prize_usd
@@ -9,7 +9,6 @@ export function renderFund(fund: FundPage): string {
       ? `<span class="badge text-bg-primary">Prize ${delimited(fund.prize_art)} ART</span>`
       : '';
   const fundingTable = fund.seasons.length ? fundFundingTable(fund) : '';
-  const video = videoIframe(fund.video) || '';
   return layout({
     title: fund.name,
     description: fund.subtitle || fund.for_title || `Artizen fund: ${fund.name}`,
@@ -26,7 +25,6 @@ export function renderFund(fund: FundPage): string {
           <p class="mb-0"><a href="${escapeHtml(fund.artizen_url)}" target="_blank" rel="noopener">View on Artizen</a></p>`,
       )}
       ${fundingTable}
-      ${video ? panel(video, { flush: true, className: 'artizen-video-panel' }) : ''}
     `,
   });
 }

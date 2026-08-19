@@ -160,7 +160,6 @@ export type ProjectPage = {
   creator?: string;
   logline?: string;
   image?: string | null;
-  video?: string;
   tags: string[];
   seasons: ProjectFundingSeason[];
   submissions: ProjectSubmission[];
@@ -211,7 +210,6 @@ export type FundPage = {
   subtitle?: string;
   for_title?: string;
   sponsor?: string;
-  video?: string;
   available: number;
   unlocked: number;
   prize_art?: number;
@@ -878,7 +876,6 @@ export class Artizen {
       creator: presence(str(row[LEAD_CREATOR]).trim()),
       logline: presence(row['Logline']),
       image: this.projectImage(row, seasonRows, artifacts, seasonsMeta),
-      video: presence(row['video presentation']),
       tags,
       seasons: this.nestProjectFunding(seasons, driveDetails, matchingFunds),
       submissions: await this.formatProjectSubmissions(submissionRows, seasonsMeta),
@@ -1000,7 +997,6 @@ export class Artizen {
       subtitle: ext ? presence(ext['subtitle']) : undefined,
       for_title: ext ? presence(ext['for title']) : undefined,
       sponsor: ext ? presence(ext['lead sponsor (text)']) : undefined,
-      video: ext ? presence(ext['welcome video']) : undefined,
       available: sum(seasons, (season) => num(season.available)),
       unlocked: sum(seasons, (season) => num(season.unlocked)),
       prize_art: optNum(row['Prize ART']),
