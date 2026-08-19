@@ -124,6 +124,7 @@ export function layout(opts: {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="application-name" content="artizen.fyi">
   <title>${escapeHtml(opts.title)}</title>
   <meta name="description" content="${desc}">
   <meta property="og:title" content="${escapeHtml(opts.title)}">
