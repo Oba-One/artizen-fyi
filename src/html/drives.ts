@@ -108,10 +108,11 @@ function driveCard(drive: Drive): string {
   const matchPer = drive.match_per_project
     ? `<div class="artizen-stat"><span>Match / project</span><strong>${usd(drive.match_per_project)}</strong></div>`
     : '';
+  const kind = drive.active ? 'Leading' : 'Winning';
   const podiums = (
     [
-      ['Winning projects', drive.podium, [drive.project_first, drive.project_second, drive.project_third]],
-      ['Winning funds', drive.fund_podium, [drive.fund_first, drive.fund_second, drive.fund_third]],
+      [`${kind} projects`, drive.podium, [drive.project_first, drive.project_second, drive.project_third]],
+      [`${kind} funds`, drive.fund_podium, [drive.fund_first, drive.fund_second, drive.fund_third]],
     ] as const
   )
     .map(([title, podium, prizes]) => {
