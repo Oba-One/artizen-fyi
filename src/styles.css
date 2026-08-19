@@ -9,6 +9,7 @@
   --shadow: 0 8px 18px rgba(16, 18, 18, 0.08);
   --radius: 1.15rem;
   --shell: 90rem;
+  --artizen-nav-height: calc(1.4rem + 2.4rem + 1px);
   --bs-primary: var(--green);
   --bs-primary-rgb: 26, 204, 108;
   --bs-link-color: var(--green-deep);
@@ -274,7 +275,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   box-shadow: var(--shadow);
   padding: 1.2rem 1.35rem 1.4rem;
   margin-bottom: 1rem;
-  overflow: hidden;
+  overflow: clip;
 }
 .artizen-panel-flush { padding: 0; }
 .artizen-panel-flush .artizen-hero {
@@ -494,7 +495,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 #artizen-projects-table td, #artizen-projects-table th { border: none !important; }
 #artizen-projects-table td, #artizen-funds-table td, #artizen-boosts-table td, #artizen-projects-table th, #artizen-funds-table th, #artizen-boosts-table th { vertical-align: middle; }
 #artizen-projects-table thead th, #artizen-funds-table thead th, #artizen-boosts-table thead th {
-  position: sticky; top: 0; z-index: 2;
+  position: sticky; top: var(--artizen-nav-height); z-index: 2;
   background: var(--panel);
   box-shadow: 0 1px 0 var(--line);
   font-family: var(--bs-heading-font-family);
