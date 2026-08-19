@@ -1,6 +1,6 @@
 import type { Leaderboard } from '../artizen';
 import { funding, heatRanks, heatTd, truncate } from '../format';
-import { board, datatable, escapeHtml, layout } from './layout';
+import { board, boardEmpty, datatable, escapeHtml, layout, pageTitle } from './layout';
 
 export function renderProjects(data: Leaderboard, seasonParam: string | null): string {
   const cols: Array<[keyof ReturnType<typeof funding>, string, 'usd' | 'x']> = [
@@ -14,7 +14,7 @@ export function renderProjects(data: Leaderboard, seasonParam: string | null): s
     ['multiple', '(V+M+P)/S', 'x'],
     ['raised', 'Raised', 'usd'],
   ];
-  const empty = data.error && data.projects.length === 0 && data.funds.length === 0;
+  const empty = boardEmpty(data);
   let table = '';
   let extra = '';
   if (!empty) {
@@ -50,9 +50,8 @@ export function renderProjects(data: Leaderboard, seasonParam: string | null): s
       </table>`;
     extra = datatable('artizen-projects-table', [[9, 'desc']], [1, 2, 3, 4, 5, 6, 7, 8, 9]);
   }
-  const title = data.season ? `Artizen · ${data.season.title}` : 'Artizen';
   return layout({
-    title,
+    title: pageTitle(data),
     body: board(data, 'projects', seasonParam) + table,
     extra,
     datatables: Boolean(extra),

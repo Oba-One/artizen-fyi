@@ -1,6 +1,6 @@
 import type { ProjectPage, ProjectSubmission } from '../artizen';
 import { moneyCells, usd } from '../format';
-import { chevron, escapeHtml, layout, simpleFormat, sumField, videoIframe } from './layout';
+import { chevron, driveBadges, escapeHtml, layout, simpleFormat, sumField, treeHidden, videoIframe } from './layout';
 
 export function renderProject(project: ProjectPage): string {
   const tags = (project.tags || []).map((tag) => `<span class="badge text-bg-secondary me-1 mb-1">${escapeHtml(tag)}</span>`).join('');
@@ -60,17 +60,15 @@ function projectFundingTable(project: ProjectPage): string {
           const driveId = `${seasonId}d${di}`;
           const driveOpen = seasonOpen && di === 0;
           const funds = drive.funds || [];
-          const hidden = seasonOpen ? '' : ' artizen-tree-hidden';
+          const hidden = treeHidden(seasonOpen);
           const driveRow = `<tr class="artizen-tree-drive${hidden}" data-id="${driveId}" data-parent="${seasonId}">
-            <td>${chevron(driveOpen, funds.length > 0)} ${escapeHtml(drive.name)}${
-              drive.multiple ? ` <span class="badge text-bg-primary">${Math.trunc(Number(drive.multiple))}x</span>` : ''
-            }${drive.active ? ' <span class="badge text-bg-primary">current</span>' : ''}</td>
+            <td>${chevron(driveOpen, funds.length > 0)} ${escapeHtml(drive.name)}${driveBadges(drive)}</td>
             ${moneyCells(drive)}
             <td class="text-end">${drive.active ? usd(drive.available) : ''}</td>
           </tr>`;
           const fundRows = funds
             .map((fund) => {
-              const fundHidden = driveOpen ? '' : ' artizen-tree-hidden';
+              const fundHidden = treeHidden(driveOpen);
               return `<tr class="artizen-tree-fund${fundHidden}" data-parent="${driveId}">
                 <td><span class="artizen-tree-toggle"></span> <a href="${escapeHtml(fund.url)}" class="text-dark">${escapeHtml(fund.name)}</a></td>
                 <td class="text-end"></td><td class="text-end"></td>
@@ -136,7 +134,7 @@ function projectSubmissions(submissions: ProjectSubmission[]): string {
       const kids = group.items
         .map((submission) => {
           const accepted = submission.status === 'Curated' || submission.status === 'Approved';
-          const hidden = open ? '' : ' artizen-tree-hidden';
+          const hidden = treeHidden(open);
           return `<tr class="artizen-tree-submission${hidden}" data-parent="${seasonId}">
             <td><span class="artizen-tree-toggle"></span> <a href="${escapeHtml(submission.url)}" class="text-dark">${escapeHtml(submission.name)}</a></td>
             <td class="text-end"><span class="badge ${accepted ? 'text-bg-primary' : 'text-bg-secondary'}">${escapeHtml(submission.status)}</span></td>

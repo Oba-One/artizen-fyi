@@ -1,6 +1,6 @@
 import type { FundPage } from '../artizen';
 import { delimited, usd } from '../format';
-import { chevron, escapeHtml, layout, richText, sumField, videoIframe } from './layout';
+import { chevron, driveBadges, escapeHtml, layout, richText, sumField, treeHidden, videoIframe } from './layout';
 
 export function renderFund(fund: FundPage): string {
   const prize = fund.prize_usd
@@ -61,13 +61,11 @@ function fundFundingTable(fund: FundPage): string {
           const driveId = `${seasonId}d${di}`;
           const driveOpen = seasonOpen && di === 0;
           const live = drive.active || drive.adjustment;
-          const hidden = seasonOpen ? '' : ' artizen-tree-hidden';
+          const hidden = treeHidden(seasonOpen);
           const adjust = drive.adjustment ? ' artizen-tree-adjust' : '';
           const projects = drive.projects || [];
           const driveRow = `<tr class="artizen-tree-drive${adjust}${hidden}" data-id="${driveId}" data-parent="${seasonId}">
-            <td>${chevron(driveOpen, projects.length > 0)} ${escapeHtml(drive.name)}${
-              drive.multiple ? ` <span class="badge text-bg-primary">${Math.trunc(Number(drive.multiple))}x</span>` : ''
-            }${drive.active ? ' <span class="badge text-bg-primary">current</span>' : ''}</td>
+            <td>${chevron(driveOpen, projects.length > 0)} ${escapeHtml(drive.name)}${driveBadges(drive)}</td>
             <td class="text-end"></td>
             <td class="text-end">${drive.adjustment ? '' : usd(drive.unlocked)}</td>
             <td class="text-end">${live ? usd(drive.available) : ''}</td>
@@ -75,7 +73,7 @@ function fundFundingTable(fund: FundPage): string {
           </tr>`;
           const projectRows = projects
             .map((project) => {
-              const projectHidden = driveOpen ? '' : ' artizen-tree-hidden';
+              const projectHidden = treeHidden(driveOpen);
               return `<tr class="artizen-tree-project${projectHidden}" data-parent="${driveId}">
                 <td><span class="artizen-tree-toggle"></span>
                   <span class="artizen-tree-label">

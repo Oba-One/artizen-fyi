@@ -10,11 +10,21 @@ import {
 
 type Bindings = Env & { REFRESH_SECRET?: string };
 
+const BOARDS = {
+  '/projects': renderProjects,
+  '/funds': renderFunds,
+  '/drives': renderDrives,
+} as const;
+
 function html(body: string, status = 200): Response {
   return new Response(body, {
     status,
     headers: { 'content-type': 'text/html; charset=utf-8' },
   });
+}
+
+function detail<T>(data: T | null, render: (data: T) => string): Response {
+  return data ? html(render(data)) : html(renderNotFound(), 404);
 }
 
 export default {
@@ -33,28 +43,19 @@ export default {
       return Response.redirect(new URL(location, url).toString(), 302);
     }
 
-    if (request.method === 'GET' && path === '/projects') {
-      return html(renderProjects(await artizen.leaderboard(season), season));
-    }
-
-    if (request.method === 'GET' && path === '/funds') {
-      return html(renderFunds(await artizen.leaderboard(season), season));
-    }
-
-    if (request.method === 'GET' && path === '/drives') {
-      return html(renderDrives(await artizen.leaderboard(season), season));
+    if (request.method === 'GET' && path in BOARDS) {
+      const render = BOARDS[path as keyof typeof BOARDS];
+      return html(render(await artizen.leaderboard(season), season));
     }
 
     const project = path.match(/^\/projects\/([^/]+)$/);
     if (request.method === 'GET' && project) {
-      const data = await artizen.project(decodeURIComponent(project[1]));
-      return data ? html(renderProject(data)) : html(renderNotFound(), 404);
+      return detail(await artizen.project(decodeURIComponent(project[1])), renderProject);
     }
 
     const fund = path.match(/^\/funds\/([^/]+)$/);
     if (request.method === 'GET' && fund) {
-      const data = await artizen.fund(decodeURIComponent(fund[1]));
-      return data ? html(renderFund(data)) : html(renderNotFound(), 404);
+      return detail(await artizen.fund(decodeURIComponent(fund[1])), renderFund);
     }
 
     if (request.method === 'POST' && path === '/refresh') {

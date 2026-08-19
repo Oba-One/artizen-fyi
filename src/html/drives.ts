@@ -1,9 +1,9 @@
 import type { Drive, Leaderboard } from '../artizen';
 import { compactNum, delimited, fmtDate, truncate, usd } from '../format';
-import { board, escapeHtml, layout } from './layout';
+import { board, boardEmpty, escapeHtml, layout, pageTitle } from './layout';
 
 export function renderDrives(data: Leaderboard, seasonParam: string | null): string {
-  const empty = data.error && data.projects.length === 0 && data.funds.length === 0;
+  const empty = boardEmpty(data);
   let body = '';
   let extra = '';
   if (!empty) {
@@ -83,9 +83,8 @@ export function renderDrives(data: Leaderboard, seasonParam: string | null): str
         <div class="row">${cards}</div>`;
     }
   }
-  const title = data.season ? `Artizen · ${data.season.title}` : 'Artizen';
   return layout({
-    title,
+    title: pageTitle(data),
     body: board(data, 'drives', seasonParam) + body,
     extra,
     chart: Boolean(extra),

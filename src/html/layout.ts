@@ -167,6 +167,14 @@ export function datatable(tableId: string, order: Array<[number, string]>, numer
   </script>`;
 }
 
+export function boardEmpty(data: Leaderboard): boolean {
+  return Boolean(data.error && data.projects.length === 0 && data.funds.length === 0);
+}
+
+export function pageTitle(data: Leaderboard): string {
+  return data.season ? `Artizen · ${data.season.title}` : 'Artizen';
+}
+
 export function seasonQuery(season?: string | null): string {
   return season ? `?season=${encodeURIComponent(season)}` : '';
 }
@@ -182,7 +190,7 @@ export function board(data: Leaderboard, tab: 'projects' | 'funds' | 'drives', s
     })
     .join('');
   const raised = season?.total_raised ? ` · ${usd(season.total_raised)} raised this season` : '';
-  const error = data.error && data.projects.length === 0 && data.funds.length === 0;
+  const error = boardEmpty(data);
   const tabs = error
     ? ''
     : `<ul class="nav nav-tabs mb-3">
@@ -214,6 +222,18 @@ export function board(data: Leaderboard, tab: 'projects' | 'funds' | 'drives', s
 export function chevron(open: boolean, hasKids: boolean): string {
   if (!hasKids) return '<span class="artizen-tree-toggle"></span>';
   return `<a href="#" class="artizen-tree-toggle" aria-expanded="${open}"><i class="bi ${open ? 'bi-chevron-down' : 'bi-chevron-right'}"></i></a>`;
+}
+
+export function treeHidden(open: boolean): string {
+  return open ? '' : ' artizen-tree-hidden';
+}
+
+export function driveBadges(drive: { multiple?: number | null; active?: boolean | null }): string {
+  const multiple = drive.multiple
+    ? ` <span class="badge text-bg-primary">${Math.trunc(Number(drive.multiple))}x</span>`
+    : '';
+  const current = drive.active ? ' <span class="badge text-bg-primary">current</span>' : '';
+  return `${multiple}${current}`;
 }
 
 export function sumField<T>(rows: T[], field: keyof T): number {

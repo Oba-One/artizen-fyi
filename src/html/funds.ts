@@ -1,9 +1,9 @@
 import type { FundRow, Leaderboard } from '../artizen';
 import { truncate, usd } from '../format';
-import { board, datatable, escapeHtml, layout } from './layout';
+import { board, boardEmpty, datatable, escapeHtml, layout, pageTitle } from './layout';
 
 export function renderFunds(data: Leaderboard, seasonParam: string | null): string {
-  const empty = data.error && data.projects.length === 0 && data.funds.length === 0;
+  const empty = boardEmpty(data);
   const current = Boolean(data.season?.current);
   let table = '';
   let extra = '';
@@ -41,9 +41,8 @@ export function renderFunds(data: Leaderboard, seasonParam: string | null): stri
       ? datatable('artizen-funds-table', [[3, 'desc']], [1, 2, 3, 4])
       : datatable('artizen-funds-table', [[1, 'desc']], [1]);
   }
-  const title = data.season ? `Artizen · ${data.season.title}` : 'Artizen';
   return layout({
-    title,
+    title: pageTitle(data),
     body: board(data, 'funds', seasonParam) + table,
     extra,
     datatables: Boolean(extra),

@@ -9,7 +9,7 @@ const LEAD_CREATOR = 'Lead Creator\t(text)';
 
 export type Row = Record<string, unknown>;
 
-type Constraint = { key: string; constraint_type: string; value: unknown };
+type Constraint = { key: string; constraint_type: string; value?: unknown };
 
 type BubbleResponse = {
   results?: Row[];
@@ -307,6 +307,14 @@ function compact<T>(items: Array<T | null | undefined>): T[] {
   return items.filter((item): item is T => item != null);
 }
 
+function compactUniq<T>(items: Array<T | null | undefined>): T[] {
+  return uniq(compact(items));
+}
+
+function bump(rec: Record<string, number>, key: string, amount: number): void {
+  rec[key] = (rec[key] || 0) + amount;
+}
+
 function filterMap<T, U>(items: T[], fn: (item: T) => U | null | undefined | false): U[] {
   return items.flatMap((item) => {
     const v = fn(item);
@@ -354,7 +362,7 @@ function batches<T>(items: T[], size: number): T[][] {
 }
 
 function isErrorHash(value: unknown): boolean {
-  return typeof value === 'object' && value != null && (value as { error?: unknown }).error != null && Boolean((value as { error?: unknown }).error);
+  return typeof value === 'object' && value != null && Boolean((value as { error?: unknown }).error);
 }
 
 export class Artizen {
@@ -523,10 +531,10 @@ export class Artizen {
       cursor: 0,
       sort_field: 'boost score',
       descending: true,
-      constraints: JSON.stringify([
+      constraints: [
         { key: 'boost', constraint_type: 'equals', value: boostId },
         { key: kind, constraint_type: 'is_not_empty' },
-      ]),
+      ],
     });
   }
 
@@ -753,7 +761,7 @@ export class Artizen {
       constraints: [{ key: 'project', constraint_type: 'equals', value: id }],
     });
 
-    const boostIds = uniq(compact([...slices, ...participants].map((r) => r['boost'])));
+    const boostIds = compactUniq([...slices, ...participants].map((r) => r['boost']));
     const drives = await this.fetchNormalizedDrives(boostIds, seasonsMeta);
     sortByDesc(drives, (d) => d.season_number || 0, (d) => d.number || 0);
 
@@ -762,11 +770,9 @@ export class Artizen {
     const venusByBoost: Record<string, number> = {};
     for (const tx of venusTxs) {
       const seasonKey = idKey(tx['Season']);
-      venusBySeason[seasonKey] = (venusBySeason[seasonKey] || 0) + num(tx['amount spent $USD']);
+      bump(venusBySeason, seasonKey, num(tx['amount spent $USD']));
       const drive = this.assignVenusDrive(tx, drives);
-      if (drive) {
-        venusByBoost[drive.id] = (venusByBoost[drive.id] || 0) + num(tx['amount spent $USD']);
-      }
+      if (drive) bump(venusByBoost, drive.id, num(tx['amount spent $USD']));
     }
 
     const prizeBySeason: Record<string, number> = {};
@@ -790,8 +796,7 @@ export class Artizen {
         seasonId = drive && drive.season_id;
       }
       if (seasonId != null && seasonId !== false && prize > 0) {
-        const sk = idKey(seasonId);
-        prizeBySeason[sk] = (prizeBySeason[sk] || 0) + prize;
+        bump(prizeBySeason, idKey(seasonId), prize);
       }
     }
     for (const [boostId, rows] of groupBy(slices, (s) => s['boost'])) {
@@ -806,7 +811,7 @@ export class Artizen {
       stats[id][key].available = drive && drive.active ? leftover : 0.0;
     }
 
-    const fundIds = uniq(compact(slices.map((s) => s['fund'])));
+    const fundIds = compactUniq(slices.map((s) => s['fund']));
     const fundsById = await this.indexed('fund', fundIds);
     const matchingFunds = sortByDesc(
       filterMap(groupBy(slices, (s) => [s['fund'], s['boost']]), ([pair, rows]) => {
@@ -819,12 +824,7 @@ export class Artizen {
         return {
           name: str(fund['name']).trim(),
           url: this.localFundPath(fundSlug),
-          drive: drive && drive.name,
-          drive_active: drive && drive.active,
-          drive_number: drive && drive.number,
-          drive_multiple: drive && drive.multiple,
-          season: drive && drive.season,
-          season_number: drive && drive.season_number,
+          ...this.driveContext(drive),
           available: drive && drive.active ? this.leftoverMatch(rows) : 0.0,
           unlocked: sum(rows, (r) => num(r['match unlocked'])),
           cap: sum(rows, (r) => num(r['match cap $'])),
@@ -891,7 +891,7 @@ export class Artizen {
 
   private async formatProjectSubmissions(rows: Row[], seasonsMeta: Record<string, Season>): Promise<ProjectSubmission[]> {
     const kept = rows.filter((row) => !(row['Submitted'] == false));
-    const fundIds = uniq(compact(kept.map((row) => row['Fund'])));
+    const fundIds = compactUniq(kept.map((row) => row['Fund']));
     const fundsById = await this.indexed('fund', fundIds);
     return filterMap(kept, (row) => {
       const fund = lookup(fundsById, row['Fund']);
@@ -946,9 +946,9 @@ export class Artizen {
       ],
     });
     const awardRows = await this.listFundAwards([id]);
-    const projectIds = uniq(compact([...slices.map((s) => s['project']), ...awardRows.map((s) => s['Project'])]));
+    const projectIds = compactUniq([...slices.map((s) => s['project']), ...awardRows.map((s) => s['Project'])]);
     const projects = await this.indexed('project', projectIds);
-    const boostIds = uniq(compact(slices.map((s) => s['boost'])));
+    const boostIds = compactUniq(slices.map((s) => s['boost']));
     const seasonsMeta = await this.seasonsById();
     const driveList = await this.fetchNormalizedDrives(boostIds, seasonsMeta);
     const drives: Record<string, Drive> = Object.fromEntries(driveList.map((d) => [d.id, d]));
@@ -965,13 +965,8 @@ export class Artizen {
         url: this.localProjectPath(projectSlug),
         creator: presence(str(project[LEAD_CREATOR]).trim()),
         hidden: project['Hide'] || project['unPublished'],
-        drive: drive && drive.name,
+        ...this.driveContext(drive),
         drive_url: drive && drive.url,
-        drive_active: drive && drive.active,
-        drive_number: drive && drive.number,
-        drive_multiple: drive && drive.multiple,
-        season: drive && drive.season,
-        season_number: drive && drive.season_number,
         available: this.leftoverMatch(rows),
         unlocked: sum(rows, (r) => num(r['match unlocked'])),
       } satisfies FundMatchedProject;
@@ -1045,7 +1040,7 @@ export class Artizen {
       if (blank(id)) continue;
 
       const key = idKey(id);
-      totals[key] = (totals[key] || 0) + num(contrib['amount $USD']);
+      bump(totals, key, num(contrib['amount $USD']));
       const created = contrib['Created Date'];
       if (created && (lastAt[key] == null || created > (lastAt[key] as string))) lastAt[key] = created;
     }
@@ -1090,46 +1085,23 @@ export class Artizen {
 
   private async fundUnlocked(fundIds: unknown[]): Promise<Record<string, number>> {
     const unlocked: Record<string, number> = {};
-    const ids = uniq(compact(fundIds));
-    const slices = (
-      await Promise.all(
-        batches(ids, IN_BATCH).map((batch) =>
-          this.list('projectfundboostslice', {
-            constraints: [
-              { key: 'fund', constraint_type: 'in', value: batch },
-              { key: 'match unlocked', constraint_type: 'greater than', value: 0 },
-            ],
-          }),
-        ),
-      )
-    ).flat();
+    const slices = await this.listWhereIn('projectfundboostslice', 'fund', fundIds, [
+      { key: 'match unlocked', constraint_type: 'greater than', value: 0 },
+    ]);
     for (const slice of slices) {
-      const key = idKey(slice['fund']);
-      unlocked[key] = (unlocked[key] || 0) + num(slice['match unlocked']);
+      bump(unlocked, idKey(slice['fund']), num(slice['match unlocked']));
     }
-    for (const row of await this.listFundAwards(ids)) {
-      const key = idKey(row['Fund']);
-      unlocked[key] = (unlocked[key] || 0) + num(row['$ amount raised']);
+    for (const row of await this.listFundAwards(fundIds)) {
+      bump(unlocked, idKey(row['Fund']), num(row['$ amount raised']));
     }
     return unlocked;
   }
 
   private async listFundAwards(fundIds: unknown[]): Promise<Row[]> {
-    const ids = uniq(compact(fundIds));
-    if (ids.length === 0) return [];
-
-    const pages = await Promise.all(
-      batches(ids, IN_BATCH).map((batch) =>
-        this.list('projectsubmission', {
-          constraints: [
-            { key: 'Fund', constraint_type: 'in', value: batch },
-            { key: 'Status', constraint_type: 'equals', value: 'Curated' },
-            { key: '$ amount raised', constraint_type: 'greater than', value: 0 },
-          ],
-        }),
-      ),
-    );
-    return pages.flat();
+    return this.listWhereIn('projectsubmission', 'Fund', fundIds, [
+      { key: 'Status', constraint_type: 'equals', value: 'Curated' },
+      { key: '$ amount raised', constraint_type: 'greater than', value: 0 },
+    ]);
   }
 
   private fundAwardProjects(awardRows: Row[], projects: Record<string, Row>, seasonsMeta: Record<string, Season>): FundMatchedProject[] {
@@ -1170,7 +1142,7 @@ export class Artizen {
     opts: { constraints?: Constraint[]; sortField?: string; descending?: boolean } = {},
   ): Promise<Row[]> {
     const params: Record<string, unknown> = { limit: PAGE_SIZE };
-    if (opts.constraints) params.constraints = JSON.stringify(opts.constraints);
+    if (opts.constraints) params.constraints = opts.constraints;
     if (opts.sortField) params.sort_field = opts.sortField;
     if (opts.descending) params.descending = true;
 
@@ -1186,15 +1158,27 @@ export class Artizen {
   }
 
   private async fetchByIds(type: string, ids: unknown[]): Promise<Row[]> {
-    const compactIds = uniq(compact(ids));
+    const compactIds = compactUniq(ids);
     if (compactIds.length === 0) return [];
 
     const pages = await Promise.all(
       batches(compactIds, IN_BATCH).map((batch) =>
         this.getResults(type, {
           limit: PAGE_SIZE,
-          constraints: JSON.stringify([{ key: '_id', constraint_type: 'in', value: batch }]),
+          constraints: [{ key: '_id', constraint_type: 'in', value: batch }],
         }),
+      ),
+    );
+    return pages.flat();
+  }
+
+  private async listWhereIn(type: string, field: string, ids: unknown[], extra: Constraint[] = []): Promise<Row[]> {
+    const compactIds = compactUniq(ids);
+    if (compactIds.length === 0) return [];
+
+    const pages = await Promise.all(
+      batches(compactIds, IN_BATCH).map((batch) =>
+        this.list(type, { constraints: [{ key: field, constraint_type: 'in', value: batch }, ...extra] }),
       ),
     );
     return pages.flat();
@@ -1235,7 +1219,9 @@ export class Artizen {
     const url = new URL(`${BASE_URL}/${type}`);
     for (const [key, value] of Object.entries(params)) {
       if (value == null) continue;
-      url.searchParams.set(key, typeof value === 'string' ? value : String(value));
+      const encoded =
+        key === 'constraints' && Array.isArray(value) ? JSON.stringify(value) : typeof value === 'string' ? value : String(value);
+      url.searchParams.set(key, encoded);
     }
     const response = await fetch(url.toString(), {
       headers: { Accept: 'application/json' },
@@ -1256,7 +1242,7 @@ export class Artizen {
   private async findBy(type: string, key: string, value: unknown, limit = 1): Promise<Row[]> {
     return this.getResults(type, {
       limit,
-      constraints: JSON.stringify([{ key, constraint_type: 'equals', value }]),
+      constraints: [{ key, constraint_type: 'equals', value }],
     });
   }
 
@@ -1318,7 +1304,7 @@ export class Artizen {
       if (blank(pid)) continue;
 
       const key = idKey(pid);
-      sums[key] = (sums[key] || 0) + num(tx['amount spent $USD']);
+      bump(sums, key, num(tx['amount spent $USD']));
     }
     return sums;
   }
@@ -1336,7 +1322,7 @@ export class Artizen {
       if (blank(pid)) continue;
 
       const key = idKey(pid);
-      sums[key] = (sums[key] || 0) + num(part['prize earned usd']);
+      bump(sums, key, num(part['prize earned usd']));
     }
     return sums;
   }
@@ -1540,6 +1526,17 @@ export class Artizen {
       }
       drive.season = or(meta?.title, drive.season_number != null ? `Season ${drive.season_number}` : undefined);
     }
+  }
+
+  private driveContext(drive?: Drive) {
+    return {
+      drive: drive && drive.name,
+      drive_active: drive && drive.active,
+      drive_number: drive && drive.number,
+      drive_multiple: drive && drive.multiple,
+      season: drive && drive.season,
+      season_number: drive && drive.season_number,
+    };
   }
 
   private projectUrl(slugOrId: unknown): string {
