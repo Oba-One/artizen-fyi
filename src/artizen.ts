@@ -234,7 +234,6 @@ export type FundPage = {
 export type BoostHolder = {
   rank: number;
   name: string;
-  url: string;
   image?: string | null;
   points: number;
   share: number;
@@ -485,7 +484,7 @@ export class Artizen {
   }
 
   private async buildBoosts(): Promise<BoostsPage> {
-    type Candidate = { name: string; url: string; image?: string; points: number; admin: boolean };
+    type Candidate = { name: string; image?: string; points: number; admin: boolean };
     const points: number[] = [];
     const candidates: Candidate[] = [];
     const buckets = BOOST_BUCKETS.map((bucket) => ({ label: bucket.label, users: 0, points: 0 }));
@@ -501,11 +500,8 @@ export class Artizen {
       }
       if (!(value > 0)) return;
 
-      const id = str(row['_id']);
-      const name = str(row['name']).trim() || this.unnamedHolder(row['wallet']);
       candidates.push({
-        name,
-        url: `${SITE_URL}/index/profile/${id}`,
+        name: str(row['name']).trim() || this.unnamedHolder(row['wallet']),
         image: this.mediaUrl(row['profile image']),
         points: value,
         admin: this.boostAdmin(row['Role']),
@@ -524,7 +520,6 @@ export class Artizen {
       return {
         rank: i + 1,
         name: row.name,
-        url: row.url,
         image: row.image,
         points: row.points,
         share: remaining > 0 ? row.points / remaining : 0,
