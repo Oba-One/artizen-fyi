@@ -24,7 +24,7 @@ npm install
 npm run dev          # local Worker + local KV
 ```
 
-The first `/projects` hit with an empty cache crawls Bubble and can take ~40s. After that, pages read KV.
+The first `/projects` hit with an empty cache crawls Bubble and can take ~30s. After that, pages read KV.
 
 ## Routes
 
