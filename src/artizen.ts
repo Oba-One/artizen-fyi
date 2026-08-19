@@ -409,12 +409,15 @@ function isErrorHash(value: unknown): boolean {
 export class Artizen {
   private venusId: string | undefined;
 
-  constructor(private kv: KVNamespace) {}
+  constructor(
+    private kv: KVNamespace,
+    private fillOnMiss = false,
+  ) {}
 
   async leaderboard(seasonNumber?: string | number | null): Promise<Leaderboard> {
     const fallback: Leaderboard = { seasons: [], season: null, drives: [], projects: [], funds: [], error: true };
     return this.withArtizenErrors(fallback, () =>
-      this.cacheFetch(`${LEADERBOARD_CACHE}/${or(seasonNumber, 'current')}`, () => this.build(seasonNumber)),
+      this.cached(`${LEADERBOARD_CACHE}/${or(seasonNumber, 'current')}`, fallback, () => this.build(seasonNumber)),
     );
   }
 
@@ -443,7 +446,7 @@ export class Artizen {
       top: [],
       error: true,
     };
-    return this.withArtizenErrors(fallback, () => this.cacheFetch(BOOSTS_CACHE, () => this.buildBoosts()));
+    return this.withArtizenErrors(fallback, () => this.cached(BOOSTS_CACHE, fallback, () => this.buildBoosts()));
   }
 
   async refreshCache(): Promise<string> {
@@ -1408,6 +1411,17 @@ export class Artizen {
       limit,
       constraints: [{ key, constraint_type: 'equals', value }],
     });
+  }
+
+  private async cached<T>(key: string, fallback: T, build: () => Promise<T>): Promise<T> {
+    if (this.fillOnMiss) return this.cacheFetch(key, build);
+    const data = await this.cacheRead<T>(key);
+    return data != null && !isErrorHash(data) ? data : fallback;
+  }
+
+  private async cacheRead<T>(key: string): Promise<T | null> {
+    const cached = await this.kv.get(key);
+    return cached != null ? (JSON.parse(cached) as T) : null;
   }
 
   private async cacheFetch<T>(key: string, build: () => Promise<T>): Promise<T> {
