@@ -78,7 +78,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   overflow: hidden;
 }
 .card-body { padding: 1.15rem 1.25rem 1.3rem; }
-.table { --bs-table-bg: transparent; }
+.table { --bs-table-bg: transparent; font-size: 0.9rem; }
 .table > :not(caption) > * > * { background: transparent; }
 .dt-container .dt-search input, .dt-container .dt-length select {
   background: var(--panel);
