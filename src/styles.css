@@ -244,6 +244,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   }
   .artizen-nav-pill { font-size: 0.8rem; padding: 0.32rem 0.65rem; }
   .artizen-nav-toggle { width: 2.15rem; height: 2.15rem; font-size: 1.4rem; }
+  .artizen-nav .artizen-wordmark { font-size: 1.2rem; }
   .artizen-search { width: 100%; }
 }
 .artizen-footer {
@@ -316,6 +317,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   color: var(--ink);
   text-decoration: none;
   letter-spacing: -0.03em;
+  white-space: nowrap;
 }
 .artizen-wordmark:hover { color: var(--ink); }
 .artizen-wordmark .bi {

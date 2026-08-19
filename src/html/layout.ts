@@ -144,7 +144,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
         <i class="bi bi-list" aria-hidden="true"></i>
       </button>
     </div>
-    <a class="artizen-wordmark" href="${boardsHref}" aria-label="artizen.fyi"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i><span class="d-none d-md-inline">artizen.fyi</span></a>
+    <a class="artizen-wordmark" href="${boardsHref}" aria-label="artizen.fyi"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i><span>artizen.fyi</span></a>
     <div class="artizen-nav-side artizen-nav-side-end">
       <form class="artizen-search" action="/search" method="get" role="search">
         <label class="visually-hidden" for="artizen-q">Search projects and funds</label>
