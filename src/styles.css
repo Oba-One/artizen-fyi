@@ -84,12 +84,36 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .card-body { padding: 1.15rem 1.25rem 1.3rem; }
 .table { --bs-table-bg: transparent; font-size: 0.9rem; }
 .table > :not(caption) > * > * { background: transparent; }
-.dt-container .dt-search input, .dt-container .dt-length select {
-  background: var(--panel);
+.dt-container .dt-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  width: min(22rem, 100%);
   border: 1px solid var(--line);
   border-radius: 999px;
-  color: var(--ink);
+  padding: 0.32rem 0.85rem;
+  background: var(--paper);
 }
+.dt-container .dt-search .bi { color: var(--muted); font-size: 0.95rem; }
+.dt-container .dt-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--ink);
+  outline: none;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  padding: 0;
+  height: auto;
+  min-height: 0;
+}
+.dt-container .dt-search input:focus {
+  box-shadow: none;
+  border-color: transparent;
+}
+.dt-container .dt-search input::placeholder { color: var(--muted); }
 .page-link, .dt-container .dt-paging .dt-paging-button .page-link {
   color: var(--ink);
   border-radius: 999px;
@@ -447,20 +471,19 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-dt-placeholder {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.5rem;
   margin: 0.65rem 0 0.5rem;
 }
 .artizen-dt-ph {
   display: block;
-  font-size: 0.875rem;
-  height: calc(1.5em + 0.5rem + 2px);
+  font-size: 0.92rem;
+  height: calc(1.5em + 0.64rem + 2px);
   border-radius: 999px;
   background: var(--paper);
   animation: artizen-pulse 1.15s ease-in-out infinite;
 }
-.artizen-dt-ph-length { width: 13rem; flex: 0 0 13rem; }
-.artizen-dt-ph-search { width: 15.5rem; max-width: 100%; }
+.artizen-dt-ph-search { width: min(22rem, 100%); box-sizing: border-box; }
 @keyframes artizen-pulse {
   0%, 100% { opacity: 0.45; }
   50% { opacity: 1; }
@@ -472,13 +495,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-table-scroll { -webkit-overflow-scrolling: touch; }
 .artizen-panel .dt-container { margin-top: 0.15rem; }
 @media (max-width: 767px) {
-  .artizen-dt-placeholder {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  .artizen-dt-ph-length { flex-basis: auto; width: 100%; }
-  .artizen-dt-ph-search { width: 100%; }
-  div.dt-container div.dt-length,
+  .artizen-dt-ph-search,
+  .dt-container .dt-search { width: 100%; }
   div.dt-container div.dt-search,
   div.dt-container div.dt-info,
   div.dt-container div.dt-paging {

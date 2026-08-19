@@ -211,7 +211,6 @@ export function heroSplit(image: string | null | undefined, alt: string, copy: s
 
 export function dtPlaceholder(): string {
   return `<div class="artizen-dt-placeholder" aria-hidden="true">
-    <span class="artizen-dt-ph artizen-dt-ph-length"></span>
     <span class="artizen-dt-ph artizen-dt-ph-search"></span>
   </div>`;
 }
@@ -220,12 +219,21 @@ export function datatable(
   tableId: string,
   order: Array<[number, string]>,
   numeric: number[],
-  opts?: { pageLength?: number; lengthMenu?: number[]; paging?: boolean; info?: boolean },
+  opts?: { pageLength?: number; paging?: boolean; info?: boolean; noun?: string },
 ): string {
   const pageLength = opts?.pageLength ?? 25;
-  const lengthMenu = opts?.lengthMenu ?? [10, 25, 50, 100];
   const paging = opts?.paging ?? true;
   const info = opts?.info ?? true;
+  const noun = opts?.noun ?? 'entries';
+  const language = {
+    search: '_INPUT_',
+    searchPlaceholder: 'Search',
+    info: `Showing _START_ to _END_ of _TOTAL_ ${noun}`,
+    infoEmpty: `No ${noun}`,
+    infoFiltered: `(filtered from _MAX_ total ${noun})`,
+    zeroRecords: `No matching ${noun}`,
+    emptyTable: `No ${noun}`,
+  };
   return `<script>
     document.addEventListener('DOMContentLoaded', function() {
       var table = document.getElementById('${tableId}');
@@ -234,19 +242,34 @@ export function datatable(
       new DataTable(table, {
         paging: ${paging},
         pageLength: ${pageLength},
-        lengthMenu: ${JSON.stringify(lengthMenu)},
-        lengthChange: ${paging},
+        lengthChange: false,
         searching: true,
         info: ${info},
         autoWidth: false,
         order: ${JSON.stringify(order)},
-        columnDefs: [{ type: 'num', targets: ${JSON.stringify(numeric)} }]
+        columnDefs: [{ type: 'num', targets: ${JSON.stringify(numeric)} }],
+        layout: {
+          topStart: null,
+          topEnd: 'search',
+          bottomStart: ${info ? "'info'" : 'null'},
+          bottomEnd: ${paging ? "'paging'" : 'null'}
+        },
+        language: ${JSON.stringify(language)}
       });
       var phEl = ph && ph.classList.contains('artizen-dt-placeholder') ? ph : null;
       if (phEl) phEl.remove();
       var wrap = document.createElement('div');
       wrap.className = 'artizen-table-scroll';
       var container = table.closest('.dt-container') || table;
+      var searchBox = container.querySelector('.dt-search');
+      var searchInput = searchBox && searchBox.querySelector('input');
+      if (searchBox && searchInput && !searchBox.querySelector('.bi-search')) {
+        var icon = document.createElement('i');
+        icon.className = 'bi bi-search';
+        icon.setAttribute('aria-hidden', 'true');
+        searchBox.insertBefore(icon, searchInput);
+        searchInput.setAttribute('aria-label', 'Search');
+      }
       container.parentNode.insertBefore(wrap, container);
       wrap.appendChild(container);
     });
