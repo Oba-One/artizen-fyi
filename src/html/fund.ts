@@ -21,7 +21,6 @@ export function renderFund(fund: FundPage): string {
         fund.name,
         `<h1 class="mb-2">${escapeHtml(fund.name)}</h1>
           ${fund.subtitle ? `<p class="lead">${escapeHtml(fund.subtitle)}</p>` : ''}
-          ${fund.for_title ? `<p class="text-muted">For ${escapeHtml(fund.for_title)}</p>` : ''}
           ${fund.sponsor ? `<p>Lead sponsor: ${escapeHtml(fund.sponsor)}</p>` : ''}
           <div class="mb-2">${fund.active === false ? '<span class="badge text-bg-secondary me-1">Inactive</span>' : ''}${prize}</div>
           <p class="mb-0"><a href="${escapeHtml(fund.artizen_url)}" target="_blank" rel="noopener">View on Artizen</a></p>`,
