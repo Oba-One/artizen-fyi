@@ -1,6 +1,6 @@
 import type { Leaderboard } from '../artizen';
 import { funding, heatRanks, heatTd, truncate } from '../format';
-import { board, boardEmpty, datatable, escapeHtml, layout, pageTitle } from './layout';
+import { board, boardEmpty, datatable, dtPlaceholder, escapeHtml, layout, note, pageTitle, panel } from './layout';
 
 export function renderProjects(data: Leaderboard, seasonParam: string | null): string {
   const cols: Array<[keyof ReturnType<typeof funding>, string, 'usd' | 'x']> = [
@@ -18,7 +18,7 @@ export function renderProjects(data: Leaderboard, seasonParam: string | null): s
   let table = '';
   let extra = '';
   if (!empty) {
-    const rows = data.projects.map(funding);
+    const rows = data.projects.map(funding).sort((a, b) => (b.raised || 0) - (a.raised || 0));
     const heat = heatRanks(
       rows,
       cols.map(([f]) => f),
@@ -38,16 +38,13 @@ export function renderProjects(data: Leaderboard, seasonParam: string | null): s
         </tr>`;
       })
       .join('');
-    table = `
-      <p class="text-muted small mb-2">
-        Project raised = sales + Venus + match + prize. Sales excludes Venus artifact buys. V+M+P = Venus + match + prize.
-        The % under each figure is that project's rank in the column — 1% is the top 1%.
-        Color follows that percentile on a log scale: full green at 1%, fading to white at 100%.
-      </p>
+    table = panel(`
+      ${note('Project raised = sales + Venus + match + prize. Sales excludes Venus artifact buys. V+M+P = Venus + match + prize. The % under each figure is that project’s rank in the column — 1% is the top 1%. Color follows that percentile on a log scale: full green at 1%, fading to white at 100%.')}
+      ${dtPlaceholder()}
       <table id="artizen-projects-table" class="table table-sm">
         <thead><tr><th>Project</th>${head}</tr></thead>
         <tbody>${body}</tbody>
-      </table>`;
+      </table>`);
     extra = datatable('artizen-projects-table', [[9, 'desc']], [1, 2, 3, 4, 5, 6, 7, 8, 9]);
   }
   return layout({
@@ -55,5 +52,7 @@ export function renderProjects(data: Leaderboard, seasonParam: string | null): s
     body: board(data, 'projects', seasonParam) + table,
     extra,
     datatables: Boolean(extra),
+    season: seasonParam,
+    boards: true,
   });
 }

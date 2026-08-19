@@ -23,6 +23,7 @@
     }
   ],
   "rules": [
-    { "type": "Text", "globs": ["**/*.css"] }
+    { "type": "Text", "globs": ["**/*.css", "**/*.svg"], "fallthrough": true },
+    { "type": "Data", "globs": ["**/*.ico", "**/*.png"], "fallthrough": true }
   ]
 }

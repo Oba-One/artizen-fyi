@@ -10,39 +10,16 @@ export function escapeHtml(value: unknown): string {
     .replace(/"/g, '&quot;');
 }
 
-export function simpleFormat(text: string): string {
-  const escaped = escapeHtml(text).replace(/\r\n?/g, '\n');
-  return `<p>${escaped.replace(/\n{2,}/g, '</p><p>').replace(/\n/g, '<br>')}</p>`;
-}
-
-export function richText(text?: string | null): string | undefined {
-  if (text == null || text === '') return undefined;
-
-  let html = String(text);
-  html = html.replace(/\[url=([^\]]+)\](.*?)\[\/url\]/gs, '<a href="$1" target="_blank" rel="noopener">$2</a>');
-  html = html.replace(/\[b\](.*?)\[\/b\]/gs, '<strong>$1</strong>');
-  html = html.replace(/\[i\](.*?)\[\/i\]/gs, '<em>$1</em>');
-  html = html.replace(/\[\/?ml\]/g, '');
-  html = html.replace(/\[ul\]/g, '<ul>');
-  html = html.replace(/\[\/ul\]/g, '</ul>');
-  html = html.replace(/\[li[^\]]*\]/g, '<li>');
-  html = html.replace(/\[\/li\]/g, '</li>');
-  html = html.replace(/\r\n?/g, '\n');
-  html = html.replace(/\n{2,}/g, '</p><p>');
-  html = html.replace(/\n/g, '<br>');
-  return `<p>${html}</p>`;
-}
-
 export function videoIframe(url?: string | null): string | undefined {
   if (url == null || url === '') return undefined;
 
   const youtube = String(url).match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]+)/);
   if (youtube) {
-    return `<div class="ratio ratio-16x9 mb-3"><iframe src="https://www.youtube.com/embed/${youtube[1]}" allowfullscreen></iframe></div>`;
+    return `<div class="ratio ratio-16x9"><iframe src="https://www.youtube.com/embed/${youtube[1]}" allowfullscreen></iframe></div>`;
   }
   const vimeo = String(url).match(/vimeo\.com\/(?:video\/)?(\d+)/);
   if (vimeo) {
-    return `<div class="ratio ratio-16x9 mb-3"><iframe src="https://player.vimeo.com/video/${vimeo[1]}" allowfullscreen></iframe></div>`;
+    return `<div class="ratio ratio-16x9"><iframe src="https://player.vimeo.com/video/${vimeo[1]}" allowfullscreen></iframe></div>`;
   }
   return `<p><a href="${url}" target="_blank" rel="noopener">Watch presentation</a></p>`;
 }
@@ -95,21 +72,25 @@ export function layout(opts: {
   datatables?: boolean;
   chart?: boolean;
   tree?: boolean;
+  query?: string;
+  season?: string | null;
+  boards?: boolean;
 }): string {
   const desc = escapeHtml(opts.description || 'Fund and project leaderboards from Artizen');
   const ogImage = opts.image ? `<meta property="og:image" content="${escapeHtml(opts.image)}">` : '';
   const css = [
     '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/css/bootstrap.min.css">',
+    '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css">',
     opts.datatables
-      ? '<link rel="stylesheet" href="https://cdn.datatables.net/v/bs5/dt-3.0.2/datatables.min.css">'
-      : '',
-    opts.tree
-      ? '<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.13.1/font/bootstrap-icons.min.css">'
+      ? '<link rel="stylesheet" href="https://cdn.datatables.net/v/bs5/dt-3.0.2/datatables.min.css"><noscript><style>.artizen-dt-placeholder{display:none}</style></noscript>'
       : '',
   ]
     .filter(Boolean)
     .join('\n  ');
   const js = [
+    opts.boards
+      ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script><script>document.querySelectorAll(\'[data-bs-toggle="tooltip"]\').forEach(function(el){bootstrap.Tooltip.getOrCreateInstance(el);});</script>'
+      : '',
     opts.datatables
       ? '<script src="https://cdn.datatables.net/v/bs5/dt-3.0.2/datatables.min.js"></script>'
       : '',
@@ -130,18 +111,89 @@ export function layout(opts: {
   <meta property="og:title" content="${escapeHtml(opts.title)}">
   <meta property="og:description" content="${desc}">
   ${ogImage}
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
   ${css}
   <link rel="stylesheet" href="https://s3.amazonaws.com/appforest_uf/f1669921386747x462861532157019100/RocGroteskBold.css">
   <link rel="stylesheet" href="https://s3.amazonaws.com/appforest_uf/f1670009029268x384309142695173700/RocGroteskMedium.css">
   <style>${styles}</style>
 </head>
 <body>
-  <div class="container-fluid py-3">
+  ${nav(opts.query, opts.season, opts.boards)}
+  <div class="artizen-shell">
     ${opts.body}
   </div>
+  ${FOOTER}
   ${js}
 </body>
 </html>`;
+}
+
+function nav(query?: string, season?: string | null, boards?: boolean): string {
+  const seasonField = season
+    ? `<input type="hidden" name="season" value="${escapeHtml(season)}">`
+    : '';
+  const boardsHref = season ? `/projects?season=${encodeURIComponent(season)}` : '/projects';
+  const boardsClass = boards ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
+  return `
+<header class="artizen-nav">
+  <div class="artizen-nav-inner">
+    <div class="artizen-nav-side artizen-nav-boards">
+      <a class="${boardsClass}" href="${boardsHref}">Leaderboards</a>
+    </div>
+    <a class="artizen-wordmark" href="${boardsHref}"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i> artizen.fyi</a>
+    <div class="artizen-nav-side artizen-nav-side-end">
+      <form class="artizen-search" action="/search" method="get" role="search">
+        <label class="visually-hidden" for="artizen-q">Search projects and funds</label>
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <input id="artizen-q" type="search" name="q" placeholder="Search projects and funds" value="${escapeHtml(query || '')}" autocomplete="off">
+        ${seasonField}
+      </form>
+    </div>
+  </div>
+</header>
+`;
+}
+
+const FOOTER = `
+<footer class="artizen-footer">
+  <div class="artizen-footer-inner">
+    <p>
+      This is a project by <a href="https://stephenreid.net" target="_blank" rel="noopener">Stephen Reid</a>
+      (<a href="https://stephenreid.net" target="_blank" rel="noopener">stephenreid.net</a>)
+      and is not affiliated with Artizen.
+    </p>
+  </div>
+</footer>
+`;
+
+
+export function panel(inner: string, opts?: { flush?: boolean; className?: string }): string {
+  const cls = ['artizen-panel', opts?.flush ? 'artizen-panel-flush' : '', opts?.className || '']
+    .filter(Boolean)
+    .join(' ');
+  return `<div class="${cls}">${inner}</div>`;
+}
+
+export function note(text: string): string {
+  return `<p class="artizen-note">${text}</p>`;
+}
+
+export function heroSplit(image: string | null | undefined, alt: string, copy: string): string {
+  if (!image) return panel(copy);
+  return panel(
+    `<img class="artizen-hero" src="${escapeHtml(image)}" alt="${escapeHtml(alt)}">
+    <div class="artizen-hero-copy">${copy}</div>`,
+    { className: 'artizen-hero-card' },
+  );
+}
+
+export function dtPlaceholder(): string {
+  return `<div class="artizen-dt-placeholder" aria-hidden="true">
+    <span class="artizen-dt-ph artizen-dt-ph-length"></span>
+    <span class="artizen-dt-ph artizen-dt-ph-search"></span>
+  </div>`;
 }
 
 export function datatable(tableId: string, order: Array<[number, string]>, numeric: number[]): string {
@@ -149,6 +201,7 @@ export function datatable(tableId: string, order: Array<[number, string]>, numer
     document.addEventListener('DOMContentLoaded', function() {
       var table = document.getElementById('${tableId}');
       if (!table) return;
+      var ph = table.previousElementSibling;
       new DataTable(table, {
         paging: true,
         pageLength: 25,
@@ -159,6 +212,8 @@ export function datatable(tableId: string, order: Array<[number, string]>, numer
         order: ${JSON.stringify(order)},
         columnDefs: [{ type: 'num', targets: ${JSON.stringify(numeric)} }]
       });
+      var phEl = ph && ph.classList.contains('artizen-dt-placeholder') ? ph : null;
+      if (phEl) phEl.remove();
       var wrap = document.createElement('div');
       wrap.className = 'artizen-table-scroll';
       var container = table.closest('.dt-container') || table;
@@ -173,7 +228,7 @@ export function boardEmpty(data: Leaderboard): boolean {
 }
 
 export function pageTitle(data: Leaderboard): string {
-  return data.season ? `Artizen · ${data.season.title}` : 'Artizen';
+  return data.season ? `artizen.fyi · ${data.season.title}` : 'artizen.fyi';
 }
 
 export function seasonQuery(season?: string | null): string {
@@ -190,34 +245,32 @@ export function board(data: Leaderboard, tab: 'projects' | 'funds' | 'drives', s
       return `<option value="${s.number}"${selected}>${escapeHtml(s.title)}${current}</option>`;
     })
     .join('');
-  const raised = season?.total_raised ? ` · ${usd(season.total_raised)} raised this season` : '';
+  const raisedLabel = season?.total_raised ? `${usd(season.total_raised)} raised` : '';
+  const raised = season?.total_raised
+    ? `<span class="artizen-chip" data-bs-toggle="tooltip" data-bs-placement="bottom" data-bs-title="${escapeHtml(raisedLabel)}" tabindex="0"><strong>${usd(season.total_raised)}</strong><span class="text-muted">raised</span></span>`
+    : '';
   const error = boardEmpty(data);
   const tabs = error
     ? ''
-    : `<ul class="nav nav-tabs mb-3">
-        <li class="nav-item"><a class="nav-link${tab === 'projects' ? ' active' : ''}" href="/projects${qs}">Projects (${data.projects.length})</a></li>
-        <li class="nav-item"><a class="nav-link${tab === 'funds' ? ' active' : ''}" href="/funds${qs}">Funds (${data.funds.length})</a></li>
-        <li class="nav-item"><a class="nav-link${tab === 'drives' ? ' active' : ''}" href="/drives${qs}">Drives (${data.drives.length})</a></li>
-      </ul>`;
+    : `<nav class="artizen-pills" aria-label="Leaderboards">
+        <a class="${tab === 'projects' ? 'active' : ''}" href="/projects${qs}">Projects (${data.projects.length})</a>
+        <a class="${tab === 'funds' ? 'active' : ''}" href="/funds${qs}">Funds (${data.funds.length})</a>
+        <a class="${tab === 'drives' ? 'active' : ''}" href="/drives${qs}">Drives (${data.drives.length})</a>
+      </nav>`;
   const alert = error
-    ? `<div class="alert alert-warning">
-        Could not load Artizen leaderboards. Try again later or visit
-        <a href="https://artizen.fund/index/leaderboard" class="alert-link" target="_blank" rel="noopener">their leaderboard</a> directly.
-      </div>`
+    ? panel(`<p class="mb-0">Could not load Artizen leaderboards. Try again later or visit
+        <a href="https://artizen.fund/index/leaderboard" target="_blank" rel="noopener">their leaderboard</a> directly.</p>`)
     : '';
-  return `
-    <div class="mb-3">
-      <p class="text-muted mb-2">
-        Data from <a href="https://artizen.fund/" target="_blank" rel="noopener">artizen.fund</a>${raised}
-      </p>
-      <form method="get" class="d-flex align-items-center gap-2">
-        <label for="artizen-season" class="mb-0">Season</label>
-        <select name="season" id="artizen-season" class="form-select w-auto" onchange="this.form.submit()">${options}</select>
+  return panel(`
+    <div class="artizen-masthead">
+      ${tabs}
+      <form method="get" class="artizen-toolbar">
+        <label for="artizen-season" class="visually-hidden">Season</label>
+        <select name="season" id="artizen-season" class="form-select artizen-season-select" onchange="this.form.submit()">${options}</select>
+        ${raised}
       </form>
     </div>
-    ${alert}
-    ${tabs}
-  `;
+  `) + alert;
 }
 
 export function chevron(open: boolean, hasKids: boolean): string {
@@ -244,6 +297,9 @@ export function sumField<T>(rows: T[], field: keyof T): number {
 export function renderNotFound(): string {
   return layout({
     title: 'Not found',
-    body: '<p>Not found.</p><p><a href="/projects">Artizen leaderboards</a></p>',
+    body: panel(`
+      <h1>Not found</h1>
+      <p class="mb-0 text-muted">That page isn’t here. Head back to the leaderboards.</p>
+    `),
   });
 }

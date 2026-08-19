@@ -1,4 +1,7 @@
 import { Artizen } from './artizen';
+import faviconIco from './favicon.ico';
+import faviconSvg from './favicon.svg';
+import appleTouchIcon from './apple-touch-icon.png';
 import {
   renderDrives,
   renderFund,
@@ -6,6 +9,7 @@ import {
   renderNotFound,
   renderProject,
   renderProjects,
+  renderSearch,
 } from './html';
 
 type Bindings = Env & { REFRESH_SECRET?: string };
@@ -36,11 +40,34 @@ export default {
     }
     const path = url.pathname;
     const season = url.searchParams.get('season');
+    const asset = request.method === 'GET' || request.method === 'HEAD';
+
+    if (asset && path === '/favicon.svg') {
+      return new Response(faviconSvg, {
+        headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'public, max-age=604800' },
+      });
+    }
+    if (asset && path === '/favicon.ico') {
+      return new Response(faviconIco, {
+        headers: { 'content-type': 'image/x-icon', 'cache-control': 'public, max-age=604800' },
+      });
+    }
+    if (asset && path === '/apple-touch-icon.png') {
+      return new Response(appleTouchIcon, {
+        headers: { 'content-type': 'image/png', 'cache-control': 'public, max-age=604800' },
+      });
+    }
+
     const artizen = new Artizen(env.CACHE);
 
     if (request.method === 'GET' && path === '/') {
       const location = season ? `/projects?season=${encodeURIComponent(season)}` : '/projects';
       return Response.redirect(new URL(location, url).toString(), 302);
+    }
+
+    if (request.method === 'GET' && path === '/search') {
+      const q = url.searchParams.get('q') || '';
+      return html(renderSearch(await artizen.leaderboard(season), q, season));
     }
 
     if (request.method === 'GET' && path in BOARDS) {

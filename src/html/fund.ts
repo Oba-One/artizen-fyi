@@ -1,6 +1,6 @@
 import type { FundPage } from '../artizen';
 import { delimited, usd } from '../format';
-import { chevron, driveBadges, escapeHtml, layout, richText, sumField, treeHidden, videoIframe } from './layout';
+import { chevron, driveBadges, escapeHtml, heroSplit, layout, note, panel, sumField, treeHidden, videoIframe } from './layout';
 
 export function renderFund(fund: FundPage): string {
   const prize = fund.prize_usd
@@ -10,31 +10,24 @@ export function renderFund(fund: FundPage): string {
       : '';
   const fundingTable = fund.seasons.length ? fundFundingTable(fund) : '';
   const video = videoIframe(fund.video) || '';
-  const about = fund.description ? `<h2 class="mt-4">About</h2>${richText(fund.description)}` : '';
-  const eligibility = fund.eligibility ? `<h2 class="mt-4">Eligibility</h2>${richText(fund.eligibility)}` : '';
   return layout({
     title: fund.name,
     description: fund.subtitle || fund.for_title || `Artizen fund: ${fund.name}`,
     image: fund.image,
     tree: true,
     body: `
-      <p class="mb-3"><a href="/funds">&larr; Artizen leaderboards</a></p>
-      <div class="row mb-4">
-        <div class="col-lg-4 mb-3">${fund.image ? `<img class="artizen-hero" src="${escapeHtml(fund.image)}" alt="${escapeHtml(fund.name)}">` : ''}</div>
-        <div class="col-lg-8">
-          <h1 class="mb-2">${escapeHtml(fund.name)}</h1>
+      ${heroSplit(
+        fund.image,
+        fund.name,
+        `<h1 class="mb-2">${escapeHtml(fund.name)}</h1>
           ${fund.subtitle ? `<p class="lead">${escapeHtml(fund.subtitle)}</p>` : ''}
           ${fund.for_title ? `<p class="text-muted">For ${escapeHtml(fund.for_title)}</p>` : ''}
           ${fund.sponsor ? `<p>Lead sponsor: ${escapeHtml(fund.sponsor)}</p>` : ''}
-          ${fund.active === false ? '<span class="badge text-bg-secondary me-1">Inactive</span>' : ''}
-          ${prize}
-          <p class="mt-2 mb-0"><a href="${escapeHtml(fund.artizen_url)}" target="_blank" rel="noopener">View on Artizen</a></p>
-        </div>
-      </div>
+          <div class="mb-2">${fund.active === false ? '<span class="badge text-bg-secondary me-1">Inactive</span>' : ''}${prize}</div>
+          <p class="mb-0"><a href="${escapeHtml(fund.artizen_url)}" target="_blank" rel="noopener">View on Artizen</a></p>`,
+      )}
       ${fundingTable}
-      ${video}
-      ${about}
-      ${eligibility}
+      ${video ? panel(video, { flush: true, className: 'artizen-video-panel' }) : ''}
     `,
   });
 }
@@ -95,10 +88,10 @@ function fundFundingTable(fund: FundPage): string {
       return seasonRow + driveRows;
     })
     .join('');
-  return `
-    <h2 class="mt-4">Funding</h2>
-    <p class="text-muted mb-2">Unlocked = match paid to projects plus awards on curated submissions (Artizen’s distributed). Raised = unlocked + available.</p>
-    <div class="table-responsive mb-4">
+  return panel(`
+    <h2 class="artizen-panel-title">Funding</h2>
+    ${note('Unlocked = match paid to projects plus awards on curated submissions (Artizen’s distributed). Raised = unlocked + available.')}
+    <div class="table-responsive">
       <table class="table table-sm artizen-funding-tree">
         <thead><tr>
           <th></th><th class="text-end">Contributions</th><th class="text-end">Unlocked</th>
@@ -113,5 +106,5 @@ function fundFundingTable(fund: FundPage): string {
           <th class="text-end">${usd(sumField(fund.seasons, 'unlocked') + sumField(fund.seasons, 'available'))}</th>
         </tr></tfoot>
       </table>
-    </div>`;
+    </div>`);
 }

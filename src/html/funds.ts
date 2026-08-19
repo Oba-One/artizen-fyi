@@ -1,6 +1,6 @@
 import type { FundRow, Leaderboard } from '../artizen';
 import { truncate, usd } from '../format';
-import { board, boardEmpty, datatable, escapeHtml, layout, pageTitle } from './layout';
+import { board, boardEmpty, datatable, dtPlaceholder, escapeHtml, layout, note, pageTitle, panel } from './layout';
 
 export function renderFunds(data: Leaderboard, seasonParam: string | null): string {
   const empty = boardEmpty(data);
@@ -11,7 +11,10 @@ export function renderFunds(data: Leaderboard, seasonParam: string | null): stri
     const extraHeads = current
       ? '<th class="text-end">Unlocked</th><th class="text-end">Available</th><th class="text-end">Raised</th>'
       : '';
-    const body = data.funds
+    const funds = [...data.funds].sort((a, b) =>
+      current ? (b.raised ?? -1) - (a.raised ?? -1) : b.season_total - a.season_total,
+    );
+    const body = funds
       .map((fund: FundRow) => {
         const subtitle = fund.subtitle
           ? `<br><small class="text-muted">${escapeHtml(truncate(fund.subtitle, 90))}</small>`
@@ -29,14 +32,13 @@ export function renderFunds(data: Leaderboard, seasonParam: string | null): stri
         </tr>`;
       })
       .join('');
-    table = `
-      <p class="text-muted mb-2">
-        Fund unlocked = match paid to projects plus awards on curated submissions (Artizen’s distributed). Raised = unlocked + available.
-      </p>
+    table = panel(`
+      ${note('Fund unlocked = match paid to projects plus awards on curated submissions (Artizen’s distributed). Raised = unlocked + available.')}
+      ${dtPlaceholder()}
       <table id="artizen-funds-table" class="table table-sm">
         <thead><tr><th>Fund</th><th class="text-end">Contributions</th>${extraHeads}</tr></thead>
         <tbody>${body}</tbody>
-      </table>`;
+      </table>`);
     extra = current
       ? datatable('artizen-funds-table', [[3, 'desc']], [1, 2, 3, 4])
       : datatable('artizen-funds-table', [[1, 'desc']], [1]);
@@ -46,5 +48,7 @@ export function renderFunds(data: Leaderboard, seasonParam: string | null): stri
     body: board(data, 'funds', seasonParam) + table,
     extra,
     datatables: Boolean(extra),
+    season: seasonParam,
+    boards: true,
   });
 }

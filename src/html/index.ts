@@ -1,3 +1,4 @@
+export { renderSearch } from './search';
 export { renderDrives } from './drives';
 export { renderFund } from './fund';
 export { renderFunds } from './funds';

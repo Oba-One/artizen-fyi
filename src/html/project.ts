@@ -1,45 +1,30 @@
 import type { ProjectPage, ProjectSubmission } from '../artizen';
 import { moneyCells, usd } from '../format';
-import { chevron, driveBadges, escapeHtml, layout, simpleFormat, sumField, treeHidden, videoIframe } from './layout';
+import { chevron, driveBadges, escapeHtml, heroSplit, layout, panel, sumField, treeHidden, videoIframe } from './layout';
 
 export function renderProject(project: ProjectPage): string {
   const tags = (project.tags || []).map((tag) => `<span class="badge text-bg-secondary me-1 mb-1">${escapeHtml(tag)}</span>`).join('');
-  const imgCol = project.image
-    ? `<div class="col-lg-4 mb-3"><img class="artizen-hero" src="${escapeHtml(project.image)}" alt="${escapeHtml(project.name)}"></div><div class="col-lg-8">`
-    : '<div class="col-lg-12">';
   const fundingTable = project.seasons.length ? projectFundingTable(project) : '';
   const submissions = project.submissions?.length ? projectSubmissions(project.submissions) : '';
   const video = videoIframe(project.video) || '';
-  const sections = (
-    [
-      ['About', project.description],
-      ['Impact', project.impact],
-      ['Progress', project.progress],
-      ['Team', project.team],
-    ] as const
-  )
-    .map(([heading, body]) => (body ? `<h2 class="mt-4">${heading}</h2>${simpleFormat(body)}` : ''))
-    .join('');
   return layout({
     title: project.name,
     description: project.logline || `Artizen project: ${project.name}`,
     image: project.image,
     tree: true,
     body: `
-      <p class="mb-3"><a href="/projects">&larr; Artizen leaderboards</a></p>
-      <div class="row mb-4">
-        ${imgCol}
-          <h1 class="mb-2">${escapeHtml(project.name)}</h1>
+      ${heroSplit(
+        project.image,
+        project.name,
+        `<h1 class="mb-2">${escapeHtml(project.name)}</h1>
           ${project.logline ? `<p class="lead">${escapeHtml(project.logline)}</p>` : ''}
           ${project.creator ? `<p class="mb-2">${escapeHtml(project.creator)}</p>` : ''}
-          ${tags}
-          <p class="mt-2 mb-0"><a href="${escapeHtml(project.artizen_url)}" target="_blank" rel="noopener">View on Artizen</a></p>
-        </div>
-      </div>
+          ${tags ? `<div class="mb-2">${tags}</div>` : ''}
+          <p class="mb-0"><a href="${escapeHtml(project.artizen_url)}" target="_blank" rel="noopener">View on Artizen</a></p>`,
+      )}
       ${fundingTable}
       ${submissions}
-      ${video}
-      ${sections}
+      ${video ? panel(video, { flush: true, className: 'artizen-video-panel' }) : ''}
     `,
   });
 }
@@ -91,9 +76,9 @@ function projectFundingTable(project: ProjectPage): string {
     prize: sumField(project.seasons, 'prize'),
     raised: sumField(project.seasons, 'raised'),
   };
-  return `
-    <h2 class="mt-4">Funding</h2>
-    <div class="table-responsive mb-4">
+  return panel(`
+    <h2 class="artizen-panel-title">Funding</h2>
+    <div class="table-responsive">
       <table class="table table-sm artizen-funding-tree">
         <thead><tr>
           <th></th><th class="text-end">Sales</th><th class="text-end">Venus</th><th class="text-end">Match</th>
@@ -108,7 +93,7 @@ function projectFundingTable(project: ProjectPage): string {
           <th class="text-end">${usd(sumField(project.seasons, 'available'))}</th>
         </tr></tfoot>
       </table>
-    </div>`;
+    </div>`);
 }
 
 function projectSubmissions(submissions: ProjectSubmission[]): string {
@@ -133,23 +118,29 @@ function projectSubmissions(submissions: ProjectSubmission[]): string {
       </tr>`;
       const kids = group.items
         .map((submission) => {
-          const accepted = submission.status === 'Curated' || submission.status === 'Approved';
+          const status = String(submission.status);
+          const cls =
+            status === 'Curated' || status === 'Approved'
+              ? 'text-bg-primary'
+              : status === 'Removed'
+                ? 'text-bg-danger'
+                : 'text-bg-secondary';
           const hidden = treeHidden(open);
           return `<tr class="artizen-tree-submission${hidden}" data-parent="${seasonId}">
             <td><span class="artizen-tree-toggle"></span> <a href="${escapeHtml(submission.url)}" class="text-dark">${escapeHtml(submission.name)}</a></td>
-            <td class="text-end"><span class="badge ${accepted ? 'text-bg-primary' : 'text-bg-secondary'}">${escapeHtml(submission.status)}</span></td>
+            <td class="text-end"><span class="badge ${cls}">${escapeHtml(status)}</span></td>
           </tr>`;
         })
         .join('');
       return head + kids;
     })
     .join('');
-  return `
-    <h2 class="mt-4">Submissions</h2>
-    <div class="table-responsive mb-4">
+  return panel(`
+    <h2 class="artizen-panel-title">Submissions</h2>
+    <div class="table-responsive">
       <table class="table table-sm artizen-funding-tree">
         <thead><tr><th></th><th class="text-end">Status</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-    </div>`;
+    </div>`);
 }

@@ -159,10 +159,6 @@ export type ProjectPage = {
   artizen_url: string;
   creator?: string;
   logline?: string;
-  description?: string;
-  impact?: string;
-  progress?: string;
-  team?: string;
   image?: string | null;
   video?: string;
   tags: string[];
@@ -214,8 +210,6 @@ export type FundPage = {
   image?: string | null;
   subtitle?: string;
   for_title?: string;
-  description?: string;
-  eligibility?: string;
   sponsor?: string;
   video?: string;
   available: number;
@@ -466,29 +460,32 @@ export class Artizen {
     const venusByProject = await this.venusBuysByProject(seasonId);
     const prizes = await this.drivePrizesByProject(seasonId);
 
-    return filterMap(rows, (row) => {
-      const project = lookup(projects, row['project']) || {};
-      if (project['Hide'] || project['unPublished']) return undefined;
+    return sortByDesc(
+      filterMap(rows, (row) => {
+        const project = lookup(projects, row['project']) || {};
+        if (project['Hide'] || project['unPublished']) return undefined;
 
-      const name = str(presence(project['Name']) ?? row['name']).trim();
-      if (blank(name)) return undefined;
+        const name = str(presence(project['Name']) ?? row['name']).trim();
+        if (blank(name)) return undefined;
 
-      const slug = presence(project['Slug']) ?? row['project'];
-      const venus = num(lookup(venusByProject, row['project']));
-      const ledgerPrize = num(row['funding prize funds usd']);
-      const prize = Math.max(ledgerPrize, num(lookup(prizes, row['project'])));
-      return {
-        name,
-        url: this.localProjectPath(slug),
-        creator: presence(str(or(project[LEAD_CREATOR], row['lead creator'])).trim()),
-        logline: presence(project['Logline']),
-        sales: this.communitySales(row['funding total sales'], venus),
-        venus,
-        match: num(row['funding match']) + num(row['funding boost ']),
-        prize,
-        raised: num(row['funding total']) + prize - ledgerPrize,
-      };
-    });
+        const slug = presence(project['Slug']) ?? row['project'];
+        const venus = num(lookup(venusByProject, row['project']));
+        const ledgerPrize = num(row['funding prize funds usd']);
+        const prize = Math.max(ledgerPrize, num(lookup(prizes, row['project'])));
+        return {
+          name,
+          url: this.localProjectPath(slug),
+          creator: presence(str(or(project[LEAD_CREATOR], row['lead creator'])).trim()),
+          logline: presence(project['Logline']),
+          sales: this.communitySales(row['funding total sales'], venus),
+          venus,
+          match: num(row['funding match']) + num(row['funding boost ']),
+          prize,
+          raised: num(row['funding total']) + prize - ledgerPrize,
+        };
+      }),
+      (project) => project.raised,
+    );
   }
 
   private async fetchDrives(seasonId: string): Promise<Drive[]> {
@@ -877,10 +874,6 @@ export class Artizen {
       artizen_url: this.projectUrl(slugValue),
       creator: presence(str(row[LEAD_CREATOR]).trim()),
       logline: presence(row['Logline']),
-      description: presence(row['Description']),
-      impact: presence(row['Impact']),
-      progress: presence(row['Progress']),
-      team: presence(row['Team']),
       image: this.mediaUrl(or(row['(old) Artifact Image -crop'], or(seasonImage, row['Profile image lead creator']))),
       video: presence(row['video presentation']),
       tags,
@@ -1003,8 +996,6 @@ export class Artizen {
       image: this.mediaUrl(row['cover image']),
       subtitle: ext ? presence(ext['subtitle']) : undefined,
       for_title: ext ? presence(ext['for title']) : undefined,
-      description: ext ? presence(ext['description']) : undefined,
-      eligibility: ext ? presence(ext['eligibility']) : undefined,
       sponsor: ext ? presence(ext['lead sponsor (text)']) : undefined,
       video: ext ? presence(ext['welcome video']) : undefined,
       available: sum(seasons, (season) => num(season.available)),
@@ -1074,11 +1065,7 @@ export class Artizen {
       return row;
     });
     return ranked.sort((a, b) => {
-      if (current) {
-        const av = num(b.available) - num(a.available);
-        if (av) return av;
-        return b.season_total - a.season_total;
-      }
+      if (current) return num(b.raised) - num(a.raised);
       return b.season_total - a.season_total;
     });
   }
@@ -1490,32 +1477,35 @@ export class Artizen {
         return [];
     }
     const awards = await this.curatedAwardsByProject(season.id);
-    return filterMap(await this.list('project', { constraints }), (project) => {
-      if (project['Hide'] || project['unPublished']) return undefined;
+    return sortByDesc(
+      filterMap(await this.list('project', { constraints }), (project) => {
+        if (project['Hide'] || project['unPublished']) return undefined;
 
-      const name = str(project['Name']).trim();
-      if (blank(name)) return undefined;
+        const name = str(project['Name']).trim();
+        if (blank(name)) return undefined;
 
-      const funding = this.legacySeasonFunding(project, number);
-      if (!funding) return undefined;
+        const funding = this.legacySeasonFunding(project, number);
+        if (!funding) return undefined;
 
-      const extra = lookup(awards, project['_id']);
-      if (extra) {
-        funding.match += extra.match;
-        funding.prize += extra.prize;
-        funding.raised = funding.sales + funding.venus + funding.match + funding.prize;
-      }
-      if (!(num(funding.raised) > 0)) return undefined;
+        const extra = lookup(awards, project['_id']);
+        if (extra) {
+          funding.match += extra.match;
+          funding.prize += extra.prize;
+          funding.raised = funding.sales + funding.venus + funding.match + funding.prize;
+        }
+        if (!(num(funding.raised) > 0)) return undefined;
 
-      const slug = presence(project['Slug']) ?? project['_id'];
-      return {
-        ...funding,
-        name,
-        url: this.localProjectPath(slug),
-        creator: presence(str(project[LEAD_CREATOR]).trim()),
-        logline: presence(project['Logline']),
-      };
-    });
+        const slug = presence(project['Slug']) ?? project['_id'];
+        return {
+          ...funding,
+          name,
+          url: this.localProjectPath(slug),
+          creator: presence(str(project[LEAD_CREATOR]).trim()),
+          logline: presence(project['Logline']),
+        };
+      }),
+      (project) => project.raised,
+    );
   }
 
   private applySeasonNames(drives: Drive[], seasonsMeta: Record<string, Season>): void {

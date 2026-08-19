@@ -1,6 +1,6 @@
 import type { Drive, Leaderboard } from '../artizen';
 import { compactNum, delimited, fmtDate, truncate, usd } from '../format';
-import { board, boardEmpty, escapeHtml, layout, pageTitle } from './layout';
+import { board, boardEmpty, escapeHtml, layout, pageTitle, panel } from './layout';
 
 export function renderDrives(data: Leaderboard, seasonParam: string | null): string {
   const empty = boardEmpty(data);
@@ -8,14 +8,14 @@ export function renderDrives(data: Leaderboard, seasonParam: string | null): str
   let extra = '';
   if (!empty) {
     if (data.drives.length === 0) {
-      body = '<p class="text-muted">No fund drives in this season.</p>';
+      body = panel('<p class="text-muted mb-0">No fund drives in this season.</p>');
     } else {
       const chartDrives = [...data.drives].sort((a, b) => (a.number || 0) - (b.number || 0));
       const labels = chartDrives.map((d) => String(d.name).replace(/ Fund Drive$/i, ''));
       const scoreCharts = (
         [
-          ['Projects', 'artizen-project-score-chart', 'podium', ['#1ACC6C', '#7BC99A', '#C5E8D4']],
-          ['Funds', 'artizen-fund-score-chart', 'fund_podium', ['#4C6EF5', '#8DA2F7', '#C5CFFB']],
+          ['Winning projects', 'artizen-project-score-chart', 'podium', ['#1ACC6C', '#7BC99A', '#C5E8D4']],
+          ['Winning funds', 'artizen-fund-score-chart', 'fund_podium', ['#4C6EF5', '#8DA2F7', '#C5CFFB']],
         ] as const
       ).map(([title, id, key, colors]) => ({
         title,
@@ -30,7 +30,7 @@ export function renderDrives(data: Leaderboard, seasonParam: string | null): str
       }));
       const canvases = scoreCharts
         .map(
-          (chart) => `<h6 class="mb-1">${chart.title}</h6><div class="artizen-prize-chart mb-4"><canvas id="${chart.id}"></canvas></div>`,
+          (chart) => `<div class="col-lg-6 mb-3">${panel(`<h2 class="artizen-panel-title">${chart.title}</h2><div class="artizen-prize-chart"><canvas id="${chart.id}"></canvas></div>`)}</div>`,
         )
         .join('');
       extra = `<script>
@@ -78,8 +78,7 @@ export function renderDrives(data: Leaderboard, seasonParam: string | null): str
       </script>`;
       const cards = data.drives.map((drive) => driveCard(drive)).join('');
       body = `
-        <p class="text-muted small mb-3">Projects and funds are ranked by boost score: points × (sales + match) / 100.</p>
-        ${canvases}
+        <div class="row">${canvases}</div>
         <div class="row">${cards}</div>`;
     }
   }
@@ -88,6 +87,8 @@ export function renderDrives(data: Leaderboard, seasonParam: string | null): str
     body: board(data, 'drives', seasonParam) + body,
     extra,
     chart: Boolean(extra),
+    season: seasonParam,
+    boards: true,
   });
 }
 
@@ -105,12 +106,12 @@ function driveCard(drive: Drive): string {
     ? `<p class="small text-muted mb-2">${escapeHtml(truncate(String(drive.description), 140))}</p>`
     : '';
   const matchPer = drive.match_per_project
-    ? `<dt class="col-6">Match / project</dt><dd class="col-6 text-end">${usd(drive.match_per_project)}</dd>`
+    ? `<div class="artizen-stat"><span>Match / project</span><strong>${usd(drive.match_per_project)}</strong></div>`
     : '';
   const podiums = (
     [
-      ['Projects', drive.podium, [drive.project_first, drive.project_second, drive.project_third]],
-      ['Funds', drive.fund_podium, [drive.fund_first, drive.fund_second, drive.fund_third]],
+      ['Winning projects', drive.podium, [drive.project_first, drive.project_second, drive.project_third]],
+      ['Winning funds', drive.fund_podium, [drive.fund_first, drive.fund_second, drive.fund_third]],
     ] as const
   )
     .map(([title, podium, prizes]) => {
@@ -126,29 +127,31 @@ function driveCard(drive: Drive): string {
           </tr>`,
         )
         .join('');
-      return `<h6 class="mt-3 mb-1">${title}</h6>
+      return `<div class="artizen-nested">
+        <h2 class="artizen-panel-title">${title}</h2>
         <table class="table table-sm mb-0 artizen-podium">
           <thead><tr><th></th><th class="text-end">Prize</th><th class="text-end">Sales+match</th><th class="text-end">Points</th><th class="text-end">Score</th></tr></thead>
           <tbody>${rows}</tbody>
-        </table>`;
+        </table>
+      </div>`;
     })
     .join('');
-  return `<div class="col-md-6 col-xl-4 mb-3">
+  return `<div class="col-md-6 mb-3">
     <div class="card h-100">
       ${img}
       <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start mb-1">
+        <div class="d-flex justify-content-between align-items-start mb-2 gap-2">
           <h5 class="mb-0">${escapeHtml(drive.name)} ${multiple}</h5>
           ${status}
         </div>
-        <p class="small mb-2">${fmtDate(drive.start)} – ${fmtDate(drive.end, true)}</p>
+        <p class="small text-muted mb-2">${fmtDate(drive.start)} – ${fmtDate(drive.end, true)}</p>
         ${desc}
-        <dl class="row small mb-0">
-          <dt class="col-6">Match pot</dt><dd class="col-6 text-end">${usd(drive.match_pot)}</dd>
-          <dt class="col-6">Project prizes</dt><dd class="col-6 text-end">${usd(drive.prize_projects)}</dd>
-          <dt class="col-6">Fund prizes</dt><dd class="col-6 text-end">${usd(drive.prize_funds)}</dd>
+        <div class="artizen-stat-row">
+          <div class="artizen-stat"><span>Match pot</span><strong>${usd(drive.match_pot)}</strong></div>
+          <div class="artizen-stat"><span>Project prizes</span><strong>${usd(drive.prize_projects)}</strong></div>
+          <div class="artizen-stat"><span>Fund prizes</span><strong>${usd(drive.prize_funds)}</strong></div>
           ${matchPer}
-        </dl>
+        </div>
         ${podiums}
       </div>
     </div>
