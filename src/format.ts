@@ -104,7 +104,7 @@ export function moneyCells(
     multipleLabel(f.multiple),
     usd(f.raised),
   ];
-  return cells.map((content) => `<${tag} class="text-right">${content}</${tag}>`).join('');
+  return cells.map((content) => `<${tag} class="text-end">${content}</${tag}>`).join('');
 }
 
 export function heatRanks<T extends Record<string, unknown>>(rows: T[], fields: (keyof T)[]): Record<string, number[]> {
@@ -133,11 +133,11 @@ export function rankPct(rank: number | undefined, total: number): number | undef
 }
 
 export function rankStyle(pct?: number): string {
-  if (pct == null || pct <= 1) return 'background-color: #2DB963';
+  if (pct == null || pct <= 1) return 'background-color: #1ACC6C';
   const t = Math.log(pct) / Math.log(100);
-  const r = Math.round(45 + (255 - 45) * t);
-  const g = Math.round(185 + (255 - 185) * t);
-  const b = Math.round(99 + (255 - 99) * t);
+  const r = Math.round(26 + (255 - 26) * t);
+  const g = Math.round(204 + (255 - 204) * t);
+  const b = Math.round(108 + (255 - 108) * t);
   return `background-color: rgb(${r},${g},${b})`;
 }
 
@@ -153,7 +153,7 @@ export function heatTd(
   const pct = rankPct(ranks[index], total);
   const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value);
   const note = pct != null ? `<br><small class="artizen-rank">${pct}%</small>` : '';
-  return `<td class="text-right artizen-heat" data-order="${value}" style="${rankStyle(pct)}">${label}${note}</td>`;
+  return `<td class="text-end artizen-heat" data-order="${value}" style="${rankStyle(pct)}">${label}${note}</td>`;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

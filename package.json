@@ -8,9 +8,6 @@
     "kv:create": "wrangler kv namespace create CACHE",
     "types": "wrangler types"
   },
-  "dependencies": {
-    "hono": "^4.9.0"
-  },
   "devDependencies": {
     "typescript": "^5.9.2",
     "wrangler": "^4.28.0"

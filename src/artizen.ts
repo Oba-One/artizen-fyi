@@ -2,11 +2,9 @@ const BASE_URL = 'https://artizen.fund/api/1.1/obj';
 const SITE_URL = 'https://artizen.fund';
 const PAGE_SIZE = 100;
 const IN_BATCH = 50;
-const PARALLEL = 6;
-const LEADERBOARD_CACHE = 'artizen/leaderboard/v25';
+const LEADERBOARD_CACHE = 'artizen/leaderboard/v26';
 const PROJECT_CACHE = 'artizen/project/v19';
 const FUND_CACHE = 'artizen/fund/v10';
-const VENUS_ACCOUNT_ID = '1774215063859x668765896046542800';
 const LEAD_CREATOR = 'Lead Creator\t(text)';
 
 export type Row = Record<string, unknown>;
@@ -49,7 +47,6 @@ export type PodiumRow = {
 export type Drive = {
   id: string;
   name: string;
-  slug: unknown;
   url: string;
   season_id: unknown;
   season_number?: number | null;
@@ -65,7 +62,6 @@ export type Drive = {
   match_pot?: number | null;
   prize_projects?: number | null;
   prize_funds?: number | null;
-  goal?: number | null;
   match_per_project?: number | null;
   project_first?: number | null;
   project_second?: number | null;
@@ -302,13 +298,9 @@ function groupBy<T>(items: T[], keyFn: (item: T) => unknown): Array<[unknown, T[
   return order.map((sk) => [orig.get(sk), buckets.get(sk)!]);
 }
 
-function rubyOr<T>(value: unknown, fallback: T): T {
+function or<T>(value: unknown, fallback: T): T {
   if (value == null || value === false) return fallback;
   return value as T;
-}
-
-function rubyTruthy(value: unknown): boolean {
-  return value != null && value !== false;
 }
 
 function compact<T>(items: Array<T | null | undefined>): T[] {
@@ -316,12 +308,10 @@ function compact<T>(items: Array<T | null | undefined>): T[] {
 }
 
 function filterMap<T, U>(items: T[], fn: (item: T) => U | null | undefined | false): U[] {
-  const out: U[] = [];
-  for (const item of items) {
+  return items.flatMap((item) => {
     const v = fn(item);
-    if (v !== null && v !== undefined && v !== false) out.push(v);
-  }
-  return out;
+    return v == null || v === false ? [] : [v];
+  });
 }
 
 function optInt(value: unknown): number | undefined {
@@ -357,12 +347,6 @@ function sortByDesc<T>(items: T[], ...fns: Array<(item: T) => number>): T[] {
   });
 }
 
-function cmp(a: number | string, b: number | string): number {
-  if (a < b) return -1;
-  if (a > b) return 1;
-  return 0;
-}
-
 function batches<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
@@ -381,7 +365,7 @@ export class Artizen {
   async leaderboard(seasonNumber?: string | number | null): Promise<Leaderboard> {
     const fallback: Leaderboard = { seasons: [], season: null, drives: [], projects: [], funds: [], error: true };
     return this.withArtizenErrors(fallback, () =>
-      this.cacheFetch(`${LEADERBOARD_CACHE}/${rubyOr(seasonNumber, 'current')}`, () => this.build(seasonNumber)),
+      this.cacheFetch(`${LEADERBOARD_CACHE}/${or(seasonNumber, 'current')}`, () => this.build(seasonNumber)),
     );
   }
 
@@ -412,38 +396,6 @@ export class Artizen {
     return summary;
   }
 
-  richText(text?: string | null): string | undefined {
-    if (blank(text)) return undefined;
-
-    let html = str(text);
-    html = html.replace(/\[url=([^\]]+)\](.*?)\[\/url\]/gs, '<a href="$1" target="_blank" rel="noopener">$2</a>');
-    html = html.replace(/\[b\](.*?)\[\/b\]/gs, '<strong>$1</strong>');
-    html = html.replace(/\[i\](.*?)\[\/i\]/gs, '<em>$1</em>');
-    html = html.replace(/\[\/?ml\]/g, '');
-    html = html.replace(/\[ul\]/g, '<ul>');
-    html = html.replace(/\[\/ul\]/g, '</ul>');
-    html = html.replace(/\[li[^\]]*\]/g, '<li>');
-    html = html.replace(/\[\/li\]/g, '</li>');
-    html = html.replace(/\r\n?/g, '\n');
-    html = html.replace(/\n{2,}/g, '</p><p>');
-    html = html.replace(/\n/g, '<br>');
-    return `<p>${html}</p>`;
-  }
-
-  videoIframe(url?: string | null): string | undefined {
-    if (blank(url)) return undefined;
-
-    const youtube = String(url).match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([A-Za-z0-9_-]+)/);
-    if (youtube) {
-      return `<div class="embed-responsive embed-responsive-16by9 mb-3"><iframe class="embed-responsive-item" src="https://www.youtube.com/embed/${youtube[1]}" allowfullscreen></iframe></div>`;
-    }
-    const vimeo = String(url).match(/vimeo\.com\/(?:video\/)?(\d+)/);
-    if (vimeo) {
-      return `<div class="embed-responsive embed-responsive-16by9 mb-3"><iframe class="embed-responsive-item" src="https://player.vimeo.com/video/${vimeo[1]}" allowfullscreen></iframe></div>`;
-    }
-    return `<p><a href="${url}" target="_blank" rel="noopener">Watch presentation</a></p>`;
-  }
-
   private async build(seasonNumber?: string | number | null): Promise<Leaderboard> {
     const seasons = await this.fetchSeasons();
     const season = this.pickSeason(seasons, seasonNumber);
@@ -469,7 +421,7 @@ export class Artizen {
         return {
           id: str(row['_id']),
           number,
-          title: str(rubyOr(row['title'], `Season ${number}`)),
+          title: str(or(row['title'], `Season ${number}`)),
           tag,
           current: !blank(tag) && tag != 'Ended',
           total_raised: optNum(row['total raised usd']),
@@ -520,7 +472,7 @@ export class Artizen {
       return {
         name,
         url: this.localProjectPath(slug),
-        creator: presence(str(rubyOr(project[LEAD_CREATOR], row['lead creator'])).trim()),
+        creator: presence(str(or(project[LEAD_CREATOR], row['lead creator'])).trim()),
         logline: presence(project['Logline']),
         sales: this.communitySales(row['funding total sales'], venus),
         venus,
@@ -548,14 +500,11 @@ export class Artizen {
   private async attachDrivePodiums(drives: Drive[]): Promise<void> {
     if (drives.length === 0) return;
 
-    const pages = await this.parallel(drives, (drive) =>
-      this.getResults('boostparticipant', {
-        limit: 100,
-        cursor: 0,
-        sort_field: 'boost score',
-        descending: true,
-        constraints: JSON.stringify([{ key: 'boost', constraint_type: 'equals', value: drive.id }]),
-      }),
+    const pages = await Promise.all(
+      drives.flatMap((drive) => [
+        this.topBoostParticipants(drive.id, 'project'),
+        this.topBoostParticipants(drive.id, 'fund'),
+      ]),
     );
     const records = pages.flat();
     const catalogs = {
@@ -563,9 +512,21 @@ export class Artizen {
       fund: await this.indexed('fund', records.map((row) => row['fund'])),
     };
     drives.forEach((drive, i) => {
-      const rows = pages[i];
-      drive.podium = this.podiumRows(rows, 'project', catalogs.project);
-      drive.fund_podium = this.podiumRows(rows, 'fund', catalogs.fund);
+      drive.podium = this.podiumRows(pages[i * 2], 'project', catalogs.project);
+      drive.fund_podium = this.podiumRows(pages[i * 2 + 1], 'fund', catalogs.fund);
+    });
+  }
+
+  private topBoostParticipants(boostId: string, kind: 'project' | 'fund'): Promise<Row[]> {
+    return this.getResults('boostparticipant', {
+      limit: 3,
+      cursor: 0,
+      sort_field: 'boost score',
+      descending: true,
+      constraints: JSON.stringify([
+        { key: 'boost', constraint_type: 'equals', value: boostId },
+        { key: kind, constraint_type: 'is_not_empty' },
+      ]),
     });
   }
 
@@ -579,7 +540,7 @@ export class Artizen {
       if (blank(id)) return undefined;
 
       const record = lookup(records, id);
-      const slug = (record && presence(rubyOr(record['Slug'], record['slugg']))) || id;
+      const slug = (record && presence(or(record['Slug'], record['slugg']))) || id;
       const points = num(row['boost points received']);
       const salesMatch = num(row['sales + match (both)']);
       return {
@@ -597,7 +558,6 @@ export class Artizen {
     return {
       id: str(row['_id']),
       name: str(row['Name']).trim(),
-      slug,
       url: `${SITE_URL}/index/boost/${presence(slug) ?? row['_id']}`,
       season_id: row['season'],
       season_number: optInt(row['season number']),
@@ -612,7 +572,6 @@ export class Artizen {
       match_pot: optNum(row['total match pot funds']),
       prize_projects: optNum(row['prize pot projects']),
       prize_funds: optNum(row['prize pot funds']),
-      goal: optNum(row['goal']),
       match_per_project: optNum(row['Artizen match per project']),
       ...this.drivePlacePrizes(row),
     };
@@ -656,7 +615,7 @@ export class Artizen {
 
       seasons.push({
         number: row.season_number,
-        title: rubyOr(row.season, `Season ${row.season_number}`),
+        title: or(row.season, `Season ${row.season_number}`),
         sales: 0.0,
         venus: 0.0,
         match: 0.0,
@@ -715,7 +674,7 @@ export class Artizen {
 
       seasons.push({
         number: project.season_number,
-        title: rubyOr(project.season, `Season ${project.season_number}`),
+        title: or(project.season, `Season ${project.season_number}`),
         total: 0.0,
         count: 0,
       });
@@ -726,7 +685,7 @@ export class Artizen {
     const nested = seasons.map((season) => {
       const seasonProjects = matchedProjects.filter((project) => project.season_number == season.number);
       const drives: FundDriveNest[] = sortByDesc(
-        groupBy(seasonProjects, (project) => rubyOr(project.drive, 'Drive')).map(([name, projects]) => {
+        groupBy(seasonProjects, (project) => or(project.drive, 'Drive')).map(([name, projects]) => {
           const sample = projects[0];
           const active = sample && sample.drive_active;
           const leftover = sum(projects, (project) => num(project.available));
@@ -830,7 +789,7 @@ export class Artizen {
         const drive = drives.find((d) => d.id == part['boost']);
         seasonId = drive && drive.season_id;
       }
-      if (rubyTruthy(seasonId) && prize > 0) {
+      if (seasonId != null && seasonId !== false && prize > 0) {
         const sk = idKey(seasonId);
         prizeBySeason[sk] = (prizeBySeason[sk] || 0) + prize;
       }
@@ -881,7 +840,7 @@ export class Artizen {
 
     const driveDetails = this.projectDriveDetails(drives, stats[id]);
     const seasonImage = [...seasonRows]
-      .sort((a, b) => toInt(rubyOr(b['season number'], 0)) - toInt(rubyOr(a['season number'], 0)))
+      .sort((a, b) => toInt(or(b['season number'], 0)) - toInt(or(a['season number'], 0)))
       .map((srow) => srow['image crop'])
       .find((img) => !blank(img));
     const seasons = filterMap(seasonRows, (srow) => {
@@ -898,8 +857,8 @@ export class Artizen {
       if (!(sRaised > 0)) return undefined;
 
       return {
-        number: rubyOr(srow['season number'], meta?.number) as number | undefined,
-        title: rubyOr(meta?.title, `Season ${srow['season number']}`),
+        number: or(srow['season number'], meta?.number) as number | undefined,
+        title: or(meta?.title, `Season ${srow['season number']}`),
         sales: sSales,
         venus: sVenus,
         match: sMatch,
@@ -922,7 +881,7 @@ export class Artizen {
       impact: presence(row['Impact']),
       progress: presence(row['Progress']),
       team: presence(row['Team']),
-      image: this.mediaUrl(rubyOr(row['(old) Artifact Image -crop'], rubyOr(seasonImage, row['Profile image lead creator']))),
+      image: this.mediaUrl(or(row['(old) Artifact Image -crop'], or(seasonImage, row['Profile image lead creator']))),
       video: presence(row['video presentation']),
       tags,
       seasons: this.nestProjectFunding(seasons, driveDetails, matchingFunds),
@@ -940,21 +899,21 @@ export class Artizen {
 
       const slug = presence(fund['Slug']) ?? row['Fund'];
       const meta = lookup(seasonsMeta, row['season']);
-      const number = rubyOr(row['season number'], meta?.number) as number | undefined;
+      const number = or(row['season number'], meta?.number) as number | undefined;
       return {
         name: str(fund['name']).trim(),
         url: this.localFundPath(slug),
         status: presence(str(row['Status'])),
-        season: rubyOr(meta?.title, rubyTruthy(number) ? `Season ${number}` : undefined),
+        season: or(meta?.title, number != null ? `Season ${number}` : undefined),
         season_number: number,
         created_at: row['Created Date'],
       } satisfies ProjectSubmission;
     }).sort((a, b) => {
-      let c = cmp(b.season_number || 0, a.season_number || 0);
-      if (c !== 0) return c;
-
-      c = cmp(this.submissionStatusRank(a.status), this.submissionStatusRank(b.status));
-      return c === 0 ? cmp(str(b.created_at), str(a.created_at)) : c;
+      const season = (b.season_number || 0) - (a.season_number || 0);
+      if (season) return season;
+      const rank = this.submissionStatusRank(a.status) - this.submissionStatusRank(b.status);
+      if (rank) return rank;
+      return str(b.created_at).localeCompare(str(a.created_at));
     });
   }
 
@@ -976,7 +935,7 @@ export class Artizen {
 
     const id = str(row['_id']);
     const slugValue = presence(row['Slug']) ?? id;
-    const ext = rubyTruthy(row['Extended info'])
+    const ext = row['Extended info'] != null && row['Extended info'] !== false
       ? (await this.findBy('fundextendedinfo', '_id', row['Extended info']))[0]
       : undefined;
 
@@ -1029,7 +988,7 @@ export class Artizen {
       const meta = lookup(seasonsMeta, seasonId);
       return {
         number: meta?.number,
-        title: rubyOr(meta?.title, 'Season'),
+        title: or(meta?.title, 'Season'),
         total: sum(rows, (r) => num(r['amount $USD'])),
         count: rows.length,
       } satisfies FundFundingSeason;
@@ -1132,17 +1091,21 @@ export class Artizen {
   private async fundUnlocked(fundIds: unknown[]): Promise<Record<string, number>> {
     const unlocked: Record<string, number> = {};
     const ids = uniq(compact(fundIds));
-    for (const batch of batches(ids, IN_BATCH)) {
-      const slices = await this.list('projectfundboostslice', {
-        constraints: [
-          { key: 'fund', constraint_type: 'in', value: batch },
-          { key: 'match unlocked', constraint_type: 'greater than', value: 0 },
-        ],
-      });
-      for (const slice of slices) {
-        const key = idKey(slice['fund']);
-        unlocked[key] = (unlocked[key] || 0) + num(slice['match unlocked']);
-      }
+    const slices = (
+      await Promise.all(
+        batches(ids, IN_BATCH).map((batch) =>
+          this.list('projectfundboostslice', {
+            constraints: [
+              { key: 'fund', constraint_type: 'in', value: batch },
+              { key: 'match unlocked', constraint_type: 'greater than', value: 0 },
+            ],
+          }),
+        ),
+      )
+    ).flat();
+    for (const slice of slices) {
+      const key = idKey(slice['fund']);
+      unlocked[key] = (unlocked[key] || 0) + num(slice['match unlocked']);
     }
     for (const row of await this.listFundAwards(ids)) {
       const key = idKey(row['Fund']);
@@ -1155,14 +1118,16 @@ export class Artizen {
     const ids = uniq(compact(fundIds));
     if (ids.length === 0) return [];
 
-    const pages = await this.parallel(batches(ids, IN_BATCH), (batch) =>
-      this.list('projectsubmission', {
-        constraints: [
-          { key: 'Fund', constraint_type: 'in', value: batch },
-          { key: 'Status', constraint_type: 'equals', value: 'Curated' },
-          { key: '$ amount raised', constraint_type: 'greater than', value: 0 },
-        ],
-      }),
+    const pages = await Promise.all(
+      batches(ids, IN_BATCH).map((batch) =>
+        this.list('projectsubmission', {
+          constraints: [
+            { key: 'Fund', constraint_type: 'in', value: batch },
+            { key: 'Status', constraint_type: 'equals', value: 'Curated' },
+            { key: '$ amount raised', constraint_type: 'greater than', value: 0 },
+          ],
+        }),
+      ),
     );
     return pages.flat();
   }
@@ -1170,13 +1135,13 @@ export class Artizen {
   private fundAwardProjects(awardRows: Row[], projects: Record<string, Row>, seasonsMeta: Record<string, Season>): FundMatchedProject[] {
     return filterMap(
       groupBy(awardRows, (row) => {
-        const number = rubyOr(row['season number'], lookup(seasonsMeta, row['season'])?.number);
+        const number = or(row['season number'], lookup(seasonsMeta, row['season'])?.number);
         return [row['Project'], number];
       }),
       ([pair, rows]) => {
         const [projectId, number] = pair as [unknown, unknown];
         const raised = sum(rows, (row) => num(row['$ amount raised']));
-        if (!(raised > 0 && rubyTruthy(number))) return undefined;
+        if (!(raised > 0 && number != null && number !== false)) return undefined;
 
         const project = lookup(projects, projectId);
         const meta = lookup(seasonsMeta, rows[0]['season']);
@@ -1191,7 +1156,7 @@ export class Artizen {
           drive_active: false,
           drive_number: null,
           drive_multiple: null,
-          season: rubyOr(meta?.title, `Season ${number}`),
+          season: or(meta?.title, `Season ${number}`),
           season_number: number as number,
           available: 0.0,
           unlocked: raised,
@@ -1216,7 +1181,7 @@ export class Artizen {
 
     const pageCount = Math.ceil(remaining / PAGE_SIZE);
     const cursors = Array.from({ length: pageCount }, (_, i) => (i + 1) * PAGE_SIZE);
-    const extra = await this.parallel(cursors, (cursor) => this.getResults(type, { ...params, cursor }));
+    const extra = await Promise.all(cursors.map((cursor) => this.getResults(type, { ...params, cursor })));
     return results.concat(extra.flat());
   }
 
@@ -1224,11 +1189,13 @@ export class Artizen {
     const compactIds = uniq(compact(ids));
     if (compactIds.length === 0) return [];
 
-    const pages = await this.parallel(batches(compactIds, IN_BATCH), (batch) =>
-      this.getResults(type, {
-        limit: PAGE_SIZE,
-        constraints: JSON.stringify([{ key: '_id', constraint_type: 'in', value: batch }]),
-      }),
+    const pages = await Promise.all(
+      batches(compactIds, IN_BATCH).map((batch) =>
+        this.getResults(type, {
+          limit: PAGE_SIZE,
+          constraints: JSON.stringify([{ key: '_id', constraint_type: 'in', value: batch }]),
+        }),
+      ),
     );
     return pages.flat();
   }
@@ -1276,7 +1243,7 @@ export class Artizen {
     });
     if (!response.ok) throw new Error(`Artizen API ${response.status} for ${type}`);
 
-    const body = JSON.parse(await response.text()) as { response?: BubbleResponse };
+    const body = (await response.json()) as { response?: BubbleResponse };
     const result = body.response;
     if (result == null) throw new Error(`missing response`);
     return result;
@@ -1291,34 +1258,6 @@ export class Artizen {
       limit,
       constraints: JSON.stringify([{ key, constraint_type: 'equals', value }]),
     });
-  }
-
-  private async parallel<T, R>(items: T[], fn: (item: T) => Promise<R>): Promise<R[]> {
-    if (items.length === 0) return [];
-    if (items.length === 1) return [await fn(items[0])];
-
-    const results: R[] = new Array(items.length);
-    let error: unknown;
-    let nextIndex = 0;
-
-    const worker = async () => {
-      for (;;) {
-        if (error) break;
-        const i = nextIndex++;
-        if (i >= items.length) break;
-        try {
-          results[i] = await fn(items[i]);
-        } catch (e) {
-          error ??= e;
-          break;
-        }
-      }
-    };
-
-    const n = Math.min(PARALLEL, items.length);
-    await Promise.all(Array.from({ length: n }, () => worker()));
-    if (error) throw error;
-    return results;
   }
 
   private async cacheFetch<T>(key: string, build: () => Promise<T>): Promise<T> {
@@ -1355,7 +1294,7 @@ export class Artizen {
     if (this.venusId !== undefined) return this.venusId;
 
     const rows = await this.findBy('useraccount', 'name', 'Venus');
-    this.venusId = str(rubyOr(rows[0] && rows[0]['_id'], VENUS_ACCOUNT_ID));
+    this.venusId = str(rows[0] && rows[0]['_id']);
     return this.venusId;
   }
 
@@ -1468,7 +1407,7 @@ export class Artizen {
         seasons.push({
           ...funding,
           number,
-          title: rubyOr(meta?.title, `Season ${number}`),
+          title: or(meta?.title, `Season ${number}`),
         });
       }
     }
@@ -1498,7 +1437,7 @@ export class Artizen {
     for (const row of submissionRows) {
       if (row['Status'] !== 'Curated') continue;
 
-      const number = rubyOr(row['season number'], lookup(seasonsMeta, row['season'])?.number) as number | undefined;
+      const number = or(row['season number'], lookup(seasonsMeta, row['season'])?.number) as number | undefined;
       if (![4, 5].some((n) => n == number)) continue;
 
       const bucket = (awards[number as number] ||= { match: 0.0, prize: 0.0 });
@@ -1520,7 +1459,7 @@ export class Artizen {
         const meta = Object.values(seasonsMeta).find((season) => season.number === number);
         seasons.push({
           number,
-          title: rubyOr(meta?.title, `Season ${number}`),
+          title: or(meta?.title, `Season ${number}`),
           sales: 0.0,
           venus: 0.0,
           match: extra.match,
@@ -1596,10 +1535,10 @@ export class Artizen {
   private applySeasonNames(drives: Drive[], seasonsMeta: Record<string, Season>): void {
     for (const drive of drives) {
       const meta = lookup(seasonsMeta, drive.season_id);
-      if (!rubyTruthy(drive.season_number)) {
+      if (drive.season_number == null) {
         drive.season_number = meta?.number;
       }
-      drive.season = rubyOr(meta?.title, rubyTruthy(drive.season_number) ? `Season ${drive.season_number}` : undefined);
+      drive.season = or(meta?.title, drive.season_number != null ? `Season ${drive.season_number}` : undefined);
     }
   }
 

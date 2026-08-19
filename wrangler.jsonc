@@ -3,14 +3,26 @@
   "name": "artizen",
   "main": "src/index.ts",
   "compatibility_date": "2026-08-19",
+  "workers_dev": true,
   "observability": { "enabled": true },
+  "limits": {
+    "cpu_ms": 300000,
+    "subrequests": 10000
+  },
   "triggers": {
     "crons": ["0 * * * *"]
   },
+  "routes": [
+    { "pattern": "artizen.fyi", "custom_domain": true },
+    { "pattern": "www.artizen.fyi", "custom_domain": true }
+  ],
   "kv_namespaces": [
     {
       "binding": "CACHE",
-      "id": "replace-with-kv-namespace-id"
+      "id": "a8dd813cf26448dbb3ac37d31d8d5a43"
     }
+  ],
+  "rules": [
+    { "type": "Text", "globs": ["**/*.css"] }
   ]
 }
