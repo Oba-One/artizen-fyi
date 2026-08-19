@@ -18,7 +18,6 @@ export function renderProject(project: ProjectPage): string {
         project.name,
         `<h1 class="mb-2">${escapeHtml(project.name)}</h1>
           ${project.logline ? `<p class="lead">${escapeHtml(project.logline)}</p>` : ''}
-          ${project.creator ? `<p class="mb-2">${escapeHtml(project.creator)}</p>` : ''}
           ${tags ? `<div class="mb-2">${tags}</div>` : ''}
           <p class="mb-0"><a href="${escapeHtml(project.artizen_url)}" target="_blank" rel="noopener">View on Artizen</a></p>`,
       )}

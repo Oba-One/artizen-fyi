@@ -3,7 +3,7 @@ const SITE_URL = 'https://artizen.fund';
 const PAGE_SIZE = 100;
 const IN_BATCH = 50;
 const LEADERBOARD_CACHE = 'artizen/leaderboard/v26';
-const PROJECT_CACHE = 'artizen/project/v19';
+const PROJECT_CACHE = 'artizen/project/v20';
 const FUND_CACHE = 'artizen/fund/v10';
 const LEAD_CREATOR = 'Lead Creator\t(text)';
 
@@ -751,6 +751,9 @@ export class Artizen {
     const seasonRows = await this.list('projectseason', {
       constraints: [{ key: 'project', constraint_type: 'equals', value: id }],
     });
+    const artifacts = await this.list('artifact', {
+      constraints: [{ key: 'Project', constraint_type: 'equals', value: id }],
+    });
     const slices = await this.list('projectfundboostslice', {
       constraints: [{ key: 'project', constraint_type: 'equals', value: id }],
     });
@@ -836,10 +839,6 @@ export class Artizen {
     const tags = compact((await this.fetchByIds('impacttag', tagIds)).map((t) => t['name'] as string | undefined));
 
     const driveDetails = this.projectDriveDetails(drives, stats[id]);
-    const seasonImage = [...seasonRows]
-      .sort((a, b) => toInt(or(b['season number'], 0)) - toInt(or(a['season number'], 0)))
-      .map((srow) => srow['image crop'])
-      .find((img) => !blank(img));
     const seasons = filterMap(seasonRows, (srow) => {
       const meta = lookup(seasonsMeta, srow['season ']);
       const sVenus = num(venusBySeason[idKey(srow['season '])]);
@@ -874,7 +873,7 @@ export class Artizen {
       artizen_url: this.projectUrl(slugValue),
       creator: presence(str(row[LEAD_CREATOR]).trim()),
       logline: presence(row['Logline']),
-      image: this.mediaUrl(or(row['(old) Artifact Image -crop'], or(seasonImage, row['Profile image lead creator']))),
+      image: this.projectImage(row, seasonRows, artifacts, seasonsMeta),
       video: presence(row['video presentation']),
       tags,
       seasons: this.nestProjectFunding(seasons, driveDetails, matchingFunds),
@@ -1543,6 +1542,32 @@ export class Artizen {
 
   private localFundPath(slugOrId: unknown): string {
     return `/funds/${slugOrId}`;
+  }
+
+  private projectImage(row: Row, seasonRows: Row[], artifacts: Row[], seasonsMeta: Record<string, Season>): string | undefined {
+    const current = Object.values(seasonsMeta).find((season) => season.current);
+    const artifactFile = (artifact: Row) => artifact['image - crop'] || artifact['image - compressed'] || artifact['image - original'];
+    const forSeason = (artifact: Row) =>
+      (current?.id != null && idKey(artifact['Season']) === current.id) ||
+      (current?.number != null && toInt(artifact['season number']) === current.number);
+    const currentArtifact = artifacts.find(forSeason);
+    const latestArtifact = [...artifacts].sort((a, b) => toInt(b['season number']) - toInt(a['season number']))[0];
+    const currentSeasonCrop = seasonRows.find((srow) => current?.id != null && idKey(srow['season ']) === current.id)?.['image crop'];
+    return this.firstMedia(
+      currentArtifact && artifactFile(currentArtifact),
+      currentSeasonCrop,
+      latestArtifact && artifactFile(latestArtifact),
+      row['(old) Artifact Image -crop'],
+      row['Profile image lead creator'],
+    );
+  }
+
+  private firstMedia(...paths: unknown[]): string | undefined {
+    for (const path of paths) {
+      const url = this.mediaUrl(path);
+      if (url) return url;
+    }
+    return undefined;
   }
 
   private mediaUrl(path: unknown): string | undefined {

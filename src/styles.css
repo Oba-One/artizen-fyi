@@ -348,6 +348,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-items: start;
 }
 .artizen-hero-copy h1:first-child { margin-top: 0; }
+.artizen-hero-copy .lead { margin-bottom: 0.35rem; }
 .artizen-hero {
   width: 100%;
   aspect-ratio: 1;
