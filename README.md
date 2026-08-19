@@ -1,6 +1,6 @@
 # Artizen leaderboards
 
-Public leaderboards for [artizen.fund](https://artizen.fund/), running on Cloudflare.
+Public leaderboards for [artizen.fund](https://artizen.fund/), running on Cloudflare. [artizen.fyi](https://artizen.fyi) is the only canonical deployment.
 
 By [Stephen Reid](https://stephenreid.net/).
 
@@ -15,29 +15,18 @@ Cron Triggers are a Worker feature, not a separate service. No D1, R2, Queues, D
 
 Workers **Paid** is required: the free plan’s 10 ms CPU cannot rebuild a season, and cron wall time is 15 minutes on paid.
 
-## Setup
+## Local development
+
+PRs are welcome. Run the Worker locally; don’t deploy a second copy.
 
 ```bash
 npm install
-npx wrangler login
-npx wrangler deploy
-```
-
-This repo already has a KV namespace id in `wrangler.jsonc`. Only create a new one if you’re forking onto another Cloudflare account:
-
-```bash
-npx wrangler kv namespace create CACHE
-```
-
-Paste the printed id into `wrangler.jsonc` → `kv_namespaces[0].id`.
-
-Optional: set `REFRESH_SECRET` in the Worker dashboard (or `npx wrangler secret put REFRESH_SECRET`) and POST to `/refresh` with `Authorization: Bearer …` to rebuild without waiting for the hour.
-
-```bash
 npm run dev          # local Worker + local KV
 ```
 
 The first `/projects` hit with an empty cache crawls Bubble and can take ~40s. After that, pages read KV. Hourly cron refreshes every season and drops project/fund pages so they rebuild on next visit.
+
+`REFRESH_SECRET` is set in the Worker dashboard for production. POST to `/refresh` with `Authorization: Bearer …` to rebuild without waiting for the hour.
 
 ## Routes
 
