@@ -1,6 +1,8 @@
 import type { ProjectRow } from './artizen';
 
 export type Funded = ProjectRow & {
+  sv: number;
+  svm: number;
   vmp: number;
   multiple_v?: number;
   multiple_ex?: number;
@@ -59,6 +61,8 @@ export function funding(row: ProjectRow): Funded {
   const venus = Number(row.venus) || 0;
   const match = Number(row.match) || 0;
   const prize = Number(row.prize) || 0;
+  const sv = sales + venus;
+  const svm = sv + match;
   const vmp = venus + match + prize;
   return {
     ...row,
@@ -66,6 +70,8 @@ export function funding(row: ProjectRow): Funded {
     venus,
     match,
     prize,
+    sv,
+    svm,
     vmp,
     multiple_v: sales > 0 ? venus / sales : undefined,
     multiple_ex: sales > 0 ? (venus + match) / sales : undefined,
@@ -89,7 +95,9 @@ export type MoneyCol = {
 export const MONEY_COLS: readonly MoneyCol[] = [
   { field: 'sales', label: 'Sales', as: 'usd' },
   { field: 'venus', label: 'Venus', as: 'usd' },
+  { field: 'sv', label: 'S+V', as: 'usd' },
   { field: 'match', label: 'Match', as: 'usd' },
+  { field: 'svm', label: 'S+V+M', as: 'usd' },
   { field: 'prize', label: 'Prize', as: 'usd' },
   { field: 'vmp', label: 'V+M+P', as: 'usd' },
   { field: 'multiple_v', label: 'V/S', as: 'x' },

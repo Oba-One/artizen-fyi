@@ -27,7 +27,7 @@ export function renderProjects(data: Leaderboard, seasonParam: string | null): s
       })
       .join('');
     table = panel(`
-      ${note('Project raised = sales + Venus + match + prize. Sales excludes Venus artifact buys. V+M+P = Venus + match + prize. The % under each figure is that project’s rank in the column — 1% is the top 1%. Color follows that percentile on a log scale: full green at 1%, fading to white at 100%. <span class="text-body">Tables scroll horizontally on small screens.</span>')}
+      ${note('Project raised = sales + Venus + match + prize. Sales excludes Venus artifact buys. S+V = sales + Venus. S+V+M = sales + Venus + match. V+M+P = Venus + match + prize. The % under each figure is that project’s rank in the column — 1% is the top 1%. Color follows that percentile on a log scale: full green at 1%, fading to white at 100%. <span class="text-body">Tables scroll horizontally on small screens.</span>')}
       ${dtPlaceholder()}
       <table id="artizen-projects-table" class="table table-sm">
         <thead><tr><th>Project</th>${moneyHeaders('text-end artizen-heat')}</tr></thead>
