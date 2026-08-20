@@ -27,33 +27,26 @@ export class Artizen {
     return this.cached(keys.leaderboard(seasonNumber ?? 'current'), () => buildLeaderboard(this.bubble, seasonNumber), 'require', fallback);
   }
 
-  async project(slug: string): Promise<ProjectPage | null> {
-    return this.cached(keys.project(slug), () => buildProject(this.bubble, slug), 'miss', null);
-  }
-
-  async fund(slug: string): Promise<FundPage | null> {
-    return this.cached(keys.fund(slug), () => buildFund(this.bubble, slug), 'miss', null);
-  }
-
-  async peekProject(slug: string): Promise<ProjectPage | null> {
-    const hit = await this.get<ProjectPage>(keys.project(slug));
+  async peek(kind: 'project' | 'fund', slug: string): Promise<ProjectPage | FundPage | null> {
+    const hit = await this.get<ProjectPage | FundPage>(keys[kind](slug));
     return hit?.name ? hit : null;
   }
 
-  async peekFund(slug: string): Promise<FundPage | null> {
-    const hit = await this.get<FundPage>(keys.fund(slug));
-    return hit?.name ? hit : null;
+  async load(kind: 'project' | 'fund', slug: string): Promise<ProjectPage | FundPage | null> {
+    return kind === 'fund'
+      ? this.cached(keys.fund(slug), () => buildFund(this.bubble, slug), 'miss', null)
+      : this.cached(keys.project(slug), () => buildProject(this.bubble, slug), 'miss', null);
   }
 
   async listedPreview(kind: 'project' | 'fund', slug: string): Promise<DetailPreview | undefined> {
-    const path = kind === 'fund' ? `/funds/${slug}` : `/projects/${slug}`;
+    const path = `/${kind === 'fund' ? 'funds' : 'projects'}/${slug}`;
     const current = await this.get<Leaderboard>(keys.leaderboard('current'));
-    if (kind === 'project') {
-      const row = current?.projects?.find((item) => item.url === path);
-      if (row?.name) return { name: row.name, lead: row.logline };
-    } else {
+    if (kind === 'fund') {
       const row = current?.funds?.find((item) => item.url === path);
       if (row?.name) return { name: row.name, lead: row.subtitle };
+    } else {
+      const row = current?.projects?.find((item) => item.url === path);
+      if (row?.name) return { name: row.name, lead: row.logline };
     }
   }
 

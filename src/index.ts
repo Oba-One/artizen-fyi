@@ -1,4 +1,4 @@
-import { Artizen } from './artizen';
+import { Artizen, type FundPage, type ProjectPage } from './artizen';
 import faviconIco from './favicon.ico';
 import faviconSvg from './favicon.svg';
 import appleTouchIcon from './apple-touch-icon.png';
@@ -30,6 +30,21 @@ function html(body: string, status = 200): Response {
 
 function detail<T>(data: T | null, render: (data: T) => string): Response {
   return data ? html(render(data)) : html(renderNotFound(), 404);
+}
+
+type DetailKind = 'project' | 'fund';
+
+function renderDetail(kind: DetailKind, data: ProjectPage | FundPage): string {
+  return kind === 'fund' ? renderFund(data as FundPage) : renderProject(data as ProjectPage);
+}
+
+async function detailPage(artizen: Artizen, kind: DetailKind, slug: string, request: Request, url: URL): Promise<Response> {
+  const cached = await artizen.peek(kind, slug);
+  if (cached) return html(renderDetail(kind, cached));
+  if (url.searchParams.has('content') || request.headers.get('sec-fetch-mode') !== 'navigate') {
+    return detail(await artizen.load(kind, slug), (data) => renderDetail(kind, data));
+  }
+  return html(renderDetailPlaceholder(kind, slug, await artizen.listedPreview(kind, slug)));
 }
 
 export default {
@@ -85,26 +100,10 @@ export default {
       return html(render(await artizen.leaderboard(season), season));
     }
 
-    const project = path.match(/^\/projects\/([^/]+)$/);
-    if (request.method === 'GET' && project) {
-      const slug = decodeURIComponent(project[1]);
-      const cached = await artizen.peekProject(slug);
-      if (cached) return html(renderProject(cached));
-      if (url.searchParams.has('content') || request.headers.get('sec-fetch-mode') !== 'navigate') {
-        return detail(await artizen.project(slug), renderProject);
-      }
-      return html(renderDetailPlaceholder('project', slug, await artizen.listedPreview('project', slug)));
-    }
-
-    const fund = path.match(/^\/funds\/([^/]+)$/);
-    if (request.method === 'GET' && fund) {
-      const slug = decodeURIComponent(fund[1]);
-      const cached = await artizen.peekFund(slug);
-      if (cached) return html(renderFund(cached));
-      if (url.searchParams.has('content') || request.headers.get('sec-fetch-mode') !== 'navigate') {
-        return detail(await artizen.fund(slug), renderFund);
-      }
-      return html(renderDetailPlaceholder('fund', slug, await artizen.listedPreview('fund', slug)));
+    const page = path.match(/^\/(projects|funds)\/([^/]+)$/);
+    if (request.method === 'GET' && page) {
+      const kind: DetailKind = page[1] === 'funds' ? 'fund' : 'project';
+      return detailPage(artizen, kind, decodeURIComponent(page[2]), request, url);
     }
 
     return html(renderNotFound(), 404);
