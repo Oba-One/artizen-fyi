@@ -88,19 +88,23 @@ export default {
     const project = path.match(/^\/projects\/([^/]+)$/);
     if (request.method === 'GET' && project) {
       const slug = decodeURIComponent(project[1]);
+      const cached = await artizen.peekProject(slug);
+      if (cached) return html(renderProject(cached));
       if (url.searchParams.has('content') || request.headers.get('sec-fetch-mode') !== 'navigate') {
         return detail(await artizen.project(slug), renderProject);
       }
-      return html(renderDetailPlaceholder('project', await artizen.listedName('project', slug)));
+      return html(renderDetailPlaceholder('project', slug, await artizen.listedPreview('project', slug)));
     }
 
     const fund = path.match(/^\/funds\/([^/]+)$/);
     if (request.method === 'GET' && fund) {
       const slug = decodeURIComponent(fund[1]);
+      const cached = await artizen.peekFund(slug);
+      if (cached) return html(renderFund(cached));
       if (url.searchParams.has('content') || request.headers.get('sec-fetch-mode') !== 'navigate') {
         return detail(await artizen.fund(slug), renderFund);
       }
-      return html(renderDetailPlaceholder('fund', await artizen.listedName('fund', slug)));
+      return html(renderDetailPlaceholder('fund', slug, await artizen.listedPreview('fund', slug)));
     }
 
     return html(renderNotFound(), 404);

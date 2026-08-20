@@ -1,4 +1,4 @@
-import type { Leaderboard } from '../artizen';
+import type { DetailPreview, Leaderboard } from '../artizen';
 import { usd } from '../format';
 import styles from '../styles.css';
 
@@ -59,7 +59,15 @@ const DETAIL_POLL_SCRIPT = `
     document.title = doc.title;
     var from = doc.querySelector('.artizen-shell');
     var to = document.querySelector('.artizen-shell');
-    if (from && to) to.innerHTML = from.innerHTML;
+    if (from && to) {
+      to.innerHTML = from.innerHTML;
+      to.querySelectorAll('img.artizen-hero-late').forEach(function(img) {
+        if (img.complete && img.naturalWidth) {
+          img.style.transition = 'none';
+          img.classList.add('is-loaded');
+        }
+      });
+    }
   }).catch(function() { location.replace(url.href); });
 })();
 </script>
@@ -212,15 +220,29 @@ export function panel(inner: string, opts?: { flush?: boolean; className?: strin
   return `<div class="${cls}">${inner}</div>`;
 }
 
-export function renderDetailPlaceholder(kind: 'project' | 'fund', name?: string): string {
+export function renderDetailPlaceholder(kind: 'project' | 'fund', slug: string, preview?: DetailPreview): string {
+  const name = preview?.name;
   const title = name || (kind === 'fund' ? 'Fund' : 'Project');
   const heading = name
     ? `<h1>${escapeHtml(name)}</h1>`
     : '<span class="artizen-ph artizen-ph-title" aria-hidden="true"></span>';
+  const lead = preview?.lead
+    ? `<p class="lead">${escapeHtml(preview.lead)}</p>`
+    : `<span class="artizen-ph artizen-ph-lead" aria-hidden="true"></span>
+        <span class="artizen-ph artizen-ph-lead artizen-ph-lead-short" aria-hidden="true"></span>`;
+  const tags =
+    kind === 'project'
+      ? `<div class="mb-2" aria-hidden="true"><span class="artizen-ph artizen-ph-tag"></span><span class="artizen-ph artizen-ph-tag artizen-ph-tag-mid"></span><span class="artizen-ph artizen-ph-tag artizen-ph-tag-short"></span></div>`
+      : '';
+  const artizenUrl =
+    kind === 'fund'
+      ? `https://artizen.fund/index/mf/${encodeURIComponent(slug)}`
+      : `https://artizen.fund/index/p/${encodeURIComponent(slug)}`;
   const rows = `<div class="artizen-ph-stack" aria-hidden="true">${'<span class="artizen-ph artizen-ph-row"></span>'.repeat(6)}</div>`;
   const submissions = kind === 'project' ? panel(`<h2 class="artizen-panel-title">Submissions</h2>${rows}`) : '';
   return layout({
     title,
+    description: preview?.lead || undefined,
     tree: true,
     extra: DETAIL_POLL_SCRIPT,
     body: `<div aria-busy="true">
@@ -228,9 +250,9 @@ export function renderDetailPlaceholder(kind: 'project' | 'fund', name?: string)
         `<div class="artizen-hero artizen-ph" aria-hidden="true"></div>
         <div class="artizen-hero-copy">
           ${heading}
-          <span class="artizen-ph artizen-ph-lead" aria-hidden="true"></span>
-          <span class="artizen-ph artizen-ph-lead artizen-ph-lead-short" aria-hidden="true"></span>
-          <span class="artizen-ph artizen-ph-link" aria-hidden="true"></span>
+          ${lead}
+          ${tags}
+          <p class="mb-0"><a href="${escapeHtml(artizenUrl)}" target="_blank" rel="noopener">View on Artizen</a></p>
         </div>`,
         { className: 'artizen-hero-card' },
       )}
@@ -246,10 +268,18 @@ export function note(text: string): string {
   return `<p class="artizen-note">${text}</p>`;
 }
 
+function heroPicture(image: string, alt: string): string {
+  return `<div class="artizen-hero-frame">
+    <div class="artizen-hero artizen-ph" aria-hidden="true"></div>
+    <img class="artizen-hero artizen-hero-late" alt="${escapeHtml(alt)}" onload="this.classList.add('is-loaded')" src="${escapeHtml(image)}">
+    <script>(function(img){if(img.complete&&img.naturalWidth){img.style.transition='none';img.classList.add('is-loaded');}})(document.currentScript.previousElementSibling);</script>
+  </div>`;
+}
+
 export function heroSplit(image: string | null | undefined, alt: string, copy: string): string {
   if (!image) return panel(copy);
   return panel(
-    `<img class="artizen-hero" src="${escapeHtml(image)}" alt="${escapeHtml(alt)}">
+    `${heroPicture(image, alt)}
     <div class="artizen-hero-copy">${copy}</div>`,
     { className: 'artizen-hero-card' },
   );

@@ -111,6 +111,11 @@ export type FundRow = {
   raised?: number;
 };
 
+export type DetailPreview = {
+  name: string;
+  lead?: string;
+};
+
 export type Leaderboard = {
   seasons: Season[];
   season: Season | null;
@@ -432,10 +437,17 @@ export class Artizen {
     return this.withArtizenErrors(null, () => this.cacheFetch(`${FUND_CACHE}/${slug}`, () => this.buildFund(slug)));
   }
 
-  async listedName(kind: 'project' | 'fund', slug: string): Promise<string | undefined> {
-    const cached = await this.cacheRead<{ name?: string }>(`${kind === 'fund' ? FUND_CACHE : PROJECT_CACHE}/${slug}`);
-    if (cached?.name) return cached.name;
+  async peekProject(slug: string): Promise<ProjectPage | null> {
+    const cached = await this.cacheRead<ProjectPage>(`${PROJECT_CACHE}/${slug}`);
+    return cached?.name ? cached : null;
+  }
 
+  async peekFund(slug: string): Promise<FundPage | null> {
+    const cached = await this.cacheRead<FundPage>(`${FUND_CACHE}/${slug}`);
+    return cached?.name ? cached : null;
+  }
+
+  async listedPreview(kind: 'project' | 'fund', slug: string): Promise<DetailPreview | undefined> {
     const path = kind === 'fund' ? `/funds/${slug}` : `/projects/${slug}`;
     const current = await this.cacheRead<Leaderboard>(`${LEADERBOARD_CACHE}/current`);
     const boards = await Promise.all(
@@ -444,9 +456,13 @@ export class Artizen {
       ),
     );
     for (const board of [current, ...boards]) {
-      const rows = kind === 'project' ? board?.projects : board?.funds;
-      const row = rows?.find((item) => item.url === path);
-      if (row?.name) return row.name;
+      if (kind === 'project') {
+        const row = board?.projects?.find((item) => item.url === path);
+        if (row?.name) return { name: row.name, lead: row.logline };
+      } else {
+        const row = board?.funds?.find((item) => item.url === path);
+        if (row?.name) return { name: row.name, lead: row.subtitle };
+      }
     }
   }
 
@@ -1809,7 +1825,12 @@ export class Artizen {
 
   private mediaUrl(path: unknown): string | undefined {
     if (blank(path)) return undefined;
-    const s = str(path);
+    if (typeof path === 'object' && !Array.isArray(path)) {
+      const rec = path as Record<string, unknown>;
+      return this.mediaUrl(rec.url ?? rec.src);
+    }
+    const s = str(path).trim();
+    if (!s || s === '[object Object]') return undefined;
     return s.startsWith('//') ? `https:${s}` : s;
   }
 }

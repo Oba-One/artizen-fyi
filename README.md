@@ -1,8 +1,8 @@
-# Artizen leaderboards
+# artizen.fyi
 
-Public leaderboards for [artizen.fund](https://artizen.fund/), running on Cloudflare. [artizen.fyi](https://artizen.fyi) is the only canonical deployment.
+Created by [Stephen Reid](https://stephenreid.net/)
 
-By [Stephen Reid](https://stephenreid.net/).
+Public leaderboards for [artizen.fund](https://artizen.fund/), running on Cloudflare. [artizen.fyi](https://artizen.fyi) is the canonical deployment.
 
 ## Infra
 
