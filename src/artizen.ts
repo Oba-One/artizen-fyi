@@ -3,7 +3,7 @@ const SITE_URL = 'https://artizen.fund';
 const PAGE_SIZE = 100;
 const IN_BATCH = 50;
 const LEADERBOARD_CACHE = 'artizen/leaderboard/v27';
-const PROJECT_CACHE = 'artizen/project/v23';
+const PROJECT_CACHE = 'artizen/project/v24';
 const FUND_CACHE = 'artizen/fund/v10';
 const BOOSTS_CACHE = 'artizen/boosts/v2';
 const TOP_BOOST_HOLDERS = 100;
@@ -33,7 +33,6 @@ type DriveStat = {
   venus: number;
   match: number;
   prize?: number;
-  prize_projected?: boolean;
   raised: number;
   available?: number;
 };
@@ -712,18 +711,6 @@ export class Artizen {
     }).slice(0, 3);
   }
 
-  private projectedPlacePrize(drive: Drive | undefined, kind: 'project' | 'fund', url: string): number {
-    if (!drive?.active) return 0;
-    const podium = kind === 'fund' ? drive.fund_podium : drive.podium;
-    const place = (podium || []).findIndex((row) => row.url === url);
-    if (place < 0) return 0;
-    const pots =
-      kind === 'fund'
-        ? [drive.fund_first, drive.fund_second, drive.fund_third]
-        : [drive.project_first, drive.project_second, drive.project_third];
-    return num(pots[place]);
-  }
-
   private normalizeDrive(row: Row): Drive {
     const slug = row['slugg'];
     return {
@@ -930,8 +917,6 @@ export class Artizen {
     const boostIds = compactUniq([...slices, ...participants].map((r) => r['boost']));
     const drives = await this.fetchNormalizedDrives(boostIds, seasonsMeta);
     sortByDesc(drives, (d) => d.season_number || 0, (d) => d.number || 0);
-    const live = drives.filter((d) => d.active);
-    if (live.length) await this.attachDrivePodiums(live);
 
     const venusTxs = await this.venusTransactions({ projectId: id });
     const venusBySeason: Record<string, number> = {};
@@ -950,22 +935,21 @@ export class Artizen {
       if (blank(part['boost'])) continue;
 
       const venus = num(venusByBoost[idKey(part['boost'])]);
-      const drive = drives.find((d) => d.id == part['boost']);
-      const earned = num(part['prize earned usd']);
-      const projected = this.projectedPlacePrize(drive, 'project', this.localProjectPath(slugValue));
-      const prize = Math.max(earned, projected);
+      const prize = num(part['prize earned usd']);
       stats[id][idKey(part['boost'])] = {
         sales: num(part['fund drive sales (both)']),
         venus,
         match: num(part['match boost unlocked (both)']),
         prize,
-        prize_projected: projected > earned,
         raised: num(part['sales + match (both)']) + prize,
       };
       let seasonId = part['season'];
-      if (blank(seasonId)) seasonId = drive && drive.season_id;
-      if (seasonId != null && seasonId !== false && earned > 0) {
-        bump(prizeBySeason, idKey(seasonId), earned);
+      if (blank(seasonId)) {
+        const drive = drives.find((d) => d.id == part['boost']);
+        seasonId = drive && drive.season_id;
+      }
+      if (seasonId != null && seasonId !== false && prize > 0) {
+        bump(prizeBySeason, idKey(seasonId), prize);
       }
     }
     for (const [boostId, rows] of groupBy(slices, (s) => s['boost'])) {
