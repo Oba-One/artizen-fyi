@@ -132,7 +132,7 @@ function driveCard(drive: Drive): string {
         <h2 class="artizen-panel-title">${title}</h2>
         <div class="artizen-podium-scroll">
           <table class="table table-sm mb-0 artizen-podium">
-            <thead><tr><th></th><th class="text-end">Prize</th><th class="text-end">Sales+match</th><th class="text-end">Points</th><th class="text-end">Score</th></tr></thead>
+            <thead><tr><th></th><th class="text-end">Prize</th><th class="text-end">Raised</th><th class="text-end">Boosts</th><th class="text-end">Score</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>

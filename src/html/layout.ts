@@ -157,7 +157,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
 </header>
 <div class="offcanvas offcanvas-start" tabindex="-1" id="artizen-nav-offcanvas" aria-labelledby="artizen-nav-offcanvas-label">
   <div class="offcanvas-header">
-    <h2 class="offcanvas-title" id="artizen-nav-offcanvas-label">Menu</h2>
+    <a class="artizen-wordmark" href="${boardsHref}" id="artizen-nav-offcanvas-label" aria-label="artizen.fyi"><i class="bi bi-graph-up-arrow" aria-hidden="true"></i><span>artizen.fyi</span></a>
     <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Close"></button>
   </div>
   <div class="offcanvas-body">

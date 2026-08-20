@@ -178,12 +178,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   --bs-offcanvas-color: var(--ink);
   --bs-offcanvas-border-color: var(--line);
 }
-.offcanvas-title {
-  font-family: var(--bs-heading-font-family);
-  font-weight: 400;
-  font-size: 1.45rem;
-  letter-spacing: -0.02em;
-}
+.offcanvas-header .artizen-wordmark { font-size: 1.45rem; }
 .artizen-offcanvas-nav a {
   display: block;
   padding: 0.7rem 0.85rem;
