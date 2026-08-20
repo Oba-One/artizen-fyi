@@ -3,7 +3,7 @@ const SITE_URL = 'https://artizen.fund';
 const PAGE_SIZE = 100;
 const IN_BATCH = 50;
 const LEADERBOARD_CACHE = 'artizen/leaderboard/v27';
-const PROJECT_CACHE = 'artizen/project/v24';
+const PROJECT_CACHE = 'artizen/project/v26';
 const FUND_CACHE = 'artizen/fund/v10';
 const BOOSTS_CACHE = 'artizen/boosts/v2';
 const TOP_BOOST_HOLDERS = 100;
@@ -935,13 +935,15 @@ export class Artizen {
       if (blank(part['boost'])) continue;
 
       const venus = num(venusByBoost[idKey(part['boost'])]);
+      const sales = this.communitySales(part['fund drive sales (both)'], venus);
+      const match = num(part['match boost unlocked (both)']);
       const prize = num(part['prize earned usd']);
       stats[id][idKey(part['boost'])] = {
-        sales: num(part['fund drive sales (both)']),
+        sales,
         venus,
-        match: num(part['match boost unlocked (both)']),
+        match,
         prize,
-        raised: num(part['sales + match (both)']) + prize,
+        raised: sales + venus + match + prize,
       };
       let seasonId = part['season'];
       if (blank(seasonId)) {
