@@ -5,7 +5,6 @@ import {
   LEAD_CREATOR,
   bump,
   byId,
-  communitySales,
   hidden,
   localFundPath,
   localProjectPath,
@@ -13,6 +12,7 @@ import {
   maybeNum,
   mediaUrl,
   num,
+  seasonFunding,
   sortByDesc,
   sum,
   text,
@@ -158,20 +158,13 @@ async function projectRows(client: Bubble, season: Season): Promise<ProjectRow[]
       if (!name) return undefined;
 
       const slug = text(project['Slug']) ?? row['project'];
-      const split = byId(venusByProject, row['project']) || { venus: 0, sprint: 0 };
-      const ledgerPrize = num(row['funding prize funds usd']);
-      const prize = Math.max(ledgerPrize, num(byId(prizes, row['project'])));
+      const funding = seasonFunding(row, byId(venusByProject, row['project']), byId(prizes, row['project']));
       return {
         name,
         url: localProjectPath(slug),
         creator: text(project[LEAD_CREATOR] || row['lead creator']),
         logline: text(project['Logline']),
-        sales: communitySales(row['funding total sales'], split.venus + split.sprint),
-        venus: split.venus,
-        match: num(row['funding match']) + num(row['funding boost ']),
-        prize,
-        sprint: split.sprint,
-        raised: num(row['funding total']) + prize - ledgerPrize,
+        ...funding,
       };
     }),
     (project) => project.raised,

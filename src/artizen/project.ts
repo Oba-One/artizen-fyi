@@ -26,6 +26,7 @@ import {
   localFundPath,
   mapSome,
   num,
+  seasonFunding,
   projectUrl,
   sortByDesc,
   sum,
@@ -150,17 +151,12 @@ export async function buildProject(client: Bubble, slug: string): Promise<Projec
   const seasons = mapSome(seasonRows, (srow) => {
     const meta = byId(seasonsMeta, srow['season ']);
     const seasonKey = String(srow['season '] ?? '');
-    const sVenus = num(venusBySeason[seasonKey]);
-    const sSprint = num(sprintBySeason[seasonKey]);
-    const sSales = communitySales(srow['funding total sales'], sVenus + sSprint);
-    const sMatch = num(srow['funding match']) + num(srow['funding boost ']);
-    const sPrize = Math.max(
-      num(srow['funding prize funds usd']),
-      num(prizeBySeason[seasonKey]),
-      num(srow['old funding prize leaderboard  (usd)']),
+    const funding = seasonFunding(
+      srow,
+      { venus: venusBySeason[seasonKey], sprint: sprintBySeason[seasonKey] },
+      prizeBySeason[seasonKey],
     );
-    const sRaised = sSales + sVenus + sSprint + sMatch + sPrize;
-    if (!(sRaised > 0)) return undefined;
+    if (!(funding.raised > 0)) return undefined;
 
     const number =
       srow['season number'] != null && srow['season number'] !== false
@@ -169,12 +165,7 @@ export async function buildProject(client: Bubble, slug: string): Promise<Projec
     return {
       number,
       title: meta?.title ?? `Season ${srow['season number']}`,
-      sales: sSales,
-      venus: sVenus,
-      match: sMatch,
-      prize: sPrize,
-      sprint: sSprint,
-      raised: sRaised,
+      ...funding,
     } satisfies ProjectFundingSeason;
   });
   const submissionRows = await client.list('projectsubmission', {

@@ -113,6 +113,26 @@ export function communitySales(gross: unknown, venus: unknown): number {
   return sales > 0 ? sales : 0.0;
 }
 
+export function seasonFunding(row: Row, split: { venus?: number; sprint?: number } = {}, extraPrize?: number) {
+  const venus = num(split.venus);
+  const sprint = num(split.sprint);
+  const sales = communitySales(row['funding total sales'], venus + sprint);
+  const match = num(row['funding match']) + num(row['funding boost ']);
+  const prize = Math.max(
+    num(row['funding prize funds usd']),
+    num(extraPrize),
+    num(row['old funding prize leaderboard  (usd)']),
+  );
+  return {
+    sales,
+    venus,
+    sprint,
+    match,
+    prize,
+    raised: sales + venus + sprint + match + prize,
+  };
+}
+
 export function driveContext(drive?: Drive) {
   return {
     drive: drive && drive.name,
