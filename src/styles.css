@@ -464,7 +464,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   max-height: none;
   object-fit: cover;
   border-radius: 0.75rem;
-  background: #ECEDEF;
+  background: var(--paper);
   display: block;
 }
 .artizen-hero-frame {
@@ -473,7 +473,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   aspect-ratio: 1;
   border-radius: 0.75rem;
   overflow: hidden;
-  background: #ECEDEF;
+  background: var(--paper);
 }
 .artizen-hero-frame .artizen-hero {
   position: absolute;

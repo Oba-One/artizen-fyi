@@ -1,6 +1,6 @@
 import type { FundPage } from '../artizen';
 import { delimited, usd } from '../format';
-import { driveBadges, escapeHtml, heroSplit, layout, namedLink, note, panel, sumField, treeRow } from './layout';
+import { driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow } from './layout';
 
 export function renderFund(fund: FundPage): string {
   const prize = fund.prize_usd
@@ -108,7 +108,6 @@ function fundFundingTable(fund: FundPage): string {
     .join('');
   return panel(`
     <h2 class="artizen-panel-title">Funding</h2>
-    ${note('Unlocked = match paid to projects plus awards on curated submissions (Artizen’s distributed). Raised = unlocked + available.')}
     <div class="table-responsive">
       <table class="table table-sm artizen-funding-tree">
         <thead><tr>
