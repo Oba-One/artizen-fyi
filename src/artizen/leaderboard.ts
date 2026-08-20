@@ -1,4 +1,4 @@
-import type { ArtizenClient } from './client';
+import type { Artizen } from './client';
 import { legacySeasonProjectRows } from './legacy';
 import type { BoostHolder, BoostsPage, Drive, FundRow, Leaderboard, PodiumRow, ProjectRow, Row, Season } from './types';
 import {
@@ -31,7 +31,7 @@ const BOOST_BUCKETS: Array<{ label: string; min: number; max: number }> = [
 ];
 
 export async function buildLeaderboard(
-  client: ArtizenClient,
+  client: Artizen,
   seasonNumber?: string | number | null,
 ): Promise<Leaderboard> {
   const seasons = await client.fetchSeasons();
@@ -48,7 +48,7 @@ export async function buildLeaderboard(
   };
 }
 
-export async function buildBoosts(client: ArtizenClient): Promise<BoostsPage> {
+export async function buildBoosts(client: Artizen): Promise<BoostsPage> {
   type Candidate = { name: string; image?: string; points: number; admin: boolean };
   const points: number[] = [];
   const candidates: Candidate[] = [];
@@ -128,7 +128,7 @@ function median(values: number[]): number {
   return sorted[Math.floor(sorted.length / 2)];
 }
 
-async function projectRows(client: ArtizenClient, season: Season): Promise<ProjectRow[]> {
+async function projectRows(client: Artizen, season: Season): Promise<ProjectRow[]> {
   const seasonId = season.id;
   const rows = (
     await client.list('projectseason', {
@@ -178,7 +178,7 @@ async function projectRows(client: ArtizenClient, season: Season): Promise<Proje
   );
 }
 
-async function fetchDrives(client: ArtizenClient, seasonId: string): Promise<Drive[]> {
+async function fetchDrives(client: Artizen, seasonId: string): Promise<Drive[]> {
   const drives = sortByDesc(
     (
       await client.list('boost', {
@@ -194,7 +194,7 @@ async function fetchDrives(client: ArtizenClient, seasonId: string): Promise<Dri
   return drives;
 }
 
-async function attachDrivePodiums(client: ArtizenClient, drives: Drive[]): Promise<void> {
+async function attachDrivePodiums(client: Artizen, drives: Drive[]): Promise<void> {
   if (drives.length === 0) return;
 
   const pages = await Promise.all(
@@ -217,7 +217,7 @@ async function attachDrivePodiums(client: ArtizenClient, drives: Drive[]): Promi
   });
 }
 
-function topBoostParticipants(client: ArtizenClient, boostId: string, kind: 'project' | 'fund'): Promise<Row[]> {
+function topBoostParticipants(client: Artizen, boostId: string, kind: 'project' | 'fund'): Promise<Row[]> {
   return client.getResults('boostparticipant', {
     limit: 3,
     cursor: 0,
@@ -253,7 +253,7 @@ function podiumRows(rows: Row[], kind: 'project' | 'fund', records: Record<strin
   }).slice(0, 3);
 }
 
-async function fundRows(client: ArtizenClient, seasonId: string, { current = false } = {}): Promise<FundRow[]> {
+async function fundRows(client: Artizen, seasonId: string, { current = false } = {}): Promise<FundRow[]> {
   const contribs = await client.list('fundcontribution', {
     constraints: [
       { key: 'Season', constraint_type: 'equals', value: seasonId },
@@ -307,7 +307,7 @@ async function fundRows(client: ArtizenClient, seasonId: string, { current = fal
   });
 }
 
-async function fundUnlocked(client: ArtizenClient, fundIds: unknown[]): Promise<Record<string, number>> {
+async function fundUnlocked(client: Artizen, fundIds: unknown[]): Promise<Record<string, number>> {
   const unlocked: Record<string, number> = {};
   const slices = await client.listWhereIn('projectfundboostslice', 'fund', fundIds, [
     { key: 'match unlocked', constraint_type: 'greater than', value: 0 },
@@ -322,7 +322,7 @@ async function fundUnlocked(client: ArtizenClient, fundIds: unknown[]): Promise<
 }
 
 async function venusBuysByProject(
-  client: ArtizenClient,
+  client: Artizen,
   seasonId: string,
 ): Promise<Record<string, { venus: number; sprint: number }>> {
   const sums: Record<string, { venus: number; sprint: number }> = {};
@@ -339,7 +339,7 @@ async function venusBuysByProject(
   return sums;
 }
 
-async function drivePrizesByProject(client: ArtizenClient, seasonId: string): Promise<Record<string, number>> {
+async function drivePrizesByProject(client: Artizen, seasonId: string): Promise<Record<string, number>> {
   const sums: Record<string, number> = {};
   const parts = await client.list('boostparticipant', {
     constraints: [

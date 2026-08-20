@@ -1,4 +1,4 @@
-import type { ArtizenClient } from './client';
+import type { Artizen } from './client';
 import type { Constraint, ProjectFundingSeason, ProjectRow, Row, Season } from './types';
 import { LEAD_CREATOR, byId, hidden, localProjectPath, mapSome, num, sortByDesc, text } from './util';
 
@@ -101,7 +101,7 @@ export function applyLegacySubmissionAwards(
 }
 
 async function curatedAwardsByProject(
-  client: ArtizenClient,
+  client: Artizen,
   seasonId: string,
 ): Promise<Record<string, { match: number; prize: number }>> {
   const awards: Record<string, { match: number; prize: number }> = {};
@@ -123,7 +123,7 @@ async function curatedAwardsByProject(
   return awards;
 }
 
-export async function legacySeasonProjectRows(client: ArtizenClient, season: Season): Promise<ProjectRow[]> {
+export async function legacySeasonProjectRows(client: Artizen, season: Season): Promise<ProjectRow[]> {
   const number = season.number;
   let constraints: Constraint[];
   switch (number) {
