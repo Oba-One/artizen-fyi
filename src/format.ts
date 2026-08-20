@@ -85,7 +85,8 @@ export function funding(row: ProjectRow): Funded {
 }
 
 export function multipleLabel(multiple?: number): string {
-  return multiple == null ? '' : `${multiple.toFixed(1)}x`;
+  if (multiple == null || multiple === 0) return '';
+  return `${multiple.toFixed(1)}x`;
 }
 
 export type MoneyFormat = 'usd' | 'x';
@@ -153,7 +154,7 @@ export function prizeLabel(value?: number | null, projected = false): string {
 
 function moneyLabel(row: Funded, col: MoneyCol): string {
   if (col.as === 'x') return multipleLabel(row[col.field] as number | undefined);
-  return usd(row[col.field] as number, col.field === 'prize' || col.field === 'sprint');
+  return usd(row[col.field] as number, true);
 }
 
 export function moneyHeaders(className = 'text-end'): string {
@@ -209,7 +210,7 @@ export function heatTd(
 ): string {
   const value = Number(row[field]) || 0;
   const pct = rankPct(ranks[index], total);
-  const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value, field === 'prize' || field === 'sprint');
+  const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value, true);
   const note = label && pct != null ? `<br><small class="artizen-rank">${pct}%</small>` : '';
   const heat = label ? rankStyle(pct) : 'background-color: #fff';
   return `<td class="text-end artizen-heat" data-order="${value}" style="${heat}">${label}${note}</td>`;
