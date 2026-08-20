@@ -432,6 +432,24 @@ export class Artizen {
     return this.withArtizenErrors(null, () => this.cacheFetch(`${FUND_CACHE}/${slug}`, () => this.buildFund(slug)));
   }
 
+  async listedName(kind: 'project' | 'fund', slug: string): Promise<string | undefined> {
+    const cached = await this.cacheRead<{ name?: string }>(`${kind === 'fund' ? FUND_CACHE : PROJECT_CACHE}/${slug}`);
+    if (cached?.name) return cached.name;
+
+    const path = kind === 'fund' ? `/funds/${slug}` : `/projects/${slug}`;
+    const current = await this.cacheRead<Leaderboard>(`${LEADERBOARD_CACHE}/current`);
+    const boards = await Promise.all(
+      (current?.seasons || []).map((season) =>
+        season.current ? current : this.cacheRead<Leaderboard>(`${LEADERBOARD_CACHE}/${season.number}`),
+      ),
+    );
+    for (const board of [current, ...boards]) {
+      const rows = kind === 'project' ? board?.projects : board?.funds;
+      const row = rows?.find((item) => item.url === path);
+      if (row?.name) return row.name;
+    }
+  }
+
   async boosts(): Promise<BoostsPage> {
     const fallback: BoostsPage = {
       remaining: 0,

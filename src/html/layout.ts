@@ -12,40 +12,56 @@ export function escapeHtml(value: unknown): string {
 
 const TREE_SCRIPT = `
 <script>
-  document.addEventListener('DOMContentLoaded', function() {
-    function setKids(table, id, show) {
-      table.querySelectorAll('tr[data-parent="' + id + '"]').forEach(function(tr) {
-        var childId = tr.getAttribute('data-id');
-        if (show) {
-          tr.classList.remove('artizen-tree-hidden');
-          if (!childId) return;
-          var toggle = tr.querySelector('a.artizen-tree-toggle');
-          setKids(table, childId, toggle && toggle.getAttribute('aria-expanded') === 'true');
-        } else {
-          tr.classList.add('artizen-tree-hidden');
-          if (childId) setKids(table, childId, false);
-        }
-      });
-    }
-    document.querySelectorAll('.artizen-funding-tree').forEach(function(table) {
-      table.addEventListener('click', function(e) {
-        var btn = e.target.closest('a.artizen-tree-toggle');
-        if (!btn || !table.contains(btn)) return;
-        e.preventDefault();
-        var row = btn.closest('tr');
-        var id = row && row.getAttribute('data-id');
-        if (!id) return;
-        var expanding = btn.getAttribute('aria-expanded') !== 'true';
-        btn.setAttribute('aria-expanded', expanding);
-        var icon = btn.querySelector('i');
-        if (icon) {
-          icon.classList.toggle('bi-chevron-down', expanding);
-          icon.classList.toggle('bi-chevron-right', !expanding);
-        }
-        setKids(table, id, expanding);
-      });
+(function() {
+  function setKids(table, id, show) {
+    table.querySelectorAll('tr[data-parent="' + id + '"]').forEach(function(tr) {
+      var childId = tr.getAttribute('data-id');
+      if (show) {
+        tr.classList.remove('artizen-tree-hidden');
+        if (!childId) return;
+        var toggle = tr.querySelector('a.artizen-tree-toggle');
+        setKids(table, childId, toggle && toggle.getAttribute('aria-expanded') === 'true');
+      } else {
+        tr.classList.add('artizen-tree-hidden');
+        if (childId) setKids(table, childId, false);
+      }
     });
+  }
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest('a.artizen-tree-toggle');
+    if (!btn) return;
+    var table = btn.closest('.artizen-funding-tree');
+    if (!table) return;
+    e.preventDefault();
+    var row = btn.closest('tr');
+    var id = row && row.getAttribute('data-id');
+    if (!id) return;
+    var expanding = btn.getAttribute('aria-expanded') !== 'true';
+    btn.setAttribute('aria-expanded', expanding);
+    var icon = btn.querySelector('i');
+    if (icon) {
+      icon.classList.toggle('bi-chevron-down', expanding);
+      icon.classList.toggle('bi-chevron-right', !expanding);
+    }
+    setKids(table, id, expanding);
   });
+})();
+</script>
+`;
+
+const DETAIL_POLL_SCRIPT = `
+<script>
+(function() {
+  var url = new URL(location.href);
+  url.searchParams.set('content', '1');
+  fetch(url).then(function(res) { return res.text(); }).then(function(html) {
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    document.title = doc.title;
+    var from = doc.querySelector('.artizen-shell');
+    var to = document.querySelector('.artizen-shell');
+    if (from && to) to.innerHTML = from.innerHTML;
+  }).catch(function() { location.replace(url.href); });
+})();
 </script>
 `;
 
@@ -194,6 +210,36 @@ export function panel(inner: string, opts?: { flush?: boolean; className?: strin
     .filter(Boolean)
     .join(' ');
   return `<div class="${cls}">${inner}</div>`;
+}
+
+export function renderDetailPlaceholder(kind: 'project' | 'fund', name?: string): string {
+  const title = name || (kind === 'fund' ? 'Fund' : 'Project');
+  const heading = name
+    ? `<h1>${escapeHtml(name)}</h1>`
+    : '<span class="artizen-ph artizen-ph-title" aria-hidden="true"></span>';
+  const rows = `<div class="artizen-ph-stack" aria-hidden="true">${'<span class="artizen-ph artizen-ph-row"></span>'.repeat(6)}</div>`;
+  const submissions = kind === 'project' ? panel(`<h2 class="artizen-panel-title">Submissions</h2>${rows}`) : '';
+  return layout({
+    title,
+    tree: true,
+    extra: DETAIL_POLL_SCRIPT,
+    body: `<div aria-busy="true">
+      ${panel(
+        `<div class="artizen-hero artizen-ph" aria-hidden="true"></div>
+        <div class="artizen-hero-copy">
+          ${heading}
+          <span class="artizen-ph artizen-ph-lead" aria-hidden="true"></span>
+          <span class="artizen-ph artizen-ph-lead artizen-ph-lead-short" aria-hidden="true"></span>
+          <span class="artizen-ph artizen-ph-link" aria-hidden="true"></span>
+        </div>`,
+        { className: 'artizen-hero-card' },
+      )}
+      ${panel(`<h2 class="artizen-panel-title">Funding</h2>${rows}`)}
+      ${submissions}
+      <p class="visually-hidden">Loading</p>
+    </div>
+    <noscript><p class="artizen-note">This page needs JavaScript. <a href="?content=1">Open the full page</a>.</p></noscript>`,
+  });
 }
 
 export function note(text: string): string {

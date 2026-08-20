@@ -5,6 +5,7 @@ import appleTouchIcon from './apple-touch-icon.png';
 import ogImage from './og.png';
 import {
   renderBoosts,
+  renderDetailPlaceholder,
   renderDrives,
   renderFund,
   renderFunds,
@@ -86,12 +87,20 @@ export default {
 
     const project = path.match(/^\/projects\/([^/]+)$/);
     if (request.method === 'GET' && project) {
-      return detail(await artizen.project(decodeURIComponent(project[1])), renderProject);
+      const slug = decodeURIComponent(project[1]);
+      if (url.searchParams.has('content') || request.headers.get('sec-fetch-mode') !== 'navigate') {
+        return detail(await artizen.project(slug), renderProject);
+      }
+      return html(renderDetailPlaceholder('project', await artizen.listedName('project', slug)));
     }
 
     const fund = path.match(/^\/funds\/([^/]+)$/);
     if (request.method === 'GET' && fund) {
-      return detail(await artizen.fund(decodeURIComponent(fund[1])), renderFund);
+      const slug = decodeURIComponent(fund[1]);
+      if (url.searchParams.has('content') || request.headers.get('sec-fetch-mode') !== 'navigate') {
+        return detail(await artizen.fund(slug), renderFund);
+      }
+      return html(renderDetailPlaceholder('fund', await artizen.listedName('fund', slug)));
     }
 
     return html(renderNotFound(), 404);
