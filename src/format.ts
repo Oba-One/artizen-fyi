@@ -211,7 +211,8 @@ export function heatTd(
   const pct = rankPct(ranks[index], total);
   const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value, field === 'prize' || field === 'sprint');
   const note = label && pct != null ? `<br><small class="artizen-rank">${pct}%</small>` : '';
-  return `<td class="text-end artizen-heat" data-order="${value}" style="${rankStyle(pct)}">${label}${note}</td>`;
+  const heat = label ? rankStyle(pct) : 'background-color: #fff';
+  return `<td class="text-end artizen-heat" data-order="${value}" style="${heat}">${label}${note}</td>`;
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
