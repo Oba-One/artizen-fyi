@@ -1,4 +1,4 @@
-import type { Artizen } from './client';
+import type { Bubble } from './bubble';
 import { appendLegacyProjectSeasons, applyLegacySubmissionAwards } from './legacy';
 import type {
   Drive,
@@ -33,7 +33,7 @@ import {
   venusSplit,
 } from './util';
 
-export async function buildProject(client: Artizen, slug: string): Promise<ProjectPage | null> {
+export async function buildProject(client: Bubble, slug: string): Promise<ProjectPage | null> {
   const row = await client.findOne('project', slug);
   if (row == null || row['Hide']) return null;
 
@@ -281,7 +281,7 @@ function nestProjectFunding(
 }
 
 async function formatProjectSubmissions(
-  client: Artizen,
+  client: Bubble,
   rows: Row[],
   seasonsMeta: Record<string, Season>,
 ): Promise<ProjectSubmission[]> {

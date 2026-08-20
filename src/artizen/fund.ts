@@ -1,4 +1,4 @@
-import type { Artizen } from './client';
+import type { Bubble } from './bubble';
 import type { Drive, FundDriveNest, FundFundingSeason, FundMatchedProject, FundPage, Row, Season } from './types';
 import {
   LEAD_CREATOR,
@@ -19,7 +19,7 @@ import {
   text,
 } from './util';
 
-export async function buildFund(client: Artizen, slug: string): Promise<FundPage | null> {
+export async function buildFund(client: Bubble, slug: string): Promise<FundPage | null> {
   const row = await client.findOne('fund', slug);
   if (!row) return null;
 
