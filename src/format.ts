@@ -61,6 +61,7 @@ export function funding(row: ProjectRow): Funded {
   const venus = Number(row.venus) || 0;
   const match = Number(row.match) || 0;
   const prize = Number(row.prize) || 0;
+  const sprint = Number(row.sprint) || 0;
   const sv = sales + venus;
   const svm = sv + match;
   const vmp = venus + match + prize;
@@ -70,13 +71,14 @@ export function funding(row: ProjectRow): Funded {
     venus,
     match,
     prize,
+    sprint,
     sv,
     svm,
     vmp,
-    multiple_v: sales > 0 ? venus / sales : undefined,
-    multiple_ex: sales > 0 ? (venus + match) / sales : undefined,
-    multiple: sales > 0 ? vmp / sales : undefined,
-    raised: row.raised == null ? sales + vmp : Number(row.raised) || 0,
+    multiple_v: sales !== 0 ? venus / sales : undefined,
+    multiple_ex: sales !== 0 ? (venus + match) / sales : undefined,
+    multiple: sales !== 0 ? vmp / sales : undefined,
+    raised: row.raised == null ? sales + vmp + sprint : Number(row.raised) || 0,
   };
 }
 
@@ -98,6 +100,7 @@ export const MONEY_COLS: readonly MoneyCol[] = [
   { field: 'sv', label: 'S+V', as: 'usd' },
   { field: 'match', label: 'Match', as: 'usd' },
   { field: 'svm', label: 'S+V+M', as: 'usd' },
+  { field: 'sprint', label: 'Sprints', as: 'usd' },
   { field: 'prize', label: 'Prize', as: 'usd' },
   { field: 'vmp', label: 'V+M+P', as: 'usd' },
   { field: 'multiple_v', label: 'V/S', as: 'x' },
@@ -114,6 +117,7 @@ type MoneyRow = {
   venus?: number | null;
   match?: number | null;
   prize?: number | null;
+  sprint?: number | null;
   raised?: number | null;
 };
 
@@ -125,6 +129,7 @@ function funded(row: MoneyRow): Funded {
     venus: row.venus ?? 0,
     match: row.match ?? 0,
     prize: row.prize ?? 0,
+    sprint: row.sprint ?? 0,
     raised: row.raised ?? 0,
   });
 }
@@ -145,7 +150,7 @@ export function prizeLabel(value?: number | null, projected = false): string {
 
 function moneyLabel(row: Funded, col: MoneyCol): string {
   if (col.as === 'x') return multipleLabel(row[col.field] as number | undefined);
-  return usd(row[col.field] as number, col.field === 'prize');
+  return usd(row[col.field] as number, col.field === 'prize' || col.field === 'sprint');
 }
 
 export function moneyHeaders(className = 'text-end'): string {
@@ -201,7 +206,7 @@ export function heatTd(
 ): string {
   const value = Number(row[field]) || 0;
   const pct = rankPct(ranks[index], total);
-  const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value, field === 'prize');
+  const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value, field === 'prize' || field === 'sprint');
   const note = pct != null ? `<br><small class="artizen-rank">${pct}%</small>` : '';
   return `<td class="text-end artizen-heat" data-order="${value}" style="${rankStyle(pct)}">${label}${note}</td>`;
 }

@@ -17,7 +17,7 @@ export function renderFunds(data: Leaderboard, seasonParam: string | null): stri
     const body = funds
       .map((fund: FundRow) => {
         const subtitle = fund.subtitle
-          ? `<br><small class="text-muted">${escapeHtml(truncate(fund.subtitle, 90))}</small>`
+          ? `<br><small class="text-muted artizen-subtitle">${escapeHtml(truncate(fund.subtitle, 90))}</small>`
           : '';
         const inactive = fund.active === false ? '<br><span class="badge text-bg-secondary">Inactive</span>' : '';
         const extraCols = current

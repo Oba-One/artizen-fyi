@@ -30,6 +30,7 @@
   --bs-body-bg: var(--paper);
   --bs-body-font-family: RocGroteskMedium, Helvetica, Arial, sans-serif;
   --bs-heading-font-family: RocGroteskBold, Helvetica, Arial, sans-serif;
+  --bs-subtitle-font-family: P22Mackinac-Medium_6, Georgia, 'Times New Roman', serif;
   --bs-border-color: var(--line);
   --bs-secondary-rgb: 134, 144, 160;
 }
@@ -53,7 +54,8 @@ a { color: var(--green-deep); text-underline-offset: 0.15em; }
 a:hover { color: #058a48; }
 a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .text-muted { color: var(--muted) !important; }
-.lead { font-family: var(--bs-heading-font-family); font-weight: 400; color: var(--muted); }
+.lead, .artizen-subtitle { font-family: var(--bs-subtitle-font-family); font-weight: 400; }
+.lead { color: var(--muted); }
 .form-select {
   background-color: var(--panel);
   border-color: var(--line);
@@ -453,7 +455,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   gap: 1.15rem 1.25rem;
   align-items: start;
 }
-.artizen-hero-copy h1:first-child { margin-top: 0; }
+.artizen-hero-copy h1:first-child { margin-top: 0; margin-bottom: 0; }
 .artizen-hero-copy .lead { margin-bottom: 0.35rem; }
 .artizen-hero {
   width: 100%;
@@ -501,7 +503,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 @media (prefers-reduced-motion: reduce) {
   .artizen-dt-ph { animation: none; opacity: 0.7; }
 }
-#artizen-projects-table { table-layout: fixed; width: 100%; min-width: 80rem; border-collapse: collapse; border-spacing: 0; }
+#artizen-projects-table { table-layout: fixed; width: 100%; min-width: 86rem; border-collapse: collapse; border-spacing: 0; }
 .artizen-table-scroll { -webkit-overflow-scrolling: touch; }
 .artizen-panel .dt-container { margin-top: 0.15rem; }
 @media (max-width: 767px) {

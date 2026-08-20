@@ -2,8 +2,8 @@ const BASE_URL = 'https://artizen.fund/api/1.1/obj';
 const SITE_URL = 'https://artizen.fund';
 const PAGE_SIZE = 100;
 const IN_BATCH = 50;
-const LEADERBOARD_CACHE = 'artizen/leaderboard/v27';
-const PROJECT_CACHE = 'artizen/project/v26';
+const LEADERBOARD_CACHE = 'artizen/leaderboard/v29';
+const PROJECT_CACHE = 'artizen/project/v29';
 const FUND_CACHE = 'artizen/fund/v10';
 const BOOSTS_CACHE = 'artizen/boosts/v2';
 const TOP_BOOST_HOLDERS = 100;
@@ -33,6 +33,7 @@ type DriveStat = {
   venus: number;
   match: number;
   prize?: number;
+  sprint?: number;
   raised: number;
   available?: number;
 };
@@ -94,6 +95,7 @@ export type ProjectRow = {
   venus: number;
   match: number;
   prize: number;
+  sprint?: number;
   raised: number;
 };
 
@@ -152,6 +154,7 @@ export type ProjectFundingSeason = {
   venus: number;
   match: number;
   prize: number;
+  sprint?: number;
   raised: number;
   available?: number;
   drives?: ProjectDriveDetail[];
@@ -622,7 +625,7 @@ export class Artizen {
         if (blank(name)) return undefined;
 
         const slug = presence(project['Slug']) ?? row['project'];
-        const venus = num(lookup(venusByProject, row['project']));
+        const split = lookup(venusByProject, row['project']) || { venus: 0, sprint: 0 };
         const ledgerPrize = num(row['funding prize funds usd']);
         const prize = Math.max(ledgerPrize, num(lookup(prizes, row['project'])));
         return {
@@ -630,10 +633,11 @@ export class Artizen {
           url: this.localProjectPath(slug),
           creator: presence(str(or(project[LEAD_CREATOR], row['lead creator'])).trim()),
           logline: presence(project['Logline']),
-          sales: this.communitySales(row['funding total sales'], venus),
-          venus,
+          sales: this.communitySales(row['funding total sales'], split.venus + split.sprint),
+          venus: split.venus,
           match: num(row['funding match']) + num(row['funding boost ']),
           prize,
+          sprint: split.sprint,
           raised: num(row['funding total']) + prize - ledgerPrize,
         };
       }),
@@ -920,12 +924,19 @@ export class Artizen {
 
     const venusTxs = await this.venusTransactions({ projectId: id });
     const venusBySeason: Record<string, number> = {};
+    const sprintBySeason: Record<string, number> = {};
     const venusByBoost: Record<string, number> = {};
+    const sprintByBoost: Record<string, number> = {};
     for (const tx of venusTxs) {
       const seasonKey = idKey(tx['Season']);
-      bump(venusBySeason, seasonKey, num(tx['amount spent $USD']));
+      const split = this.venusSplit(tx);
+      bump(venusBySeason, seasonKey, split.venus);
+      bump(sprintBySeason, seasonKey, split.sprint);
       const drive = this.assignVenusDrive(tx, drives);
-      if (drive) bump(venusByBoost, drive.id, num(tx['amount spent $USD']));
+      if (drive) {
+        bump(venusByBoost, drive.id, split.venus);
+        bump(sprintByBoost, drive.id, split.sprint);
+      }
     }
 
     const prizeBySeason: Record<string, number> = {};
@@ -935,6 +946,7 @@ export class Artizen {
       if (blank(part['boost'])) continue;
 
       const venus = num(venusByBoost[idKey(part['boost'])]);
+      const sprint = num(sprintByBoost[idKey(part['boost'])]);
       const sales = this.communitySales(part['fund drive sales (both)'], venus);
       const match = num(part['match boost unlocked (both)']);
       const prize = num(part['prize earned usd']);
@@ -943,7 +955,8 @@ export class Artizen {
         venus,
         match,
         prize,
-        raised: sales + venus + match + prize,
+        sprint,
+        raised: sales + venus + match + prize + sprint,
       };
       let seasonId = part['season'];
       if (blank(seasonId)) {
@@ -997,14 +1010,15 @@ export class Artizen {
     const seasons = filterMap(seasonRows, (srow) => {
       const meta = lookup(seasonsMeta, srow['season ']);
       const sVenus = num(venusBySeason[idKey(srow['season '])]);
-      const sSales = this.communitySales(srow['funding total sales'], sVenus);
+      const sSprint = num(sprintBySeason[idKey(srow['season '])]);
+      const sSales = this.communitySales(srow['funding total sales'], sVenus + sSprint);
       const sMatch = num(srow['funding match']) + num(srow['funding boost ']);
       const sPrize = Math.max(
         num(srow['funding prize funds usd']),
         num(prizeBySeason[idKey(srow['season '])]),
         num(srow['old funding prize leaderboard  (usd)']),
       );
-      const sRaised = sSales + sVenus + sMatch + sPrize;
+      const sRaised = sSales + sVenus + sSprint + sMatch + sPrize;
       if (!(sRaised > 0)) return undefined;
 
       return {
@@ -1014,6 +1028,7 @@ export class Artizen {
         venus: sVenus,
         match: sMatch,
         prize: sPrize,
+        sprint: sSprint,
         raised: sRaised,
       } satisfies ProjectFundingSeason;
     });
@@ -1477,14 +1492,17 @@ export class Artizen {
     return this.list('transaction', { constraints });
   }
 
-  private async venusBuysByProject(seasonId: string): Promise<Record<string, number>> {
-    const sums: Record<string, number> = {};
+  private async venusBuysByProject(seasonId: string): Promise<Record<string, { venus: number; sprint: number }>> {
+    const sums: Record<string, { venus: number; sprint: number }> = {};
     for (const tx of await this.venusTransactions({ seasonId })) {
       const pid = tx['project'];
       if (blank(pid)) continue;
 
       const key = idKey(pid);
-      bump(sums, key, num(tx['amount spent $USD']));
+      const split = this.venusSplit(tx);
+      const bucket = (sums[key] ||= { venus: 0, sprint: 0 });
+      bucket.venus += split.venus;
+      bucket.sprint += split.sprint;
     }
     return sums;
   }
@@ -1549,6 +1567,13 @@ export class Artizen {
   private communitySales(gross: unknown, venus: unknown): number {
     const sales = num(gross) - num(venus);
     return sales > 0 ? sales : 0.0;
+  }
+
+  // Admin "Sales no" checkouts are sprint prizes, not drive sales / Venus sparkle.
+  private venusSplit(tx: Row): { venus: number; sprint: number } {
+    const amount = num(tx['amount spent $USD']);
+    if (/sales no/i.test(str(tx['admin checkout type']))) return { venus: 0, sprint: amount };
+    return { venus: amount, sprint: 0 };
   }
 
   // S4/S5 predate projectseason; Artizen stores them on the project record.
