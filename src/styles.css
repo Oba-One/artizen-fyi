@@ -543,6 +543,18 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   font-family: var(--bs-heading-font-family);
   font-weight: 400;
 }
+table.dataTable th.dt-type-numeric div.dt-column-header,
+table.dataTable th.dt-type-date div.dt-column-header,
+table.dataTable td.dt-type-numeric div.dt-column-header,
+table.dataTable td.dt-type-date div.dt-column-header {
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 0.7rem;
+}
+table.dataTable.table-sm > thead > tr th.dt-type-numeric .dt-column-order,
+table.dataTable.table-sm > thead > tr th.dt-type-date .dt-column-order {
+  left: auto;
+}
 .artizen-funding-tree thead th, .artizen-funding-tree tfoot th {
   font-family: var(--bs-heading-font-family);
   font-weight: 400;
