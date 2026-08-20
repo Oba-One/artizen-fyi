@@ -543,6 +543,12 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-tree-drive td:first-child, .artizen-tree-submission td:first-child { padding-left: 1.5rem; }
 .artizen-tree-fund td:first-child, .artizen-tree-project td:first-child { padding-left: 2.75rem; }
 .artizen-tree-adjust td { font-style: italic; color: var(--muted); }
+.artizen-prize-projected {
+  font-family: var(--bs-heading-font-family);
+  font-style: italic;
+  color: var(--muted);
+  cursor: help;
+}
 .artizen-tree-season td { font-family: var(--bs-heading-font-family); }
 .artizen-holder { display: inline-flex; align-items: center; gap: 0.55rem; min-width: 0; }
 .artizen-holder-avatar {

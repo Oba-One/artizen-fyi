@@ -24,7 +24,7 @@ npm install
 npm run dev          # local Worker + local KV
 ```
 
-The first `/projects` or `/boosts` hit with an empty local cache crawls Bubble and can take ~30–60s. After that, pages read KV. On artizen.fyi those list pages never crawl; they wait for cron. A project or fund detail with no stash still crawls that one page.
+Wipe local KV (Wrangler persist) with `rm -rf .wrangler/state`, then restart `npm run dev`. The next page load recrawls Bubble (~30–60s). After that, pages read KV. On artizen.fyi those list pages never crawl; they wait for cron. A project or fund detail with no stash still crawls that one page.
 
 ## Routes
 

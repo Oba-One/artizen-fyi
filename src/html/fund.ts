@@ -90,7 +90,6 @@ function fundFundingTable(fund: FundPage): string {
                 label: `<span class="artizen-tree-label">
                     ${namedLink(project.url, project.name)}
                     ${project.hidden ? ' <span class="badge text-bg-secondary">hidden</span>' : ''}
-                    ${project.creator ? `<br><small class="text-muted">${escapeHtml(project.creator)}</small>` : ''}
                   </span>`,
                 cells: fundCells(
                   '',

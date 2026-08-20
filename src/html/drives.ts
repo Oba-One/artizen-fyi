@@ -1,5 +1,5 @@
 import type { Drive, Leaderboard } from '../artizen';
-import { compactNum, delimited, fmtDate, truncate, usd } from '../format';
+import { compactNum, delimited, fmtDate, prizeLabel, truncate, usd } from '../format';
 import { board, boardEmpty, escapeHtml, layout, namedLink, pageTitle, panel } from './layout';
 
 export function renderDrives(data: Leaderboard, seasonParam: string | null): string {
@@ -121,13 +121,13 @@ function driveCard(drive: Drive): string {
         .map(
           (row, i) => `<tr>
             <td><span class="text-muted">${i + 1}.</span> ${namedLink(row.url, row.name)}</td>
-            <td class="text-end text-nowrap">${usd(row.sales_match)}</td>
+            <td class="text-end text-nowrap">${usd((row.sales_match || 0) + (prizes[i] || 0))}</td>
             <td class="artizen-podium-op">x</td>
             <td class="text-end text-nowrap">${delimited(row.points)}</td>
             <td class="artizen-podium-op">=</td>
             <td class="text-end text-nowrap">${compactNum(row.score)}</td>
             <td class="artizen-podium-op">→</td>
-            <td class="text-end text-nowrap">${usd(prizes[i])}</td>
+            <td class="text-end text-nowrap">${prizeLabel(prizes[i], drive.active)}</td>
           </tr>`,
         )
         .join('');

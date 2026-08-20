@@ -105,6 +105,7 @@ type MoneyRow = {
   venus?: number | null;
   match?: number | null;
   prize?: number | null;
+  prize_projected?: boolean;
   raised?: number | null;
 };
 
@@ -124,8 +125,23 @@ function endCell(content: string, tag: string): string {
   return `<${tag} class="text-end">${content}</${tag}>`;
 }
 
-function moneyLabel(row: Funded, col: MoneyCol): string {
-  return col.as === 'x' ? multipleLabel(row[col.field] as number | undefined) : usd(row[col.field] as number);
+function projectedLabel(label: string, title = 'Projected prize — not yet earned'): string {
+  if (!label) return label;
+  return `<span class="artizen-prize-projected" data-bs-toggle="tooltip" data-bs-container="body" data-bs-title="${title}" tabindex="0">${label}</span>`;
+}
+
+export function prizeLabel(value?: number | null, projected = false, title = 'Projected prize — not yet earned'): string {
+  const label = usd(value);
+  return projected ? projectedLabel(label, title) : label;
+}
+
+function moneyLabel(row: Funded, col: MoneyCol, projected = false): string {
+  const label = col.as === 'x' ? multipleLabel(row[col.field] as number | undefined) : usd(row[col.field] as number);
+  if (projected && (col.field === 'prize' || col.field === 'vmp' || col.field === 'multiple')) {
+    const title = col.field === 'prize' ? 'Projected prize — not yet earned' : 'Includes a projected prize — not yet earned';
+    return projectedLabel(label, title);
+  }
+  return label;
 }
 
 export function moneyHeaders(className = 'text-end'): string {
@@ -134,7 +150,7 @@ export function moneyHeaders(className = 'text-end'): string {
 
 export function moneyCells(row: MoneyRow, tag = 'td'): string {
   const f = funded(row);
-  return MONEY_COLS.map((col) => endCell(moneyLabel(f, col), tag)).join('');
+  return MONEY_COLS.map((col) => endCell(moneyLabel(f, col, row.prize_projected), tag)).join('');
 }
 
 export function heatRanks<T extends Record<string, unknown>>(rows: T[], fields: (keyof T)[]): Record<string, number[]> {
