@@ -18,35 +18,24 @@ const PAGE_SIZE = 100;
 const IN_BATCH = 50;
 const BOOST_LIST_CONCURRENCY = 16;
 
+type ListOpts = {
+  constraints?: Constraint[];
+  sortField?: string;
+  descending?: boolean;
+  concurrency?: number;
+};
+
 export class Bubble {
   private venusId: string | undefined;
   private seasonsMemo: Promise<Season[]> | undefined;
 
-  async list(
-    type: string,
-    opts: { constraints?: Constraint[]; sortField?: string; descending?: boolean } = {},
-  ): Promise<Row[]> {
-    const params: Record<string, unknown> = { limit: PAGE_SIZE };
-    if (opts.constraints) params.constraints = opts.constraints;
-    if (opts.sortField) params.sort_field = opts.sortField;
-    if (opts.descending) params.descending = true;
-
-    const first = await this.get(type, { ...params, cursor: 0 });
-    const results = first.results || [];
-    const remaining = int(first.remaining);
-    if (remaining <= 0) return results;
-
-    const pageCount = Math.ceil(remaining / PAGE_SIZE);
-    const cursors = Array.from({ length: pageCount }, (_, i) => (i + 1) * PAGE_SIZE);
-    const extra = await Promise.all(cursors.map((cursor) => this.getResults(type, { ...params, cursor })));
-    return results.concat(extra.flat());
+  async list(type: string, opts: ListOpts = {}): Promise<Row[]> {
+    const results: Row[] = [];
+    await this.listEach(type, (row) => results.push(row), opts);
+    return results;
   }
 
-  async listEach(
-    type: string,
-    fn: (row: Row) => void,
-    opts: { constraints?: Constraint[]; sortField?: string; descending?: boolean; concurrency?: number } = {},
-  ): Promise<void> {
+  async listEach(type: string, fn: (row: Row) => void, opts: ListOpts = {}): Promise<void> {
     const params: Record<string, unknown> = { limit: PAGE_SIZE };
     if (opts.constraints) params.constraints = opts.constraints;
     if (opts.sortField) params.sort_field = opts.sortField;
