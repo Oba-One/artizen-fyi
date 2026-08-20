@@ -175,7 +175,6 @@ const FOOTER = `
   <div class="artizen-footer-inner">
     <p>
       This is a project by <a href="https://stephenreid.net" target="_blank" rel="noopener">Stephen Reid</a>
-      (<a href="https://stephenreid.net" target="_blank" rel="noopener">stephenreid.net</a>)
       and is not affiliated with Artizen.
     </p>
     <p>
