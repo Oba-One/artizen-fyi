@@ -429,8 +429,23 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-badge-sm { font-size: 0.7rem; font-weight: 600; vertical-align: middle; position: relative; top: -0.12em; }
 .artizen-rank { font-size: 0.7rem; font-weight: 400; white-space: nowrap; color: #000; }
 .artizen-drive-thumb { width: 100%; height: 140px; object-fit: cover; background: #202222; }
-.artizen-podium { font-size: 0.75rem; }
-.artizen-podium td:first-child { padding-right: 0.5rem; }
+.artizen-podium {
+  font-size: 0.75rem;
+  width: 100%;
+  table-layout: fixed;
+}
+.artizen-podium th:first-child,
+.artizen-podium td:first-child { width: 40%; padding-right: 0.5rem; }
+.artizen-podium th:nth-child(n+2),
+.artizen-podium td:nth-child(n+2) {
+  width: 8.5%;
+  white-space: nowrap;
+}
+.artizen-podium-op {
+  text-align: center;
+  color: var(--muted);
+  font-weight: 400;
+}
 .artizen-podium-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .artizen-hero-card {
   display: grid;

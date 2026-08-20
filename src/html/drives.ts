@@ -121,10 +121,13 @@ function driveCard(drive: Drive): string {
         .map(
           (row, i) => `<tr>
             <td><span class="text-muted">${i + 1}.</span> ${namedLink(row.url, row.name)}</td>
-            <td class="text-end text-nowrap">${usd(prizes[i])}</td>
             <td class="text-end text-nowrap">${usd(row.sales_match)}</td>
+            <td class="artizen-podium-op">x</td>
             <td class="text-end text-nowrap">${delimited(row.points)}</td>
+            <td class="artizen-podium-op">=</td>
             <td class="text-end text-nowrap">${compactNum(row.score)}</td>
+            <td class="artizen-podium-op">→</td>
+            <td class="text-end text-nowrap">${usd(prizes[i])}</td>
           </tr>`,
         )
         .join('');
@@ -132,7 +135,7 @@ function driveCard(drive: Drive): string {
         <h2 class="artizen-panel-title">${title}</h2>
         <div class="artizen-podium-scroll">
           <table class="table table-sm mb-0 artizen-podium">
-            <thead><tr><th></th><th class="text-end">Prize</th><th class="text-end">Raised</th><th class="text-end">Boosts</th><th class="text-end">Score</th></tr></thead>
+            <thead><tr><th></th><th class="text-end">Raised</th><th class="artizen-podium-op">x</th><th class="text-end">Boosts</th><th class="artizen-podium-op">=</th><th class="text-end">Score</th><th class="artizen-podium-op">→</th><th class="text-end">Prize</th></tr></thead>
             <tbody>${rows}</tbody>
           </table>
         </div>
