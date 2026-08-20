@@ -331,7 +331,7 @@ export function namedLink(url: string, name: string): string {
 }
 
 function chevron(open: boolean, hasKids: boolean): string {
-  if (!hasKids) return '<span class="artizen-tree-toggle"></span>';
+  if (!hasKids) return '';
   return `<a href="#" class="artizen-tree-toggle" aria-expanded="${open}"><i class="bi ${open ? 'bi-chevron-down' : 'bi-chevron-right'}"></i></a>`;
 }
 
@@ -352,8 +352,9 @@ export function treeRow(opts: {
   ]
     .filter(Boolean)
     .join(' ');
+  const mark = chevron(opts.open ?? false, opts.hasKids ?? false);
   return `<tr class="${cls}"${attrs ? ` ${attrs}` : ''}>
-    <td>${chevron(opts.open ?? false, opts.hasKids ?? false)} ${opts.label}</td>
+    <td>${mark}${mark ? ' ' : ''}${opts.label}</td>
     ${opts.cells}
   </tr>`;
 }

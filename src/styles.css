@@ -563,7 +563,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-tree-toggle { color: inherit; width: 1.15rem; display: inline-block; text-align: center; line-height: 1; vertical-align: top; }
 .artizen-tree-toggle:hover, .artizen-tree-toggle:focus { color: inherit; text-decoration: none; }
-.artizen-tree-label { display: inline-block; vertical-align: top; max-width: calc(100% - 1.4rem); }
+.artizen-tree-label { display: inline-block; vertical-align: top; }
 .artizen-tree-drive td:first-child, .artizen-tree-submission td:first-child { padding-left: 1.5rem; }
 .artizen-tree-fund td:first-child, .artizen-tree-project td:first-child { padding-left: 2.75rem; }
 .artizen-tree-adjust td { font-style: italic; color: var(--muted); }
