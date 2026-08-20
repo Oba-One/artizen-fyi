@@ -280,48 +280,45 @@ function num(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function optNum(value: unknown): number | undefined {
-  if (value == null) return undefined;
-  return num(value);
+function maybeNum(value: unknown): number | undefined {
+  return value == null ? undefined : num(value);
 }
 
-function str(value: unknown): string {
-  return value == null ? '' : String(value);
+function int(value: unknown): number {
+  return Math.trunc(num(value));
 }
 
-function blank(value: unknown): boolean {
-  if (value == null || value === false) return true;
-  if (typeof value === 'string') return value.trim() === '';
-  if (Array.isArray(value)) return value.length === 0;
-  return false;
+function text(value: unknown): string | undefined {
+  if (value == null || value === false) return undefined;
+  const s = String(value).trim();
+  return s || undefined;
 }
 
-function presence(value: unknown): string | undefined {
-  if (blank(value)) return undefined;
-  return String(value);
-}
-
-function uniq<T>(items: T[]): T[] {
-  const seen = new Set<unknown>();
-  const out: T[] = [];
-  for (const item of items) {
-    if (seen.has(item)) continue;
-    seen.add(item);
-    out.push(item);
+function ids(values: unknown[]): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (value == null || value === false || value === '') continue;
+    const id = String(value);
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
   }
   return out;
 }
 
-function sum<T>(items: T[], fn?: (item: T) => number): number {
+function byId<T>(rec: Record<string, T>, id: unknown): T | undefined {
+  return id == null ? undefined : rec[String(id)];
+}
+
+function sum<T>(items: T[], fn: (item: T) => number): number {
   let total = 0;
-  for (const item of items) total += fn ? fn(item) : Number(item);
+  for (const item of items) total += fn(item);
   return total;
 }
 
-function groupKey(key: unknown): string {
-  if (key == null) return '\0null\0';
-  if (typeof key === 'object') return JSON.stringify(key);
-  return `${typeof key}:${String(key)}`;
+function bump(rec: Record<string, number>, key: string, amount: number): void {
+  rec[key] = (rec[key] || 0) + amount;
 }
 
 function groupBy<T>(items: T[], keyFn: (item: T) => unknown): Array<[unknown, T[]]> {
@@ -330,7 +327,7 @@ function groupBy<T>(items: T[], keyFn: (item: T) => unknown): Array<[unknown, T[
   const buckets = new Map<string, T[]>();
   for (const item of items) {
     const key = keyFn(item);
-    const sk = groupKey(key);
+    const sk = key == null ? '\0null\0' : typeof key === 'object' ? JSON.stringify(key) : `${typeof key}:${String(key)}`;
     let bucket = buckets.get(sk);
     if (!bucket) {
       bucket = [];
@@ -343,55 +340,13 @@ function groupBy<T>(items: T[], keyFn: (item: T) => unknown): Array<[unknown, T[
   return order.map((sk) => [orig.get(sk), buckets.get(sk)!]);
 }
 
-function or<T>(value: unknown, fallback: T): T {
-  if (value == null || value === false) return fallback;
-  return value as T;
-}
-
-function isHidden(row?: Row | null): unknown {
-  return row ? row['Hide'] || row['unPublished'] : undefined;
-}
-
-function compact<T>(items: Array<T | null | undefined>): T[] {
-  return items.filter((item): item is T => item != null);
-}
-
-function compactUniq<T>(items: Array<T | null | undefined>): T[] {
-  return uniq(compact(items));
-}
-
-function bump(rec: Record<string, number>, key: string, amount: number): void {
-  rec[key] = (rec[key] || 0) + amount;
-}
-
-function filterMap<T, U>(items: T[], fn: (item: T) => U | null | undefined | false): U[] {
-  return items.flatMap((item) => {
-    const v = fn(item);
-    return v == null || v === false ? [] : [v];
-  });
-}
-
-function optInt(value: unknown): number | undefined {
-  const n = optNum(value);
-  return n == null ? undefined : Math.trunc(n);
-}
-
-function toInt(value: unknown): number {
-  return Math.trunc(num(value));
-}
-
-function idKey(id: unknown): string {
-  return id == null ? '' : String(id);
-}
-
-function lookup<T>(rec: Record<string, T>, id: unknown): T | undefined {
-  if (id == null) return undefined;
-  return rec[String(id)];
-}
-
-function arrayWrap(value: unknown): unknown[] {
-  if (value == null) return [];
-  return Array.isArray(value) ? value : [value];
+function mapSome<T, U>(items: T[], fn: (item: T) => U | null | undefined): U[] {
+  const out: U[] = [];
+  for (const item of items) {
+    const value = fn(item);
+    if (value != null) out.push(value);
+  }
+  return out;
 }
 
 function sortByDesc<T>(items: T[], ...fns: Array<(item: T) => number>): T[] {
@@ -410,8 +365,12 @@ function batches<T>(items: T[], size: number): T[][] {
   return out;
 }
 
-function isErrorHash(value: unknown): boolean {
+function failed(value: unknown): boolean {
   return typeof value === 'object' && value != null && Boolean((value as { error?: unknown }).error);
+}
+
+function hidden(row?: Row | null): boolean {
+  return Boolean(row?.['Hide'] || row?.['unPublished']);
 }
 
 export class Artizen {
@@ -425,7 +384,7 @@ export class Artizen {
   async leaderboard(seasonNumber?: string | number | null): Promise<Leaderboard> {
     const fallback: Leaderboard = { seasons: [], season: null, drives: [], projects: [], funds: [], error: true };
     return this.withArtizenErrors(fallback, () =>
-      this.cached(`${LEADERBOARD_CACHE}/${or(seasonNumber, 'current')}`, fallback, () => this.build(seasonNumber)),
+      this.cached(`${LEADERBOARD_CACHE}/${seasonNumber ?? 'current'}`, fallback, () => this.build(seasonNumber)),
     );
   }
 
@@ -541,7 +500,7 @@ export class Artizen {
       if (!(value > 0)) return;
 
       candidates.push({
-        name: str(row['name']).trim() || this.unnamedHolder(row['wallet']),
+        name: text(row['name']) || this.unnamedHolder(row['wallet']),
         image: this.mediaUrl(row['profile image']),
         points: value,
         admin: this.boostAdmin(row['Role']),
@@ -587,13 +546,13 @@ export class Artizen {
   }
 
   private unnamedHolder(wallet: unknown): string {
-    const w = str(wallet).trim();
+    const w = text(wallet) ?? '';
     if (w.length < 10) return 'Unnamed';
     return `${w.slice(0, 6)}…${w.slice(-4)}`;
   }
 
   private boostAdmin(role: unknown): boolean {
-    const value = str(role).trim().toLowerCase();
+    const value = (text(role) ?? '').toLowerCase();
     return value.includes('admin') || value === 'scott';
   }
 
@@ -605,18 +564,18 @@ export class Artizen {
 
   private async fetchSeasons(): Promise<Season[]> {
     const seasons = sortByDesc(
-      filterMap(await this.list('season'), (row) => {
-        const number = optInt(row['season number']);
-        if (number == null) return undefined;
+      mapSome(await this.list('season'), (row) => {
+        if (row['season number'] == null) return undefined;
+        const number = int(row['season number']);
 
         const tag = row['Season tag'];
         return {
-          id: str(row['_id']),
+          id: String(row['_id'] ?? ''),
           number,
-          title: str(or(row['title'], `Season ${number}`)),
+          title: text(row['title']) ?? `Season ${number}`,
           tag,
-          current: !blank(tag) && tag != 'Ended',
-          total_raised: optNum(row['total raised usd']),
+          current: text(tag) != null && tag !== 'Ended',
+          total_raised: maybeNum(row['total raised usd']),
           competition_start: row['competition start date'],
           competition_end: row['competition end date'],
         } satisfies Season;
@@ -629,8 +588,10 @@ export class Artizen {
   }
 
   private pickSeason(seasons: Season[], seasonNumber?: string | number | null): Season | undefined {
-    let found: Season | undefined;
-    if (!blank(seasonNumber)) found = seasons.find((s) => s.number === toInt(seasonNumber));
+    const found =
+      seasonNumber != null && String(seasonNumber).trim() !== ''
+        ? seasons.find((s) => s.number === int(seasonNumber))
+        : undefined;
     return found || seasons.find((s) => s.current) || seasons[0];
   }
 
@@ -651,22 +612,22 @@ export class Artizen {
     const prizes = await this.drivePrizesByProject(seasonId);
 
     return sortByDesc(
-      filterMap(rows, (row) => {
-        const project = lookup(projects, row['project']) || {};
-        if (isHidden(project)) return undefined;
+      mapSome(rows, (row) => {
+        const project = byId(projects, row['project']) || {};
+        if (hidden(project)) return undefined;
 
-        const name = str(presence(project['Name']) ?? row['name']).trim();
-        if (blank(name)) return undefined;
+        const name = text(project['Name'] ?? row['name']);
+        if (!name) return undefined;
 
-        const slug = presence(project['Slug']) ?? row['project'];
-        const split = lookup(venusByProject, row['project']) || { venus: 0, sprint: 0 };
+        const slug = text(project['Slug']) ?? row['project'];
+        const split = byId(venusByProject, row['project']) || { venus: 0, sprint: 0 };
         const ledgerPrize = num(row['funding prize funds usd']);
-        const prize = Math.max(ledgerPrize, num(lookup(prizes, row['project'])));
+        const prize = Math.max(ledgerPrize, num(byId(prizes, row['project'])));
         return {
           name,
           url: this.localProjectPath(slug),
-          creator: presence(str(or(project[LEAD_CREATOR], row['lead creator'])).trim()),
-          logline: presence(project['Logline']),
+          creator: text(project[LEAD_CREATOR] || row['lead creator']),
+          logline: text(project['Logline']),
           sales: this.communitySales(row['funding total sales'], split.venus + split.sprint),
           venus: split.venus,
           match: num(row['funding match']) + num(row['funding boost ']),
@@ -729,18 +690,18 @@ export class Artizen {
   private podiumRows(rows: Row[], kind: 'project' | 'fund', records: Record<string, Row>): PodiumRow[] {
     const field = kind;
     const nameField = kind === 'fund' ? 'name' : 'Name';
-    return filterMap(rows, (row) => {
-      if (kind === 'fund' && !blank(row['project'])) return undefined;
+    return mapSome(rows, (row) => {
+      if (kind === 'fund' && row['project']) return undefined;
 
       const id = row[field];
-      if (blank(id)) return undefined;
+      if (!id) return undefined;
 
-      const record = lookup(records, id);
-      const slug = (record && presence(or(record['Slug'], record['slugg']))) || id;
+      const record = byId(records, id);
+      const slug = text(record?.['Slug'] || record?.['slugg']) || id;
       const points = num(row['boost points received']);
       const salesMatch = num(row['sales + match (both)']);
       return {
-        name: presence(str(record && record[nameField]).trim()) || (field[0].toUpperCase() + field.slice(1)),
+        name: text(record?.[nameField]) || (field[0].toUpperCase() + field.slice(1)),
         url: kind === 'fund' ? this.localFundPath(slug) : this.localProjectPath(slug),
         sales_match: salesMatch,
         points,
@@ -752,23 +713,23 @@ export class Artizen {
   private normalizeDrive(row: Row): Drive {
     const slug = row['slugg'];
     return {
-      id: str(row['_id']),
-      name: str(row['Name']).trim(),
-      url: `${SITE_URL}/index/boost/${presence(slug) ?? row['_id']}`,
+      id: String(row['_id'] ?? ''),
+      name: text(row['Name']) ?? '',
+      url: `${SITE_URL}/index/boost/${text(slug) ?? row['_id']}`,
       season_id: row['season'],
-      season_number: optInt(row['season number']),
+      season_number: row['season number'] == null ? undefined : int(row['season number']),
       image: this.mediaUrl(row['image']),
-      description: presence(row['Description']),
+      description: text(row['Description']),
       status: row['status'],
       active: row['status'] == 'Active',
-      number: optInt(row['fund drive number']),
+      number: row['fund drive number'] == null ? undefined : int(row['fund drive number']),
       start: row['start date'],
       end: row['end date'],
-      multiple: optNum(row['boost multiple']),
-      match_pot: optNum(row['total match pot funds']),
-      prize_projects: optNum(row['prize pot projects']),
-      prize_funds: optNum(row['prize pot funds']),
-      match_per_project: optNum(row['Artizen match per project']),
+      multiple: maybeNum(row['boost multiple']),
+      match_pot: maybeNum(row['total match pot funds']),
+      prize_projects: maybeNum(row['prize pot projects']),
+      prize_funds: maybeNum(row['prize pot funds']),
+      match_per_project: maybeNum(row['Artizen match per project']),
       ...this.drivePlacePrizes(row),
     };
   }
@@ -777,14 +738,14 @@ export class Artizen {
     const out: Record<string, number | undefined> = {};
     for (const kind of ['project', 'fund'] as const) {
       for (const [ord, nth] of [['first', '1st'], ['second', '2nd'], ['third', '3rd']] as const) {
-        out[`${kind}_${ord}`] = optNum(row[`${kind} ${nth} prize `]);
+        out[`${kind}_${ord}`] = maybeNum(row[`${kind} ${nth} prize `]);
       }
     }
     return out;
   }
 
   private projectDriveDetails(drives: Drive[], statsByDrive: Record<string, DriveStat>): ProjectDriveDetail[] {
-    return filterMap(drives, (drive) => {
+    return mapSome(drives, (drive) => {
       const stat = statsByDrive[drive.id];
       if (!stat) return undefined;
       if (!(num(stat.available) > 0 || num(stat.raised) > 0 || num(stat.sales) > 0 || num(stat.venus) > 0)) return undefined;
@@ -811,7 +772,7 @@ export class Artizen {
 
       seasons.push({
         number: row.season_number,
-        title: or(row.season, `Season ${row.season_number}`),
+        title: row.season ?? `Season ${row.season_number}`,
         sales: 0.0,
         venus: 0.0,
         match: 0.0,
@@ -826,7 +787,9 @@ export class Artizen {
       const seasonDrives = drives.filter((drive) => drive.season_number == season.number);
       const seasonFunds = matchingFunds.filter((fund) => fund.season_number == season.number);
       const named = seasonDrives.map((drive) => drive.name);
-      const stubs = uniq(seasonFunds.map((fund) => fund.drive)).filter((name) => !named.some((n) => n == name));
+      const stubs = [...new Set(seasonFunds.map((fund) => fund.drive))].filter(
+        (name) => name != null && !named.some((n) => n == name),
+      );
       for (const name of stubs) {
         const sample = seasonFunds.find((fund) => fund.drive == name);
         seasonDrives.push({
@@ -870,7 +833,7 @@ export class Artizen {
 
       seasons.push({
         number: project.season_number,
-        title: or(project.season, `Season ${project.season_number}`),
+        title: project.season ?? `Season ${project.season_number}`,
         total: 0.0,
         count: 0,
       });
@@ -881,12 +844,12 @@ export class Artizen {
     const nested = seasons.map((season) => {
       const seasonProjects = matchedProjects.filter((project) => project.season_number == season.number);
       const drives: FundDriveNest[] = sortByDesc(
-        groupBy(seasonProjects, (project) => or(project.drive, 'Drive')).map(([name, projects]) => {
+        groupBy(seasonProjects, (project) => project.drive ?? 'Drive').map(([name, projects]) => {
           const sample = projects[0];
           const active = sample && sample.drive_active;
           const leftover = sum(projects, (project) => num(project.available));
           return {
-            name: str(name),
+            name: String(name ?? 'Drive'),
             url: sample && sample.drive_url,
             active,
             number: sample && sample.drive_number,
@@ -936,8 +899,8 @@ export class Artizen {
     const row = await this.findOne('project', slug);
     if (row == null || row['Hide']) return null;
 
-    const id = str(row['_id']);
-    const slugValue = presence(row['Slug']) ?? id;
+    const id = String(row['_id'] ?? '');
+    const slugValue = text(row['Slug']) ?? id;
     const seasonsMeta = await this.seasonsById();
     const seasonRows = await this.list('projectseason', {
       constraints: [{ key: 'project', constraint_type: 'equals', value: id }],
@@ -952,7 +915,7 @@ export class Artizen {
       constraints: [{ key: 'project', constraint_type: 'equals', value: id }],
     });
 
-    const boostIds = compactUniq([...slices, ...participants].map((r) => r['boost']));
+    const boostIds = ids([...slices, ...participants].map((r) => r['boost']));
     const drives = await this.fetchNormalizedDrives(boostIds, seasonsMeta);
     sortByDesc(drives, (d) => d.season_number || 0, (d) => d.number || 0);
 
@@ -962,7 +925,7 @@ export class Artizen {
     const venusByBoost: Record<string, number> = {};
     const sprintByBoost: Record<string, number> = {};
     for (const tx of venusTxs) {
-      const seasonKey = idKey(tx['Season']);
+      const seasonKey = String(tx['Season'] ?? '');
       const split = this.venusSplit(tx);
       bump(venusBySeason, seasonKey, split.venus);
       bump(sprintBySeason, seasonKey, split.sprint);
@@ -977,14 +940,15 @@ export class Artizen {
     const stats: Record<string, Record<string, DriveStat>> = {};
     stats[id] = stats[id] || {};
     for (const part of participants) {
-      if (blank(part['boost'])) continue;
+      if (!part['boost']) continue;
 
-      const venus = num(venusByBoost[idKey(part['boost'])]);
-      const sprint = num(sprintByBoost[idKey(part['boost'])]);
+      const boostKey = String(part['boost']);
+      const venus = num(venusByBoost[boostKey]);
+      const sprint = num(sprintByBoost[boostKey]);
       const sales = this.communitySales(part['fund drive sales (both)'], venus);
       const match = num(part['match boost unlocked (both)']);
       const prize = num(part['prize earned usd']);
-      stats[id][idKey(part['boost'])] = {
+      stats[id][boostKey] = {
         sales,
         venus,
         match,
@@ -993,38 +957,38 @@ export class Artizen {
         raised: sales + venus + match + prize + sprint,
       };
       let seasonId = part['season'];
-      if (blank(seasonId)) {
+      if (!seasonId) {
         const drive = drives.find((d) => d.id == part['boost']);
         seasonId = drive && drive.season_id;
       }
       if (seasonId != null && seasonId !== false && prize > 0) {
-        bump(prizeBySeason, idKey(seasonId), prize);
+        bump(prizeBySeason, String(seasonId), prize);
       }
     }
     for (const [boostId, rows] of groupBy(slices, (s) => s['boost'])) {
-      if (blank(boostId)) continue;
+      if (!boostId) continue;
 
       const leftover = this.leftoverMatch(rows);
       if (!(leftover > 0)) continue;
 
       const drive = drives.find((d) => d.id == boostId);
-      const key = idKey(boostId);
+      const key = String(boostId);
       stats[id][key] ||= { sales: 0.0, venus: 0.0, match: 0.0, raised: 0.0 };
       stats[id][key].available = drive && drive.active ? leftover : 0.0;
     }
 
-    const fundIds = compactUniq(slices.map((s) => s['fund']));
+    const fundIds = ids(slices.map((s) => s['fund']));
     const fundsById = await this.indexed('fund', fundIds);
     const matchingFunds = sortByDesc(
-      filterMap(groupBy(slices, (s) => [s['fund'], s['boost']]), ([pair, rows]) => {
+      mapSome(groupBy(slices, (s) => [s['fund'], s['boost']]), ([pair, rows]) => {
         const [fundId, boostId] = pair as [unknown, unknown];
-        const fund = lookup(fundsById, fundId);
+        const fund = byId(fundsById, fundId);
         if (!fund) return undefined;
 
         const drive = drives.find((d) => d.id == boostId);
-        const fundSlug = presence(fund['Slug']) ?? fundId;
+        const fundSlug = text(fund['Slug']) ?? fundId;
         return {
-          name: str(fund['name']).trim(),
+          name: text(fund['name']) ?? '',
           url: this.localFundPath(fundSlug),
           ...this.driveContext(drive),
           available: drive && drive.active ? this.leftoverMatch(rows) : 0.0,
@@ -1037,27 +1001,36 @@ export class Artizen {
       (f) => f.cap,
     );
 
-    const tagIds = arrayWrap(row['impact tags (impact tag)']);
-    const tags = compact((await this.fetchByIds('impacttag', tagIds)).map((t) => t['name'] as string | undefined));
+    const rawTags = row['impact tags (impact tag)'];
+    const tagIds = rawTags == null || rawTags === false ? [] : Array.isArray(rawTags) ? rawTags : [rawTags];
+    const tags = (await this.fetchByIds('impacttag', tagIds)).flatMap((t) => {
+      const name = text(t['name']);
+      return name ? [name] : [];
+    });
 
     const driveDetails = this.projectDriveDetails(drives, stats[id]);
-    const seasons = filterMap(seasonRows, (srow) => {
-      const meta = lookup(seasonsMeta, srow['season ']);
-      const sVenus = num(venusBySeason[idKey(srow['season '])]);
-      const sSprint = num(sprintBySeason[idKey(srow['season '])]);
+    const seasons = mapSome(seasonRows, (srow) => {
+      const meta = byId(seasonsMeta, srow['season ']);
+      const seasonKey = String(srow['season '] ?? '');
+      const sVenus = num(venusBySeason[seasonKey]);
+      const sSprint = num(sprintBySeason[seasonKey]);
       const sSales = this.communitySales(srow['funding total sales'], sVenus + sSprint);
       const sMatch = num(srow['funding match']) + num(srow['funding boost ']);
       const sPrize = Math.max(
         num(srow['funding prize funds usd']),
-        num(prizeBySeason[idKey(srow['season '])]),
+        num(prizeBySeason[seasonKey]),
         num(srow['old funding prize leaderboard  (usd)']),
       );
       const sRaised = sSales + sVenus + sSprint + sMatch + sPrize;
       if (!(sRaised > 0)) return undefined;
 
+      const number =
+        srow['season number'] != null && srow['season number'] !== false
+          ? (srow['season number'] as number)
+          : meta?.number;
       return {
-        number: or(srow['season number'], meta?.number) as number | undefined,
-        title: or(meta?.title, `Season ${srow['season number']}`),
+        number,
+        title: meta?.title ?? `Season ${srow['season number']}`,
         sales: sSales,
         venus: sVenus,
         match: sMatch,
@@ -1073,10 +1046,10 @@ export class Artizen {
     this.applyLegacySubmissionAwards(seasons, submissionRows, seasonsMeta);
     sortByDesc(seasons, (s) => s.number || 0);
     return {
-      name: str(row['Name']).trim(),
+      name: text(row['Name']) ?? '',
       artizen_url: this.projectUrl(slugValue),
-      creator: presence(str(row[LEAD_CREATOR]).trim()),
-      logline: presence(row['Logline']),
+      creator: text(row[LEAD_CREATOR]),
+      logline: text(row['Logline']),
       image: this.projectImage(row, seasonRows, artifacts, seasonsMeta),
       tags,
       seasons: this.nestProjectFunding(seasons, driveDetails, matchingFunds),
@@ -1086,20 +1059,23 @@ export class Artizen {
 
   private async formatProjectSubmissions(rows: Row[], seasonsMeta: Record<string, Season>): Promise<ProjectSubmission[]> {
     const kept = rows.filter((row) => !(row['Submitted'] == false));
-    const fundIds = compactUniq(kept.map((row) => row['Fund']));
+    const fundIds = ids(kept.map((row) => row['Fund']));
     const fundsById = await this.indexed('fund', fundIds);
-    return filterMap(kept, (row) => {
-      const fund = lookup(fundsById, row['Fund']);
+    return mapSome(kept, (row) => {
+      const fund = byId(fundsById, row['Fund']);
       if (!fund) return undefined;
 
-      const slug = presence(fund['Slug']) ?? row['Fund'];
-      const meta = lookup(seasonsMeta, row['season']);
-      const number = or(row['season number'], meta?.number) as number | undefined;
+      const slug = text(fund['Slug']) ?? row['Fund'];
+      const meta = byId(seasonsMeta, row['season']);
+      const number =
+        row['season number'] != null && row['season number'] !== false
+          ? (row['season number'] as number)
+          : meta?.number;
       return {
-        name: str(fund['name']).trim(),
+        name: text(fund['name']) ?? '',
         url: this.localFundPath(slug),
-        status: presence(str(row['Status'])),
-        season: or(meta?.title, number != null ? `Season ${number}` : undefined),
+        status: text(row['Status']),
+        season: meta?.title ?? (number != null ? `Season ${number}` : undefined),
         season_number: number,
         created_at: row['Created Date'],
       } satisfies ProjectSubmission;
@@ -1108,7 +1084,7 @@ export class Artizen {
       if (season) return season;
       const rank = this.submissionStatusRank(a.status) - this.submissionStatusRank(b.status);
       if (rank) return rank;
-      return str(b.created_at).localeCompare(str(a.created_at));
+      return String(b.created_at ?? '').localeCompare(String(a.created_at ?? ''));
     });
   }
 
@@ -1128,8 +1104,8 @@ export class Artizen {
     const row = await this.findOne('fund', slug);
     if (!row) return null;
 
-    const id = str(row['_id']);
-    const slugValue = presence(row['Slug']) ?? id;
+    const id = String(row['_id'] ?? '');
+    const slugValue = text(row['Slug']) ?? id;
     const ext = row['Extended info'] != null && row['Extended info'] !== false
       ? (await this.findBy('fundextendedinfo', '_id', row['Extended info']))[0]
       : undefined;
@@ -1141,25 +1117,25 @@ export class Artizen {
       ],
     });
     const awardRows = await this.listFundAwards([id]);
-    const projectIds = compactUniq([...slices.map((s) => s['project']), ...awardRows.map((s) => s['Project'])]);
+    const projectIds = ids([...slices.map((s) => s['project']), ...awardRows.map((s) => s['Project'])]);
     const projects = await this.indexed('project', projectIds);
-    const boostIds = compactUniq(slices.map((s) => s['boost']));
+    const boostIds = ids(slices.map((s) => s['boost']));
     const seasonsMeta = await this.seasonsById();
     const driveList = await this.fetchNormalizedDrives(boostIds, seasonsMeta);
     const drives: Record<string, Drive> = Object.fromEntries(driveList.map((d) => [d.id, d]));
 
-    const matchedProjects: FundMatchedProject[] = filterMap(groupBy(slices, (s) => [s['project'], s['boost']]), ([pair, rows]) => {
+    const matchedProjects: FundMatchedProject[] = mapSome(groupBy(slices, (s) => [s['project'], s['boost']]), ([pair, rows]) => {
       const [projectId, boostId] = pair as [unknown, unknown];
-      const project = lookup(projects, projectId);
+      const project = byId(projects, projectId);
       if (!project) return undefined;
 
-      const drive = lookup(drives, boostId);
-      const projectSlug = presence(project['Slug']) ?? projectId;
+      const drive = byId(drives, boostId);
+      const projectSlug = text(project['Slug']) ?? projectId;
       return {
-        name: str(project['Name']).trim(),
+        name: text(project['Name']) ?? '',
         url: this.localProjectPath(projectSlug),
-        creator: presence(str(project[LEAD_CREATOR]).trim()),
-        hidden: isHidden(project),
+        creator: text(project[LEAD_CREATOR]),
+        hidden: hidden(project),
         ...this.driveContext(drive),
         drive_url: drive && drive.url,
         available: this.leftoverMatch(rows),
@@ -1174,11 +1150,11 @@ export class Artizen {
         { key: 'confirmed', constraint_type: 'equals', value: true },
       ],
     });
-    const contribSeasons = filterMap(groupBy(contribs, (c) => c['Season']), ([seasonId, rows]) => {
-      const meta = lookup(seasonsMeta, seasonId);
+    const contribSeasons = mapSome(groupBy(contribs, (c) => c['Season']), ([seasonId, rows]) => {
+      const meta = byId(seasonsMeta, seasonId);
       return {
         number: meta?.number,
-        title: or(meta?.title, 'Season'),
+        title: meta?.title ?? 'Season',
         total: sum(rows, (r) => num(r['amount $USD'])),
         count: rows.length,
       } satisfies FundFundingSeason;
@@ -1193,16 +1169,16 @@ export class Artizen {
     const seasons = this.nestFundFunding(contribSeasons, matchedProjects, unallocated);
 
     return {
-      name: (ext && presence(ext['full title'])) || str(row['name']).trim(),
+      name: text(ext?.['full title']) || (text(row['name']) ?? ''),
       artizen_url: this.fundUrl(slugValue),
       image: this.mediaUrl(row['cover image']),
-      subtitle: ext ? presence(ext['subtitle']) : undefined,
-      for_title: ext ? presence(ext['for title']) : undefined,
-      sponsor: ext ? presence(ext['lead sponsor (text)']) : undefined,
+      subtitle: text(ext?.['subtitle']),
+      for_title: text(ext?.['for title']),
+      sponsor: text(ext?.['lead sponsor (text)']),
       available: sum(seasons, (season) => num(season.available)),
       unlocked: sum(seasons, (season) => num(season.unlocked)),
-      prize_art: optNum(row['Prize ART']),
-      prize_usd: optNum(row['Prize USD']),
+      prize_art: maybeNum(row['Prize ART']),
+      prize_usd: maybeNum(row['Prize USD']),
       active: row['active'],
       contrib_total: contribTotal,
       seasons,
@@ -1211,7 +1187,7 @@ export class Artizen {
 
   private async findOne(type: string, slug: string, slugField = 'Slug'): Promise<Row | undefined> {
     const rows = await this.findBy(type, slugField, slug, 5);
-    const row = rows.find((r) => !isHidden(r)) || rows[0];
+    const row = rows.find((r) => !hidden(r)) || rows[0];
     if (row) return row;
 
     return (await this.findBy(type, '_id', slug))[0];
@@ -1229,9 +1205,9 @@ export class Artizen {
     const lastAt: Record<string, unknown> = {};
     for (const contrib of contribs) {
       const id = contrib['Fund'];
-      if (blank(id)) continue;
+      if (!id) continue;
 
-      const key = idKey(id);
+      const key = String(id);
       bump(totals, key, num(contrib['amount $USD']));
       const created = contrib['Created Date'];
       if (created && (lastAt[key] == null || created > (lastAt[key] as string))) lastAt[key] = created;
@@ -1243,16 +1219,16 @@ export class Artizen {
       'fundextendedinfo',
       funds.map((fund) => fund['Extended info']),
     );
-    const ranked = filterMap(funds, (fund) => {
-      const id = str(fund['_id']);
+    const ranked = mapSome(funds, (fund) => {
+      const id = String(fund['_id'] ?? '');
       const seasonTotal = num(totals[id]);
       if (!(seasonTotal > 0)) return undefined;
 
-      const slug = presence(fund['Slug']) ?? id;
-      const ext = lookup(exts, fund['Extended info']);
+      const slug = text(fund['Slug']) ?? id;
+      const ext = byId(exts, fund['Extended info']);
       const row: FundRow = {
-        name: str(fund['name']).trim(),
-        subtitle: ext ? presence(ext['subtitle']) : undefined,
+        name: text(fund['name']) ?? '',
+        subtitle: text(ext?.['subtitle']),
         url: this.localFundPath(slug),
         season_total: seasonTotal,
         last_contribution: lastAt[id],
@@ -1260,7 +1236,7 @@ export class Artizen {
       };
       if (current) {
         row.unlocked = num(unlocked[id]);
-        row.available = optNum(fund['Funding - current']);
+        row.available = maybeNum(fund['Funding - current']);
         row.raised = num(row.available) + row.unlocked;
       }
       return row;
@@ -1277,10 +1253,10 @@ export class Artizen {
       { key: 'match unlocked', constraint_type: 'greater than', value: 0 },
     ]);
     for (const slice of slices) {
-      bump(unlocked, idKey(slice['fund']), num(slice['match unlocked']));
+      bump(unlocked, String(slice['fund'] ?? ''), num(slice['match unlocked']));
     }
     for (const row of await this.listFundAwards(fundIds)) {
-      bump(unlocked, idKey(row['Fund']), num(row['$ amount raised']));
+      bump(unlocked, String(row['Fund'] ?? ''), num(row['$ amount raised']));
     }
     return unlocked;
   }
@@ -1293,9 +1269,10 @@ export class Artizen {
   }
 
   private fundAwardProjects(awardRows: Row[], projects: Record<string, Row>, seasonsMeta: Record<string, Season>): FundMatchedProject[] {
-    return filterMap(
+    return mapSome(
       groupBy(awardRows, (row) => {
-        const number = or(row['season number'], lookup(seasonsMeta, row['season'])?.number);
+        const n = row['season number'];
+        const number = n != null && n !== false ? n : byId(seasonsMeta, row['season'])?.number;
         return [row['Project'], number];
       }),
       ([pair, rows]) => {
@@ -1303,20 +1280,20 @@ export class Artizen {
         const raised = sum(rows, (row) => num(row['$ amount raised']));
         if (!(raised > 0 && number != null && number !== false)) return undefined;
 
-        const project = lookup(projects, projectId);
-        const meta = lookup(seasonsMeta, rows[0]['season']);
-        const projectSlug = (project && presence(project['Slug'])) || projectId;
+        const project = byId(projects, projectId);
+        const meta = byId(seasonsMeta, rows[0]['season']);
+        const projectSlug = text(project?.['Slug']) || projectId;
         return {
-          name: presence(str(project && project['Name']).trim()) || 'Project',
+          name: text(project?.['Name']) || 'Project',
           url: this.localProjectPath(projectSlug),
-          creator: project ? presence(str(project[LEAD_CREATOR]).trim()) : undefined,
-          hidden: isHidden(project),
+          creator: text(project?.[LEAD_CREATOR]),
+          hidden: hidden(project),
           drive: 'Awards',
           drive_url: null,
           drive_active: false,
           drive_number: null,
           drive_multiple: null,
-          season: or(meta?.title, `Season ${number}`),
+          season: meta?.title ?? `Season ${number}`,
           season_number: number as number,
           available: 0.0,
           unlocked: raised,
@@ -1336,7 +1313,7 @@ export class Artizen {
 
     const first = await this.get(type, { ...params, cursor: 0 });
     const results = first.results || [];
-    const remaining = toInt(first.remaining);
+    const remaining = int(first.remaining);
     if (remaining <= 0) return results;
 
     const pageCount = Math.ceil(remaining / PAGE_SIZE);
@@ -1357,7 +1334,7 @@ export class Artizen {
 
     const first = await this.get(type, { ...params, cursor: 0 });
     for (const row of first.results || []) fn(row);
-    const remaining = toInt(first.remaining);
+    const remaining = int(first.remaining);
     if (remaining <= 0) return;
 
     const cursors = Array.from({ length: Math.ceil(remaining / PAGE_SIZE) }, (_, i) => (i + 1) * PAGE_SIZE);
@@ -1381,10 +1358,10 @@ export class Artizen {
     throw last instanceof Error ? last : new Error(String(last));
   }
 
-  private async inBatches(ids: unknown[], fn: (batch: unknown[]) => Promise<Row[]>): Promise<Row[]> {
-    const compactIds = compactUniq(ids);
-    if (compactIds.length === 0) return [];
-    return (await Promise.all(batches(compactIds, IN_BATCH).map(fn))).flat();
+  private async inBatches(values: unknown[], fn: (batch: unknown[]) => Promise<Row[]>): Promise<Row[]> {
+    const unique = ids(values);
+    if (unique.length === 0) return [];
+    return (await Promise.all(batches(unique, IN_BATCH).map(fn))).flat();
   }
 
   private async fetchByIds(type: string, ids: unknown[]): Promise<Row[]> {
@@ -1467,7 +1444,7 @@ export class Artizen {
   private async cached<T>(key: string, fallback: T, build: () => Promise<T>): Promise<T> {
     if (this.fillOnMiss) return this.cacheFetch(key, build);
     const data = await this.cacheRead<T>(key);
-    return data != null && !isErrorHash(data) ? data : fallback;
+    return data != null && !failed(data) ? data : fallback;
   }
 
   private async cacheRead<T>(key: string): Promise<T | null> {
@@ -1482,7 +1459,7 @@ export class Artizen {
   }
 
   private async cacheWrite<T>(key: string, value: T): Promise<T> {
-    if (value && !isErrorHash(value)) {
+    if (value && !failed(value)) {
       await this.kv.put(key, JSON.stringify(value));
     }
     return value;
@@ -1509,13 +1486,13 @@ export class Artizen {
     if (this.venusId !== undefined) return this.venusId;
 
     const rows = await this.findBy('useraccount', 'name', 'Venus');
-    this.venusId = str(rows[0] && rows[0]['_id']);
+    this.venusId = String(rows[0]?.['_id'] ?? '');
     return this.venusId;
   }
 
   private async venusTransactions(opts: { seasonId?: string | null; projectId?: string | null } = {}): Promise<Row[]> {
     const id = await this.venusAccountId();
-    if (blank(id)) return [];
+    if (!id) return [];
 
     const constraints: Constraint[] = [
       { key: 'Buyer (User account)', constraint_type: 'equals', value: id },
@@ -1530,9 +1507,9 @@ export class Artizen {
     const sums: Record<string, { venus: number; sprint: number }> = {};
     for (const tx of await this.venusTransactions({ seasonId })) {
       const pid = tx['project'];
-      if (blank(pid)) continue;
+      if (!pid) continue;
 
-      const key = idKey(pid);
+      const key = String(pid);
       const split = this.venusSplit(tx);
       const bucket = (sums[key] ||= { venus: 0, sprint: 0 });
       bucket.venus += split.venus;
@@ -1551,9 +1528,9 @@ export class Artizen {
     });
     for (const part of parts) {
       const pid = part['project'];
-      if (blank(pid)) continue;
+      if (!pid) continue;
 
-      const key = idKey(pid);
+      const key = String(pid);
       bump(sums, key, num(part['prize earned usd']));
     }
     return sums;
@@ -1593,8 +1570,8 @@ export class Artizen {
   }
 
   private parseTime(value: unknown): Date | undefined {
-    if (blank(value)) return undefined;
-    const date = new Date(str(value));
+    if (value == null || value === false || value === '') return undefined;
+    const date = new Date(String(value));
     return Number.isNaN(date.getTime()) ? undefined : date;
   }
 
@@ -1606,7 +1583,7 @@ export class Artizen {
   // Admin "Sales no" checkouts are sprint prizes, not drive sales / Venus sparkle.
   private venusSplit(tx: Row): { venus: number; sprint: number } {
     const amount = num(tx['amount spent $USD']);
-    if (/sales no/i.test(str(tx['admin checkout type']))) return { venus: 0, sprint: amount };
+    if (/sales no/i.test(String(tx['admin checkout type'] ?? ''))) return { venus: 0, sprint: amount };
     return { venus: amount, sprint: 0 };
   }
 
@@ -1632,7 +1609,7 @@ export class Artizen {
         seasons.push({
           ...funding,
           number,
-          title: or(meta?.title, `Season ${number}`),
+          title: meta?.title ?? `Season ${number}`,
         });
       }
     }
@@ -1662,7 +1639,8 @@ export class Artizen {
     for (const row of submissionRows) {
       if (row['Status'] !== 'Curated') continue;
 
-      const number = or(row['season number'], lookup(seasonsMeta, row['season'])?.number) as number | undefined;
+      const n = row['season number'];
+      const number = (n != null && n !== false ? n : byId(seasonsMeta, row['season'])?.number) as number | undefined;
       if (![4, 5].some((n) => n == number)) continue;
 
       const bucket = (awards[number as number] ||= { match: 0.0, prize: 0.0 });
@@ -1684,7 +1662,7 @@ export class Artizen {
         const meta = Object.values(seasonsMeta).find((season) => season.number === number);
         seasons.push({
           number,
-          title: or(meta?.title, `Season ${number}`),
+          title: meta?.title ?? `Season ${number}`,
           sales: 0.0,
           venus: 0.0,
           match: extra.match,
@@ -1705,9 +1683,9 @@ export class Artizen {
     });
     for (const row of rows) {
       const projectId = row['Project'];
-      if (blank(projectId)) continue;
+      if (!projectId) continue;
 
-      const key = idKey(projectId);
+      const key = String(projectId);
       const bucket = (awards[key] ||= { match: 0.0, prize: 0.0 });
       bucket.match += num(row['$ amount raised']);
       bucket.prize += num(row['prize unlocked usd']);
@@ -1730,16 +1708,16 @@ export class Artizen {
     }
     const awards = await this.curatedAwardsByProject(season.id);
     return sortByDesc(
-      filterMap(await this.list('project', { constraints }), (project) => {
-        if (isHidden(project)) return undefined;
+      mapSome(await this.list('project', { constraints }), (project) => {
+        if (hidden(project)) return undefined;
 
-        const name = str(project['Name']).trim();
-        if (blank(name)) return undefined;
+        const name = text(project['Name']);
+        if (!name) return undefined;
 
         const funding = this.legacySeasonFunding(project, number);
         if (!funding) return undefined;
 
-        const extra = lookup(awards, project['_id']);
+        const extra = byId(awards, project['_id']);
         if (extra) {
           funding.match += extra.match;
           funding.prize += extra.prize;
@@ -1747,13 +1725,13 @@ export class Artizen {
         }
         if (!(num(funding.raised) > 0)) return undefined;
 
-        const slug = presence(project['Slug']) ?? project['_id'];
+        const slug = text(project['Slug']) ?? project['_id'];
         return {
           ...funding,
           name,
           url: this.localProjectPath(slug),
-          creator: presence(str(project[LEAD_CREATOR]).trim()),
-          logline: presence(project['Logline']),
+          creator: text(project[LEAD_CREATOR]),
+          logline: text(project['Logline']),
         };
       }),
       (project) => project.raised,
@@ -1762,11 +1740,11 @@ export class Artizen {
 
   private applySeasonNames(drives: Drive[], seasonsMeta: Record<string, Season>): void {
     for (const drive of drives) {
-      const meta = lookup(seasonsMeta, drive.season_id);
+      const meta = byId(seasonsMeta, drive.season_id);
       if (drive.season_number == null) {
         drive.season_number = meta?.number;
       }
-      drive.season = or(meta?.title, drive.season_number != null ? `Season ${drive.season_number}` : undefined);
+      drive.season = meta?.title ?? (drive.season_number != null ? `Season ${drive.season_number}` : undefined);
     }
   }
 
@@ -1801,11 +1779,11 @@ export class Artizen {
     const current = Object.values(seasonsMeta).find((season) => season.current);
     const artifactFile = (artifact: Row) => artifact['image - crop'] || artifact['image - compressed'] || artifact['image - original'];
     const forSeason = (artifact: Row) =>
-      (current?.id != null && idKey(artifact['Season']) === current.id) ||
-      (current?.number != null && toInt(artifact['season number']) === current.number);
+      (current?.id != null && String(artifact['Season'] ?? '') === current.id) ||
+      (current?.number != null && int(artifact['season number']) === current.number);
     const currentArtifact = artifacts.find(forSeason);
-    const latestArtifact = [...artifacts].sort((a, b) => toInt(b['season number']) - toInt(a['season number']))[0];
-    const currentSeasonCrop = seasonRows.find((srow) => current?.id != null && idKey(srow['season ']) === current.id)?.['image crop'];
+    const latestArtifact = [...artifacts].sort((a, b) => int(b['season number']) - int(a['season number']))[0];
+    const currentSeasonCrop = seasonRows.find((srow) => current?.id != null && String(srow['season '] ?? '') === current.id)?.['image crop'];
     return this.firstMedia(
       currentArtifact && artifactFile(currentArtifact),
       currentSeasonCrop,
@@ -1824,12 +1802,12 @@ export class Artizen {
   }
 
   private mediaUrl(path: unknown): string | undefined {
-    if (blank(path)) return undefined;
+    if (path == null || path === false || path === '') return undefined;
     if (typeof path === 'object' && !Array.isArray(path)) {
       const rec = path as Record<string, unknown>;
       return this.mediaUrl(rec.url ?? rec.src);
     }
-    const s = str(path).trim();
+    const s = String(path).trim();
     if (!s || s === '[object Object]') return undefined;
     return s.startsWith('//') ? `https:${s}` : s;
   }
