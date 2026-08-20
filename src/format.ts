@@ -6,6 +6,7 @@ export type Funded = ProjectRow & {
   vmp: number;
   multiple_v?: number;
   multiple_ex?: number;
+  multiple_vme?: number;
   multiple?: number;
 };
 
@@ -64,7 +65,7 @@ export function funding(row: ProjectRow): Funded {
   const sprint = Number(row.sprint) || 0;
   const sv = sales + venus;
   const svm = sv + match;
-  const vmp = venus + match + prize;
+  const vmp = venus + match + sprint + prize;
   return {
     ...row,
     sales,
@@ -77,8 +78,9 @@ export function funding(row: ProjectRow): Funded {
     vmp,
     multiple_v: sales !== 0 ? venus / sales : undefined,
     multiple_ex: sales !== 0 ? (venus + match) / sales : undefined,
-    multiple: sales !== 0 ? vmp / sales : undefined,
-    raised: row.raised == null ? sales + vmp + sprint : Number(row.raised) || 0,
+    multiple_vme: sales !== 0 ? (venus + match + sprint) / sales : undefined,
+    multiple: sales !== 0 ? (venus + match + sprint + prize) / sales : undefined,
+    raised: row.raised == null ? sales + vmp : Number(row.raised) || 0,
   };
 }
 
@@ -100,12 +102,13 @@ export const MONEY_COLS: readonly MoneyCol[] = [
   { field: 'sv', label: 'S+V', as: 'usd' },
   { field: 'match', label: 'Match', as: 'usd' },
   { field: 'svm', label: 'S+V+M', as: 'usd' },
-  { field: 'sprint', label: 'Sprints', as: 'usd' },
+  { field: 'sprint', label: 'Venus extras', as: 'usd' },
   { field: 'prize', label: 'Prize', as: 'usd' },
-  { field: 'vmp', label: 'V+M+P', as: 'usd' },
+  { field: 'vmp', label: 'V+M+E+P', as: 'usd' },
   { field: 'multiple_v', label: 'V/S', as: 'x' },
   { field: 'multiple_ex', label: '(V+M)/S', as: 'x' },
-  { field: 'multiple', label: '(V+M+P)/S', as: 'x' },
+  { field: 'multiple_vme', label: '(V+M+E)/S', as: 'x' },
+  { field: 'multiple', label: '(V+M+E+P)/S', as: 'x' },
   { field: 'raised', label: 'Raised', as: 'usd' },
 ];
 
@@ -207,7 +210,7 @@ export function heatTd(
   const value = Number(row[field]) || 0;
   const pct = rankPct(ranks[index], total);
   const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value, field === 'prize' || field === 'sprint');
-  const note = pct != null ? `<br><small class="artizen-rank">${pct}%</small>` : '';
+  const note = label && pct != null ? `<br><small class="artizen-rank">${pct}%</small>` : '';
   return `<td class="text-end artizen-heat" data-order="${value}" style="${rankStyle(pct)}">${label}${note}</td>`;
 }
 
