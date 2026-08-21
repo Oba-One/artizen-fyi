@@ -3,10 +3,10 @@ import type { ProjectRow } from './artizen';
 export type Funded = ProjectRow & {
   sv: number;
   svm: number;
+  v2: number;
   vmp: number;
   multiple_v?: number;
   multiple_ex?: number;
-  multiple_vme?: number;
   multiple?: number;
 };
 
@@ -65,7 +65,8 @@ export function funding(row: ProjectRow): Funded {
   const sprint = Number(row.sprint) || 0;
   const sv = sales + venus;
   const svm = sv + match;
-  const vmp = venus + match + sprint + prize;
+  const v2 = venus + sprint;
+  const vmp = v2 + match + prize;
   return {
     ...row,
     sales,
@@ -75,11 +76,11 @@ export function funding(row: ProjectRow): Funded {
     sprint,
     sv,
     svm,
+    v2,
     vmp,
-    multiple_v: sales !== 0 ? venus / sales : undefined,
-    multiple_ex: sales !== 0 ? (venus + match) / sales : undefined,
-    multiple_vme: sales !== 0 ? (venus + match + sprint) / sales : undefined,
-    multiple: sales !== 0 ? (venus + match + sprint + prize) / sales : undefined,
+    multiple_v: sales !== 0 ? v2 / sales : undefined,
+    multiple_ex: sales !== 0 ? (v2 + match) / sales : undefined,
+    multiple: sales !== 0 ? (v2 + match + prize) / sales : undefined,
     raised: row.raised == null ? sales + vmp : Number(row.raised) || 0,
   };
 }
@@ -105,11 +106,10 @@ export const MONEY_COLS: readonly MoneyCol[] = [
   { field: 'svm', label: 'S+V+M', as: 'usd' },
   { field: 'sprint', label: 'Venus extras', as: 'usd' },
   { field: 'prize', label: 'Prize', as: 'usd' },
-  { field: 'vmp', label: 'V+M+E+P', as: 'usd' },
-  { field: 'multiple_v', label: 'V/S', as: 'x' },
-  { field: 'multiple_ex', label: '(V+M)/S', as: 'x' },
-  { field: 'multiple_vme', label: '(V+M+E)/S', as: 'x' },
-  { field: 'multiple', label: '(V+M+E+P)/S', as: 'x' },
+  { field: 'vmp', label: 'V2+M+P', as: 'usd' },
+  { field: 'multiple_v', label: 'V2/S', as: 'x' },
+  { field: 'multiple_ex', label: '(V2+M)/S', as: 'x' },
+  { field: 'multiple', label: '(V2+M+P)/S', as: 'x' },
   { field: 'raised', label: 'Raised', as: 'usd' },
 ];
 
@@ -166,34 +166,46 @@ export function moneyCells(row: MoneyRow, tag = 'td'): string {
   return MONEY_COLS.map((col) => endCell(moneyLabel(f, col), tag)).join('');
 }
 
-export function heatRanks<T extends Record<string, unknown>>(rows: T[], fields: (keyof T)[]): Record<string, number[]> {
-  const heat: Record<string, number[]> = {};
+export function rankPct(rank: number | undefined, total: number): number | undefined {
+  if (!rank || total <= 0) return undefined;
+  return Math.max(Math.ceil((rank / total) * 100), 1);
+}
+
+export function heatRanks<T extends Record<string, unknown>>(
+  rows: T[],
+  fields: (keyof T)[],
+): Record<string, { ranks: number[]; maxPct: number }> {
+  const heat: Record<string, { ranks: number[]; maxPct: number }> = {};
+  const total = rows.length;
   for (const field of fields) {
     const pairs = rows.map((row, i) => [i, Number(row[field]) || 0] as const);
     pairs.sort((a, b) => b[1] - a[1]);
     const ranks: number[] = new Array(rows.length);
     let lastVal: number | null = null;
     let lastRank = 0;
+    let maxNonZeroRank = 0;
     pairs.forEach(([i, val], order) => {
       if (val !== lastVal) {
         lastRank = order + 1;
         lastVal = val;
       }
       ranks[i] = lastRank;
+      if (val > 0) maxNonZeroRank = lastRank;
     });
-    heat[String(field)] = ranks;
+    heat[String(field)] = {
+      ranks,
+      maxPct: rankPct(maxNonZeroRank, total) ?? 100,
+    };
   }
   return heat;
 }
 
-export function rankPct(rank: number | undefined, total: number): number | undefined {
-  if (!rank || total <= 0) return undefined;
-  return Math.max(Math.ceil((rank / total) * 100), 1);
-}
-
-export function rankStyle(pct?: number): string {
-  if (pct == null || pct <= 1) return 'background-color: #1ACC6C';
-  const t = Math.log(pct) / Math.log(100);
+export function rankStyle(pct?: number, maxPct = 100, minPct = 1): string {
+  if (pct == null) return 'background-color: #1ACC6C';
+  const lo = Math.max(minPct, 1);
+  const hi = Math.max(maxPct, pct, lo);
+  if (pct <= lo || hi <= lo) return 'background-color: #1ACC6C';
+  const t = Math.min((Math.log(pct) - Math.log(lo)) / (Math.log(hi) - Math.log(lo)), 1);
   const r = Math.round(26 + (255 - 26) * t);
   const g = Math.round(204 + (255 - 204) * t);
   const b = Math.round(108 + (255 - 108) * t);
@@ -207,12 +219,13 @@ export function heatTd(
   index: number,
   total: number,
   as: 'usd' | 'x',
+  maxPct = 100,
 ): string {
   const value = Number(row[field]) || 0;
   const pct = rankPct(ranks[index], total);
   const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value, true);
   const note = label && pct != null ? `<br><small class="artizen-rank">${pct}%</small>` : '';
-  const heat = label ? rankStyle(pct) : 'background-color: #fff';
+  const heat = label ? rankStyle(pct, maxPct, rankPct(1, total) ?? 1) : 'background-color: #fff';
   return `<td class="text-end artizen-heat" data-order="${value}" style="${heat}">${label}${note}</td>`;
 }
 

@@ -324,6 +324,17 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   font-size: 0.875rem;
   margin-bottom: 1rem;
 }
+.artizen-note p { margin: 0; }
+.artizen-defs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 1.35rem;
+  margin: 0.55rem 0;
+}
+.artizen-defs div { display: flex; gap: 0.35rem; }
+.artizen-defs dt { margin: 0; color: var(--ink); }
+.artizen-defs dt::after { content: ' ='; }
+.artizen-defs dd { margin: 0; }
 .artizen-panel > .artizen-note:last-child,
 .artizen-shell > .artizen-note:last-child { margin-bottom: 0; }
 
