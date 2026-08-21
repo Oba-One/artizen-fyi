@@ -247,7 +247,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
     </div>
   </div>
   <p class="artizen-byline">
-    <span class="d-none d-md-inline">A project by </span><span class="d-md-none">By </span><a href="https://stephenreid.net" target="_blank" rel="noopener">Stephen Reid</a>, not affiliated with Artizen
+    Not affiliated with Artizen, but you can <a href="https://artizen.fund/index/p/artizenfyi" target="_blank" rel="noopener">back our project there</a>!
   </p>
 </header>
 <div class="offcanvas offcanvas-start" tabindex="-1" id="artizen-nav-offcanvas" aria-labelledby="artizen-nav-offcanvas-label">
@@ -268,6 +268,9 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
 const FOOTER = `
 <footer class="artizen-footer">
   <div class="artizen-footer-inner">
+    <p>
+      By <a href="https://stephenreid.net" target="_blank" rel="noopener">Stephen Reid</a>
+    </p>
     <p>
       <a class="artizen-footer-github" href="https://github.com/stephenreid321/artizen-fyi" target="_blank" rel="noopener">
         <i class="bi bi-github" aria-hidden="true"></i>
