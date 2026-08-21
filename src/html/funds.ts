@@ -1,6 +1,6 @@
 import type { FundRow, Leaderboard } from '../artizen';
 import { truncate, usd } from '../format';
-import { board, boardEmpty, datatable, dtPlaceholder, escapeHtml, layout, namedLink, note, pageTitle, panel } from './layout';
+import { board, boardEmpty, datatable, dtPlaceholder, escapeHtml, layout, namedLink, pageTitle, panel } from './layout';
 
 export function renderFunds(data: Leaderboard, seasonParam: string | null): string {
   const empty = boardEmpty(data);
@@ -33,7 +33,6 @@ export function renderFunds(data: Leaderboard, seasonParam: string | null): stri
       })
       .join('');
     table = panel(`
-      ${note('Fund unlocked = match paid to projects plus awards on curated submissions (Artizen’s distributed). Raised = unlocked + available.')}
       ${dtPlaceholder()}
       <table id="artizen-funds-table" class="table table-sm">
         <thead><tr><th>Fund</th><th class="text-end">Contributions</th>${extraHeads}</tr></thead>
