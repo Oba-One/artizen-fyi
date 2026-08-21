@@ -98,6 +98,7 @@ export async function buildFund(client: Bubble, slug: string): Promise<FundPage 
     subtitle: text(ext?.['subtitle']),
     for_title: text(ext?.['for title']),
     sponsor: text(ext?.['lead sponsor (text)']),
+    created_at: row['Created Date'],
     available: sum(seasons, (season) => num(season.available)),
     unlocked: sum(seasons, (season) => num(season.unlocked)),
     prize_art: maybeNum(row['Prize ART']),

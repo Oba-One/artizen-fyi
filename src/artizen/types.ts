@@ -84,6 +84,7 @@ export type FundRow = {
   url: string;
   season_total: number;
   last_contribution: unknown;
+  created_at?: unknown;
   active: unknown;
   unlocked?: number;
   available?: number;
@@ -209,6 +210,7 @@ export type FundPage = {
   subtitle?: string;
   for_title?: string;
   sponsor?: string;
+  created_at?: unknown;
   available: number;
   unlocked: number;
   prize_art?: number;

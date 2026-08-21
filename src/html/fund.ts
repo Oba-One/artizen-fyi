@@ -1,5 +1,5 @@
 import type { FundPage } from '../artizen';
-import { delimited, usd } from '../format';
+import { delimited, fmtDate, usd } from '../format';
 import { artizenLinks, driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow } from './layout';
 
 export function renderFund(fund: FundPage): string {
@@ -9,6 +9,7 @@ export function renderFund(fund: FundPage): string {
       ? `<span class="badge text-bg-primary">Prize ${delimited(fund.prize_art)} ART</span>`
       : '';
   const fundingTable = fund.seasons.length ? fundFundingTable(fund) : '';
+  const created = fmtDate(fund.created_at, true);
   return layout({
     title: fund.name,
     description: fund.subtitle || fund.for_title || `Artizen fund: ${fund.name}`,
@@ -21,6 +22,7 @@ export function renderFund(fund: FundPage): string {
         `<h1>${escapeHtml(fund.name)}</h1>
           ${fund.subtitle ? `<p class="lead">${escapeHtml(fund.subtitle)}</p>` : ''}
           ${fund.sponsor ? `<p>Lead sponsor: ${escapeHtml(fund.sponsor)}</p>` : ''}
+          ${created ? `<p class="small text-muted mb-2">Created ${escapeHtml(created)}</p>` : ''}
           <div class="mb-2">${fund.active === false ? '<span class="badge text-bg-secondary me-1">Inactive</span>' : ''}${prize}</div>
           ${artizenLinks(fund.artizen_url)}`,
       )}

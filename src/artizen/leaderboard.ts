@@ -285,6 +285,7 @@ async function fundRows(client: Bubble, seasonId: string, { current = false } = 
       url: localFundPath(slug),
       season_total: seasonTotal,
       last_contribution: lastAt[id],
+      created_at: fund['Created Date'],
       active: fund['active'],
     };
     if (current) {

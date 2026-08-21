@@ -235,7 +235,7 @@ export function fmtDate(value: unknown, withYear = false): string {
   if (value == null || value === '') return '';
   const d = new Date(String(value));
   if (Number.isNaN(d.getTime())) return '';
-  const day = String(d.getUTCDate()).padStart(2, '0');
+  const day = String(d.getUTCDate());
   const mon = MONTHS[d.getUTCMonth()];
   return withYear ? `${day} ${mon} ${d.getUTCFullYear()}` : `${day} ${mon}`;
 }
