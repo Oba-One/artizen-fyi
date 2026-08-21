@@ -52,9 +52,11 @@ const TREE_SCRIPT = `
 const DETAIL_POLL_SCRIPT = `
 <script>
 (function() {
+  var path = location.pathname;
   var url = new URL(location.href);
   url.searchParams.set('content', '1');
   fetch(url).then(function(res) { return res.text(); }).then(function(html) {
+    if (location.pathname !== path) return;
     var doc = new DOMParser().parseFromString(html, 'text/html');
     document.title = doc.title;
     var from = doc.querySelector('.artizen-shell');
@@ -69,6 +71,67 @@ const DETAIL_POLL_SCRIPT = `
       });
     }
   }).catch(function() { location.replace(url.href); });
+})();
+</script>
+`;
+
+const SEARCH_SCRIPT = `
+<script>
+(function() {
+  var q = document.getElementById('artizen-q');
+  var form = q && q.form;
+  if (!q || !form) return;
+  var seq = 0;
+  var live = location.pathname === '/search';
+  var pushed = false;
+  var composing = false;
+
+  function searchUrl() {
+    var url = new URL(form.action, location.href);
+    var value = q.value.trim();
+    if (value) url.searchParams.set('q', value);
+    var season = form.querySelector('[name="season"]');
+    if (season && season.value) url.searchParams.set('season', season.value);
+    return url;
+  }
+
+  function apply(url, html) {
+    var doc = new DOMParser().parseFromString(html, 'text/html');
+    document.title = doc.title;
+    var from = doc.querySelector('.artizen-shell');
+    var to = document.querySelector('.artizen-shell');
+    if (from && to) to.innerHTML = from.innerHTML;
+    if (live) history.replaceState(null, '', url);
+    else {
+      history.pushState(null, '', url);
+      pushed = true;
+    }
+    live = true;
+  }
+
+  function run(force) {
+    var url = searchUrl();
+    if (!force && !q.value.trim() && !live) return;
+    var n = ++seq;
+    fetch(url).then(function(res) { return res.text(); }).then(function(html) {
+      if (n !== seq) return;
+      apply(url, html);
+    }).catch(function() {
+      if (n !== seq) return;
+      location.assign(url.href);
+    });
+  }
+
+  q.addEventListener('compositionstart', function() { composing = true; });
+  q.addEventListener('compositionend', function() { composing = false; run(false); });
+  q.addEventListener('input', function() { if (!composing) run(false); });
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    run(true);
+  });
+  window.addEventListener('popstate', function() {
+    if (pushed) location.reload();
+  });
 })();
 </script>
 `;
@@ -105,6 +168,7 @@ export function layout(opts: {
     .join('\n  ');
   const js = [
     '<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.8/js/bootstrap.bundle.min.js"></script><script>document.querySelectorAll(\'[data-bs-toggle="tooltip"]\').forEach(function(el){bootstrap.Tooltip.getOrCreateInstance(el);});(function(){var nav=document.querySelector(".artizen-nav");var q=document.getElementById("artizen-q");var long="Search projects and funds";function sync(){if(nav)document.documentElement.style.setProperty("--artizen-nav-height",nav.offsetHeight+"px");if(q)q.placeholder=window.matchMedia("(max-width: 767px)").matches?"Search":long;}sync();window.addEventListener("resize",sync);})();</script>',
+    SEARCH_SCRIPT,
     opts.datatables
       ? '<script src="https://cdn.datatables.net/v/bs5/dt-3.0.2/datatables.min.js"></script>'
       : '',

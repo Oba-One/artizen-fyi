@@ -55,6 +55,9 @@ export function renderSearch(data: Leaderboard, query: string, seasonParam: stri
   const heading = q
     ? `Results for “${escapeHtml(q)}”`
     : 'Search projects and funds';
+  const status = q
+    ? `${projects.length} project${projects.length === 1 ? '' : 's'}, ${funds.length} fund${funds.length === 1 ? '' : 's'}`
+    : 'Type to search projects and funds';
   const empty = !q
     ? panel(note('Type a name in the search box to find projects and funds in this season.'))
     : '';
@@ -70,6 +73,7 @@ export function renderSearch(data: Leaderboard, query: string, seasonParam: stri
     query: q,
     season: seasonParam,
     body: `
+      <div class="visually-hidden" aria-live="polite">${escapeHtml(status)}</div>
       ${panel(`<h1 class="mb-0">${heading}</h1>`)}
       ${empty}
       ${cols}
