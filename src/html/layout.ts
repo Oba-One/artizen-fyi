@@ -1,5 +1,5 @@
 import type { DetailPreview, Leaderboard } from '../artizen';
-import { usd } from '../format';
+import { fmtDate, usd } from '../format';
 import styles from '../styles.css';
 
 export function escapeHtml(value: unknown): string {
@@ -299,6 +299,10 @@ export function renderDetailPlaceholder(kind: 'project' | 'fund', slug: string, 
     ? `<p class="lead">${escapeHtml(preview.lead)}</p>`
     : `<span class="artizen-ph artizen-ph-lead" aria-hidden="true"></span>
         <span class="artizen-ph artizen-ph-lead artizen-ph-lead-short" aria-hidden="true"></span>`;
+  const createdLabel = kind === 'fund' ? fmtDate(preview?.created_at, true) : '';
+  const created = createdLabel
+    ? `<p class="small text-muted mb-2">Created ${escapeHtml(createdLabel)}</p>`
+    : '';
   const tags =
     kind === 'project'
       ? `<div class="mb-2" aria-hidden="true"><span class="artizen-ph artizen-ph-tag"></span><span class="artizen-ph artizen-ph-tag artizen-ph-tag-mid"></span><span class="artizen-ph artizen-ph-tag artizen-ph-tag-short"></span></div>`
@@ -320,6 +324,7 @@ export function renderDetailPlaceholder(kind: 'project' | 'fund', slug: string, 
         <div class="artizen-hero-copy">
           ${heading}
           ${lead}
+          ${created}
           ${tags}
           <p class="mb-0"><a href="${escapeHtml(artizenUrl)}" target="_blank" rel="noopener">View on Artizen</a></p>
         </div>`,

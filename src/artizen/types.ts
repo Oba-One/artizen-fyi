@@ -94,6 +94,7 @@ export type FundRow = {
 export type DetailPreview = {
   name: string;
   lead?: string;
+  created_at?: unknown;
 };
 
 export type Leaderboard = {

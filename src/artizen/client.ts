@@ -44,7 +44,7 @@ export class Artizen {
     const current = await this.get<Leaderboard>(keys.leaderboard('current'));
     if (kind === 'fund') {
       const row = current?.funds?.find((item) => item.url === path);
-      if (row?.name) return { name: row.name, lead: row.subtitle };
+      if (row?.name) return { name: row.name, lead: row.subtitle, created_at: row.created_at };
     } else {
       const row = current?.projects?.find((item) => item.url === path);
       if (row?.name) return { name: row.name, lead: row.logline };

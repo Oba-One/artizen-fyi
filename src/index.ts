@@ -46,7 +46,11 @@ async function detailPage(artizen: Artizen, kind: DetailKind, slug: string, requ
     return detail(await artizen.load(kind, slug, refresh), (data) => renderDetail(kind, data));
   }
   const preview = cached
-    ? { name: cached.name, lead: kind === 'fund' ? (cached as FundPage).subtitle : (cached as ProjectPage).logline }
+    ? {
+        name: cached.name,
+        lead: kind === 'fund' ? (cached as FundPage).subtitle : (cached as ProjectPage).logline,
+        created_at: kind === 'fund' ? (cached as FundPage).created_at : undefined,
+      }
     : await artizen.listedPreview(kind, slug);
   return html(renderDetailPlaceholder(kind, slug, preview));
 }
