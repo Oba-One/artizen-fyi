@@ -628,10 +628,6 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
     justify-content: flex-start !important;
   }
 }
-@media (max-width: 1099px) {
-  .artizen-table-scroll { overflow-x: auto; }
-  #artizen-projects-table thead th, #artizen-funds-table thead th, #artizen-boosts-table thead th { position: static; box-shadow: none; }
-}
 #artizen-projects-table .artizen-heat {
   width: 6%;
   box-sizing: border-box;
@@ -652,6 +648,10 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   box-shadow: 0 1px 0 var(--line);
   font-family: var(--bs-heading-font-family);
   font-weight: 400;
+}
+@media (max-width: 1099px) {
+  .artizen-table-scroll { overflow-x: auto; }
+  #artizen-projects-table thead th, #artizen-funds-table thead th, #artizen-boosts-table thead th { position: static; top: auto; box-shadow: none; }
 }
 table.dataTable th.dt-type-numeric div.dt-column-header,
 table.dataTable th.dt-type-date div.dt-column-header,
