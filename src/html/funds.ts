@@ -12,7 +12,7 @@ export function renderFunds(data: Leaderboard, seasonParam: string | null): stri
       ? '<th class="text-end">Unlocked</th><th class="text-end">Available</th><th class="text-end">Raised</th>'
       : '';
     const funds = [...data.funds].sort((a, b) =>
-      current ? (b.raised ?? -1) - (a.raised ?? -1) : b.season_total - a.season_total,
+      current ? (b.available ?? -1) - (a.available ?? -1) : b.season_total - a.season_total,
     );
     const body = funds
       .map((fund: FundRow) => {
@@ -41,7 +41,7 @@ export function renderFunds(data: Leaderboard, seasonParam: string | null): stri
         <tbody>${body}</tbody>
       </table>`);
     extra = current
-      ? datatable('artizen-funds-table', [[5, 'desc']], [2, 3, 4, 5], { noun: 'funds' })
+      ? datatable('artizen-funds-table', [[4, 'desc']], [2, 3, 4, 5], { noun: 'funds' })
       : datatable('artizen-funds-table', [[2, 'desc']], [2], { noun: 'funds' });
   }
   return layout({
