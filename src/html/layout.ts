@@ -247,7 +247,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
     </div>
   </div>
   <p class="artizen-byline">
-    A project by <a href="https://stephenreid.net" target="_blank" rel="noopener">Stephen Reid</a>, not affiliated with Artizen.
+    <span class="d-none d-md-inline">A project by </span><span class="d-md-none">By </span><a href="https://stephenreid.net" target="_blank" rel="noopener">Stephen Reid</a>, not affiliated with Artizen
   </p>
 </header>
 <div class="offcanvas offcanvas-start" tabindex="-1" id="artizen-nav-offcanvas" aria-labelledby="artizen-nav-offcanvas-label">
