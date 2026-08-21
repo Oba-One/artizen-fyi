@@ -63,6 +63,11 @@ export default {
       return Response.redirect(url.toString(), 301);
     }
     const path = url.pathname;
+    const fundAlias = path.match(/^\/index\/(p|mf)\/([^/]+)\/?$/);
+    if (request.method === 'GET' && fundAlias) {
+      url.pathname = `/${fundAlias[1] === 'mf' ? 'funds' : 'projects'}/${fundAlias[2]}`;
+      return Response.redirect(url.toString(), 301);
+    }
     const season = url.searchParams.get('season');
     const asset = request.method === 'GET' || request.method === 'HEAD';
 

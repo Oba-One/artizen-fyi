@@ -35,3 +35,4 @@ Wipe local KV (Wrangler persist) with `rm -rf .wrangler/state`, then restart `np
 | `/boosts` | remaining boosts + top 100 holders |
 | `/search` | project/fund search (`?q=`) |
 | `/projects/:slug`, `/funds/:slug` | detail |
+| `/index/p/:slug`, `/index/mf/:slug` | 301 to the matching detail page (artizen.fund path) |
