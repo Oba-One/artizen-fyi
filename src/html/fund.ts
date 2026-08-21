@@ -1,6 +1,6 @@
 import type { FundPage } from '../artizen';
 import { delimited, usd } from '../format';
-import { driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow } from './layout';
+import { artizenLinks, driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow } from './layout';
 
 export function renderFund(fund: FundPage): string {
   const prize = fund.prize_usd
@@ -22,7 +22,7 @@ export function renderFund(fund: FundPage): string {
           ${fund.subtitle ? `<p class="lead">${escapeHtml(fund.subtitle)}</p>` : ''}
           ${fund.sponsor ? `<p>Lead sponsor: ${escapeHtml(fund.sponsor)}</p>` : ''}
           <div class="mb-2">${fund.active === false ? '<span class="badge text-bg-secondary me-1">Inactive</span>' : ''}${prize}</div>
-          <p class="mb-0"><a href="${escapeHtml(fund.artizen_url)}" target="_blank" rel="noopener">View on Artizen</a></p>`,
+          ${artizenLinks(fund.artizen_url)}`,
       )}
       ${fundingTable}
     `,

@@ -32,10 +32,11 @@ export class Artizen {
     return hit?.name ? hit : null;
   }
 
-  async load(kind: 'project' | 'fund', slug: string): Promise<ProjectPage | FundPage | null> {
+  async load(kind: 'project' | 'fund', slug: string, refresh = false): Promise<ProjectPage | FundPage | null> {
+    const mode = refresh ? 'refresh' : 'miss';
     return kind === 'fund'
-      ? this.cached(keys.fund(slug), () => buildFund(this.bubble, slug), 'miss', null)
-      : this.cached(keys.project(slug), () => buildProject(this.bubble, slug), 'miss', null);
+      ? this.cached(keys.fund(slug), () => buildFund(this.bubble, slug), mode, null)
+      : this.cached(keys.project(slug), () => buildProject(this.bubble, slug), mode, null);
   }
 
   async listedPreview(kind: 'project' | 'fund', slug: string): Promise<DetailPreview | undefined> {

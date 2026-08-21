@@ -70,6 +70,9 @@ const DETAIL_POLL_SCRIPT = `
         }
       });
     }
+    url.searchParams.delete('content');
+    url.searchParams.delete('refresh');
+    if (url.href !== location.href) history.replaceState(null, '', url.pathname + url.search);
   }).catch(function() { location.replace(url.href); });
 })();
 </script>
@@ -243,6 +246,9 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
       </form>
     </div>
   </div>
+  <p class="artizen-byline">
+    A project by <a href="https://stephenreid.net" target="_blank" rel="noopener">Stephen Reid</a>, not affiliated with Artizen.
+  </p>
 </header>
 <div class="offcanvas offcanvas-start" tabindex="-1" id="artizen-nav-offcanvas" aria-labelledby="artizen-nav-offcanvas-label">
   <div class="offcanvas-header">
@@ -262,10 +268,6 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
 const FOOTER = `
 <footer class="artizen-footer">
   <div class="artizen-footer-inner">
-    <p>
-      This is a project by <a href="https://stephenreid.net" target="_blank" rel="noopener">Stephen Reid</a>
-      and is not affiliated with Artizen.
-    </p>
     <p>
       <a class="artizen-footer-github" href="https://github.com/stephenreid321/artizen-fyi" target="_blank" rel="noopener">
         <i class="bi bi-github" aria-hidden="true"></i>
@@ -468,6 +470,13 @@ export function board(data: Leaderboard, tab: 'projects' | 'funds' | 'drives', s
 
 export function namedLink(url: string, name: string): string {
   return `<a href="${escapeHtml(url)}" class="text-dark">${escapeHtml(name)}</a>`;
+}
+
+export function artizenLinks(artizenUrl: string): string {
+  return `<p class="mb-0 artizen-hero-links">
+    <a href="${escapeHtml(artizenUrl)}" target="_blank" rel="noopener">View on Artizen</a>
+    <a href="?refresh=1" class="artizen-refresh"><i class="bi bi-arrow-clockwise" aria-hidden="true"></i> Refresh</a>
+  </p>`;
 }
 
 function chevron(open: boolean, hasKids: boolean): string {

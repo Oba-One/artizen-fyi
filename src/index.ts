@@ -39,12 +39,16 @@ function renderDetail(kind: DetailKind, data: ProjectPage | FundPage): string {
 }
 
 async function detailPage(artizen: Artizen, kind: DetailKind, slug: string, request: Request, url: URL): Promise<Response> {
+  const refresh = url.searchParams.has('refresh');
   const cached = await artizen.peek(kind, slug);
-  if (cached) return html(renderDetail(kind, cached));
+  if (cached && !refresh) return html(renderDetail(kind, cached));
   if (url.searchParams.has('content') || request.headers.get('sec-fetch-mode') !== 'navigate') {
-    return detail(await artizen.load(kind, slug), (data) => renderDetail(kind, data));
+    return detail(await artizen.load(kind, slug, refresh), (data) => renderDetail(kind, data));
   }
-  return html(renderDetailPlaceholder(kind, slug, await artizen.listedPreview(kind, slug)));
+  const preview = cached
+    ? { name: cached.name, lead: kind === 'fund' ? (cached as FundPage).subtitle : (cached as ProjectPage).logline }
+    : await artizen.listedPreview(kind, slug);
+  return html(renderDetailPlaceholder(kind, slug, preview));
 }
 
 export default {
