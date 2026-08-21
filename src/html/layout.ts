@@ -238,7 +238,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
       <form class="artizen-search" action="/search" method="get" role="search">
         <label class="visually-hidden" for="artizen-q">Search projects and funds</label>
         <i class="bi bi-search" aria-hidden="true"></i>
-        <input id="artizen-q" type="search" name="q" placeholder="Search" value="${escapeHtml(query || '')}" autocomplete="off">
+        <input id="artizen-q" type="search" name="q" placeholder="Search projects and funds" value="${escapeHtml(query || '')}" autocomplete="off">
         ${seasonField}
       </form>
     </div>
