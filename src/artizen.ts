@@ -19,6 +19,7 @@ export type {
   ProjectFundingSeason,
   ProjectPage,
   ProjectRow,
+  ProjectSibling,
   ProjectSubmission,
   Row,
   Season,

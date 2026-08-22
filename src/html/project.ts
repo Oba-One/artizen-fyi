@@ -1,11 +1,12 @@
-import type { ProjectPage, ProjectSubmission } from '../artizen';
-import { moneyCells, moneyColumns, moneyHeaders, usd } from '../format';
+import type { ProjectPage, ProjectSibling, ProjectSubmission } from '../artizen';
+import { moneyCells, moneyColumns, moneyHeaders, truncate, usd } from '../format';
 import { artizenLinks, driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow } from './layout';
 
 export function renderProject(project: ProjectPage): string {
   const tags = (project.tags || []).map((tag) => `<span class="badge text-bg-secondary me-1 mb-1">${escapeHtml(tag)}</span>`).join('');
   const fundingTable = project.seasons.length ? projectFundingTable(project) : '';
   const submissions = project.submissions?.length ? projectSubmissions(project.submissions) : '';
+  const siblings = project.siblings?.length ? projectSiblings(project.siblings) : '';
   return layout({
     title: project.name,
     description: project.logline || `Artizen project: ${project.name}`,
@@ -22,6 +23,7 @@ export function renderProject(project: ProjectPage): string {
       )}
       ${fundingTable}
       ${submissions}
+      ${siblings}
     `,
   });
 }
@@ -157,6 +159,32 @@ function projectSubmissions(submissions: ProjectSubmission[]): string {
     <div class="table-responsive">
       <table class="table table-sm artizen-funding-tree">
         <thead><tr><th></th><th class="text-end">Status</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`);
+}
+
+function projectSiblings(siblings: ProjectSibling[]): string {
+  const rows = siblings
+    .map((sibling, i) => {
+      const logline = sibling.logline
+        ? `<br><small class="text-muted">${escapeHtml(truncate(sibling.logline, 90))}</small>`
+        : '';
+      const funds = sibling.funds
+        .map((fund) => `<li>${namedLink(fund.url, fund.name)}</li>`)
+        .join('');
+      return `<tr>
+        <td><span class="text-muted">${i + 1}.</span> ${namedLink(sibling.url, sibling.name)}${logline}</td>
+        <td class="text-end">${sibling.funds.length}</td>
+        <td><ul class="artizen-sibling-funds">${funds}</ul></td>
+      </tr>`;
+    })
+    .join('');
+  return panel(`
+    <h2 class="artizen-panel-title">Top siblings</h2>
+    <div class="table-responsive">
+      <table class="table table-sm">
+        <thead><tr><th>Project</th><th class="text-end">Funds</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`);

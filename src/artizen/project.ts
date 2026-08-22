@@ -7,6 +7,7 @@ import type {
   ProjectDriveDetail,
   ProjectFundingSeason,
   ProjectPage,
+  ProjectSibling,
   ProjectSubmission,
   Row,
   Season,
@@ -22,10 +23,12 @@ import {
   driveHasBonusPot,
   firstMedia,
   groupBy,
+  hidden,
   ids,
   int,
   leftoverMatch,
   localFundPath,
+  localProjectPath,
   mapSome,
   num,
   seasonFunding,
@@ -203,6 +206,7 @@ export async function buildProject(client: Bubble, slug: string): Promise<Projec
     tags,
     seasons: nestProjectFunding(seasons, driveDetails, matchingFunds),
     submissions: await formatProjectSubmissions(client, submissionRows, seasonsMeta),
+    siblings: await projectSiblings(client, id, submissionRows),
   };
 }
 
@@ -325,6 +329,61 @@ async function formatProjectSubmissions(
     if (rank) return rank;
     return String(b.created_at ?? '').localeCompare(String(a.created_at ?? ''));
   });
+}
+
+const SIBLING_LIMIT = 10;
+const SIBLING_CANDIDATES = 25;
+
+async function projectSiblings(client: Bubble, projectId: string, submissionRows: Row[]): Promise<ProjectSibling[]> {
+  const fundIds = ids(
+    submissionRows.filter((row) => text(row['Status']) === 'Curated').map((row) => row['Fund']),
+  );
+  if (fundIds.length === 0) return [];
+
+  const others = await client.listWhereIn('projectsubmission', 'Fund', fundIds, [
+    { key: 'Status', constraint_type: 'equals', value: 'Curated' },
+  ]);
+  const shared = new Map<string, Set<string>>();
+  for (const row of others) {
+    const siblingId = String(row['Project'] ?? '');
+    const fundId = String(row['Fund'] ?? '');
+    if (!siblingId || siblingId === projectId || !fundId) continue;
+    let funds = shared.get(siblingId);
+    if (!funds) {
+      funds = new Set();
+      shared.set(siblingId, funds);
+    }
+    funds.add(fundId);
+  }
+
+  const ranked = sortByDesc(
+    [...shared.entries()].map(([id, funds]) => ({ id, fundIds: [...funds], count: funds.size })),
+    (row) => row.count,
+  ).slice(0, SIBLING_CANDIDATES);
+  const [projects, fundsById] = await Promise.all([
+    client.indexed('project', ranked.map((row) => row.id)),
+    client.indexed('fund', fundIds),
+  ]);
+  return mapSome(ranked, (row) => {
+    const project = byId(projects, row.id);
+    if (!project || hidden(project)) return undefined;
+    const name = text(project['Name']);
+    if (!name) return undefined;
+    const funds = mapSome(row.fundIds, (fundId) => {
+      const fund = byId(fundsById, fundId);
+      if (!fund) return undefined;
+      const fundName = text(fund['name']);
+      if (!fundName) return undefined;
+      return { name: fundName, url: localFundPath(text(fund['Slug']) ?? fundId) };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+    if (!funds.length) return undefined;
+    return {
+      name,
+      url: localProjectPath(text(project['Slug']) ?? row.id),
+      logline: text(project['Logline']),
+      funds,
+    } satisfies ProjectSibling;
+  }).slice(0, SIBLING_LIMIT);
 }
 
 function submissionStatusRank(status: string | undefined): number {

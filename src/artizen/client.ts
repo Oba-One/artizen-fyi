@@ -7,10 +7,10 @@ import { failed } from './util';
 
 const keys = {
   leaderboard: (season: string | number) => `artizen/leaderboard/v32/${season}`,
-  project: (slug: string) => `artizen/project/v32/${slug}`,
+  project: (slug: string) => `artizen/project/v35/${slug}`,
   fund: (slug: string) => `artizen/fund/v10/${slug}`,
   boosts: 'artizen/boosts/v2',
-  projects: 'artizen/project/v32/',
+  projects: 'artizen/project/v35/',
   funds: 'artizen/fund/v10/',
 };
 

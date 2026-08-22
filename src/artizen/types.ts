@@ -162,6 +162,13 @@ export type ProjectSubmission = {
   created_at: unknown;
 };
 
+export type ProjectSibling = {
+  name: string;
+  url: string;
+  logline?: string;
+  funds: { name: string; url: string }[];
+};
+
 export type ProjectPage = {
   name: string;
   artizen_url: string;
@@ -171,6 +178,7 @@ export type ProjectPage = {
   tags: string[];
   seasons: ProjectFundingSeason[];
   submissions: ProjectSubmission[];
+  siblings: ProjectSibling[];
 };
 
 export type FundMatchedProject = {

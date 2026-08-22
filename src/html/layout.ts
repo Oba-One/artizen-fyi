@@ -309,6 +309,7 @@ export function renderDetailPlaceholder(kind: 'project' | 'fund', slug: string, 
       : `https://artizen.fund/index/p/${encodeURIComponent(slug)}`;
   const rows = `<div class="artizen-ph-stack" aria-hidden="true">${'<span class="artizen-ph artizen-ph-row"></span>'.repeat(6)}</div>`;
   const submissions = kind === 'project' ? panel(`<h2 class="artizen-panel-title">Submissions</h2>${rows}`) : '';
+  const siblings = kind === 'project' ? panel(`<h2 class="artizen-panel-title">Top siblings</h2>${rows}`) : '';
   return layout({
     title,
     description: preview?.lead || undefined,
@@ -328,6 +329,7 @@ export function renderDetailPlaceholder(kind: 'project' | 'fund', slug: string, 
       )}
       ${panel(`<h2 class="artizen-panel-title">Funding</h2>${rows}`)}
       ${submissions}
+      ${siblings}
       <p class="visually-hidden">Loading</p>
     </div>
     <noscript><p class="artizen-note">This page needs JavaScript. <a href="?content=1">Open the full page</a>.</p></noscript>`,
