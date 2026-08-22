@@ -429,16 +429,11 @@ async function siblingOnlyFunds(
 ): Promise<ProjectSiblingFund[]> {
   if (siblings.length === 0) return [];
 
-  const appliedByFund = new Map<string, string>();
+  const skipFundIds = new Set(ownFundIds);
   for (const row of submissionRows) {
     if (row['Submitted'] == false || !submissionInSeason(row, current)) continue;
     const fundId = String(row['Fund'] ?? '');
-    const status = text(row['Status']);
-    if (!fundId || !status) continue;
-    const prev = appliedByFund.get(fundId);
-    if (!prev || submissionStatusRank(status) < submissionStatusRank(prev)) {
-      appliedByFund.set(fundId, status);
-    }
+    if (fundId) skipFundIds.add(fundId);
   }
   const siblingById = new Map(siblings.map((sibling) => [sibling.id, sibling]));
   const rows = await client.listWhereIn(
@@ -455,7 +450,7 @@ async function siblingOnlyFunds(
     if (!submissionInSeason(row, current)) continue;
     const fundId = String(row['Fund'] ?? '');
     const siblingId = String(row['Project'] ?? '');
-    if (!fundId || ownFundIds.has(fundId) || !siblingById.has(siblingId)) continue;
+    if (!fundId || skipFundIds.has(fundId) || !siblingById.has(siblingId)) continue;
     let projects = byFund.get(fundId);
     if (!projects) {
       projects = new Set();
@@ -480,7 +475,6 @@ async function siblingOnlyFunds(
         name,
         url: localFundPath(text(fund['Slug']) ?? fundId),
         available: maybeNum(fund['Funding - current']),
-        status: appliedByFund.get(fundId),
         siblings: linked.map((sibling) => ({ name: sibling.name, url: sibling.url })),
         count: linked.length,
       };
@@ -488,13 +482,7 @@ async function siblingOnlyFunds(
     (row) => row.count,
   )
     .slice(0, SIBLING_LIMIT)
-    .map((row) => ({
-      name: row.name,
-      url: row.url,
-      available: row.available,
-      status: row.status,
-      siblings: row.siblings,
-    }));
+    .map((row) => ({ name: row.name, url: row.url, available: row.available, siblings: row.siblings }));
 }
 
 function submissionStatusRank(status: string | undefined): number {
