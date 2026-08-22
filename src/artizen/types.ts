@@ -173,6 +173,7 @@ export type ProjectSiblingFund = {
   name: string;
   url: string;
   available?: number;
+  submitted?: boolean;
   siblings: { name: string; url: string }[];
 };
 

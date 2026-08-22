@@ -408,7 +408,7 @@ async function projectSiblings(
       funds,
     };
   }).slice(0, SIBLING_LIMIT);
-  const sibling_funds = await siblingOnlyFunds(client, siblings, new Set(fundIds), current);
+  const sibling_funds = await siblingOnlyFunds(client, siblings, new Set(fundIds), current, submissionRows);
   return {
     siblings: siblings.map((sibling) => ({
       name: sibling.name,
@@ -425,9 +425,17 @@ async function siblingOnlyFunds(
   siblings: { id: string; name: string; url: string }[],
   ownFundIds: Set<string>,
   current: Season,
+  submissionRows: Row[],
 ): Promise<ProjectSiblingFund[]> {
   if (siblings.length === 0) return [];
 
+  const appliedFundIds = new Set(
+    ids(
+      submissionRows
+        .filter((row) => row['Submitted'] != false && submissionInSeason(row, current))
+        .map((row) => row['Fund']),
+    ),
+  );
   const siblingById = new Map(siblings.map((sibling) => [sibling.id, sibling]));
   const rows = await client.listWhereIn(
     'projectsubmission',
@@ -468,6 +476,7 @@ async function siblingOnlyFunds(
         name,
         url: localFundPath(text(fund['Slug']) ?? fundId),
         available: maybeNum(fund['Funding - current']),
+        submitted: appliedFundIds.has(fundId) || undefined,
         siblings: linked.map((sibling) => ({ name: sibling.name, url: sibling.url })),
         count: linked.length,
       };
@@ -475,7 +484,13 @@ async function siblingOnlyFunds(
     (row) => row.count,
   )
     .slice(0, SIBLING_LIMIT)
-    .map((row) => ({ name: row.name, url: row.url, available: row.available, siblings: row.siblings }));
+    .map((row) => ({
+      name: row.name,
+      url: row.url,
+      available: row.available,
+      submitted: row.submitted,
+      siblings: row.siblings,
+    }));
 }
 
 function submissionStatusRank(status: string | undefined): number {

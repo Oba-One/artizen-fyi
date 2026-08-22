@@ -198,8 +198,11 @@ function projectSiblingFunds(funds: ProjectSiblingFund[]): string {
       const siblings = fund.siblings
         .map((sibling) => `<li>${namedLink(sibling.url, sibling.name)}</li>`)
         .join('');
+      const submitted = fund.submitted
+        ? ' <span class="badge text-bg-secondary artizen-badge-sm">Submitted</span>'
+        : '';
       return `<tr>
-        <td><span class="text-muted">${i + 1}.</span> ${namedLink(fund.url, fund.name)}${fundAvailable(fund.available)}</td>
+        <td><span class="text-muted">${i + 1}.</span> ${namedLink(fund.url, fund.name)}${submitted}${fundAvailable(fund.available)}</td>
         <td class="text-end">${fund.siblings.length}</td>
         <td><ul class="artizen-sibling-funds">${siblings}</ul></td>
       </tr>`;
