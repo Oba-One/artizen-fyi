@@ -348,11 +348,15 @@ async function projectSiblings(
   const current = Object.values(seasonsMeta).find((season) => season.current);
   if (!current) return [];
 
-  const fundIds = ids(
+  const candidateFundIds = ids(
     submissionRows
       .filter((row) => text(row['Status']) === 'Curated' && submissionInSeason(row, current))
       .map((row) => row['Fund']),
   );
+  if (candidateFundIds.length === 0) return [];
+
+  const fundsById = await client.indexed('fund', candidateFundIds);
+  const fundIds = candidateFundIds.filter((id) => byId(fundsById, id)?.['active'] !== false);
   if (fundIds.length === 0) return [];
 
   const others = await client.listWhereIn('projectsubmission', 'Fund', fundIds, [
@@ -377,10 +381,7 @@ async function projectSiblings(
     [...shared.entries()].map(([id, funds]) => ({ id, fundIds: [...funds], count: funds.size })),
     (row) => row.count,
   ).slice(0, SIBLING_CANDIDATES);
-  const [projects, fundsById] = await Promise.all([
-    client.indexed('project', ranked.map((row) => row.id)),
-    client.indexed('fund', fundIds),
-  ]);
+  const projects = await client.indexed('project', ranked.map((row) => row.id));
   return mapSome(ranked, (row) => {
     const project = byId(projects, row.id);
     if (!project || hidden(project)) return undefined;
