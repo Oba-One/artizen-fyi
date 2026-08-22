@@ -308,12 +308,6 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   margin-bottom: 1rem;
   overflow: clip;
 }
-.artizen-panel-flush { padding: 0; }
-.artizen-panel-flush .artizen-hero {
-  border-radius: 0;
-  max-height: 360px;
-  width: 100%;
-}
 .artizen-panel-title {
   font-size: 1.45rem;
   margin: 0 0 0.85rem;
@@ -481,6 +475,23 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   font-weight: 400;
 }
 .artizen-podium-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.artizen-podium-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+.artizen-podium-head .artizen-panel-title { margin: 0; }
+.artizen-podium-bonus {
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.artizen-podium-bonus strong {
+  color: var(--ink);
+  font-weight: 500;
+}
 .artizen-hero-card {
   display: grid;
   grid-template-columns: 11rem minmax(0, 1fr);

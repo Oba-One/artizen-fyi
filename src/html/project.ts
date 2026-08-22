@@ -1,5 +1,5 @@
 import type { ProjectPage, ProjectSubmission } from '../artizen';
-import { MONEY_COLS, moneyCells, moneyHeaders, usd } from '../format';
+import { moneyCells, moneyColumns, moneyHeaders, usd } from '../format';
 import { artizenLinks, driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow } from './layout';
 
 export function renderProject(project: ProjectPage): string {
@@ -27,6 +27,10 @@ export function renderProject(project: ProjectPage): string {
 }
 
 function projectFundingTable(project: ProjectPage): string {
+  const includeBonus =
+    project.seasons.some((season) => Number(season.bonus) > 0) ||
+    project.seasons.some((season) => (season.drives || []).some((drive) => Number(drive.bonus) > 0));
+  const cols = moneyColumns(includeBonus);
   const seasons = project.seasons
     .map((season, si) => {
       const seasonId = `s${si}`;
@@ -38,7 +42,7 @@ function projectFundingTable(project: ProjectPage): string {
         open: seasonOpen,
         hasKids: drives.length > 0,
         label: escapeHtml(season.title),
-        cells: `${moneyCells(season)}<td class="text-end">${Number(season.available) > 0 ? usd(season.available) : ''}</td>`,
+        cells: `${moneyCells(season, 'td', cols)}<td class="text-end">${Number(season.available) > 0 ? usd(season.available) : ''}</td>`,
       });
       const driveRows = drives
         .map((drive, di) => {
@@ -53,7 +57,7 @@ function projectFundingTable(project: ProjectPage): string {
             open: driveOpen,
             hasKids: funds.length > 0,
             label: `${escapeHtml(drive.name)}${driveBadges(drive)}`,
-            cells: `${moneyCells(drive)}<td class="text-end">${drive.active ? usd(drive.available) : ''}</td>`,
+            cells: `${moneyCells(drive, 'td', cols)}<td class="text-end">${drive.active ? usd(drive.available) : ''}</td>`,
           });
           const fundRows = funds
             .map((fund) =>
@@ -64,9 +68,8 @@ function projectFundingTable(project: ProjectPage): string {
                 label: namedLink(fund.url, fund.name),
                 // Unlocked sits in Match; other money columns stay empty so Available lines up.
                 cells:
-                  MONEY_COLS.map((col) =>
-                    `<td class="text-end">${col.field === 'match' ? usd(fund.unlocked) : ''}</td>`,
-                  ).join('') + `<td class="text-end">${drive.active ? usd(fund.available) : ''}</td>`,
+                  cols.map((col) => `<td class="text-end">${col.field === 'match' ? usd(fund.unlocked) : ''}</td>`).join('') +
+                  `<td class="text-end">${drive.active ? usd(fund.available) : ''}</td>`,
               }),
             )
             .join('');
@@ -81,6 +84,7 @@ function projectFundingTable(project: ProjectPage): string {
     venus: sumField(project.seasons, 'venus'),
     match: sumField(project.seasons, 'match'),
     prize: sumField(project.seasons, 'prize'),
+    bonus: sumField(project.seasons, 'bonus'),
     sprint: sumField(project.seasons, 'sprint'),
     raised: sumField(project.seasons, 'raised'),
   };
@@ -89,13 +93,13 @@ function projectFundingTable(project: ProjectPage): string {
     <div class="table-responsive">
       <table class="table table-sm artizen-funding-tree">
         <thead><tr>
-          <th></th>${moneyHeaders()}
+          <th></th>${moneyHeaders('text-end', cols)}
           <th class="text-end">Available</th>
         </tr></thead>
         <tbody>${seasons}</tbody>
         <tfoot><tr>
           <th>Total</th>
-          ${moneyCells(totals, 'th')}
+          ${moneyCells(totals, 'th', cols)}
           <th class="text-end">${usd(sumField(project.seasons, 'available'))}</th>
         </tr></tfoot>
       </table>

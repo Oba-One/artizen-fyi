@@ -6,11 +6,11 @@ import type { BoostsPage, DetailPreview, FundPage, Leaderboard, ProjectPage } fr
 import { failed } from './util';
 
 const keys = {
-  leaderboard: (season: string | number) => `artizen/leaderboard/v29/${season}`,
-  project: (slug: string) => `artizen/project/v29/${slug}`,
+  leaderboard: (season: string | number) => `artizen/leaderboard/v32/${season}`,
+  project: (slug: string) => `artizen/project/v32/${slug}`,
   fund: (slug: string) => `artizen/fund/v10/${slug}`,
   boosts: 'artizen/boosts/v2',
-  projects: 'artizen/project/v29/',
+  projects: 'artizen/project/v32/',
   funds: 'artizen/fund/v10/',
 };
 

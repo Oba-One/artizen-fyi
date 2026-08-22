@@ -62,17 +62,19 @@ export function funding(row: ProjectRow): Funded {
   const venus = Number(row.venus) || 0;
   const match = Number(row.match) || 0;
   const prize = Number(row.prize) || 0;
+  const bonus = Number(row.bonus) || 0;
   const sprint = Number(row.sprint) || 0;
   const sv = sales + venus;
   const svm = sv + match;
   const v2 = venus + sprint;
-  const vmp = v2 + match + prize;
+  const vmp = v2 + match + prize + bonus;
   return {
     ...row,
     sales,
     venus,
     match,
     prize,
+    bonus,
     sprint,
     sv,
     svm,
@@ -80,25 +82,25 @@ export function funding(row: ProjectRow): Funded {
     vmp,
     multiple_v: sales !== 0 ? v2 / sales : undefined,
     multiple_ex: sales !== 0 ? (v2 + match) / sales : undefined,
-    multiple: sales !== 0 ? (v2 + match + prize) / sales : undefined,
+    multiple: sales !== 0 ? (v2 + match + prize + bonus) / sales : undefined,
     raised: row.raised == null ? sales + vmp : Number(row.raised) || 0,
   };
 }
 
-export function multipleLabel(multiple?: number): string {
+function multipleLabel(multiple?: number): string {
   if (multiple == null || multiple === 0) return '';
   return `${multiple.toFixed(1)}x`;
 }
 
 export type MoneyFormat = 'usd' | 'x';
 
-export type MoneyCol = {
+type MoneyCol = {
   field: keyof Funded;
   label: string;
   as: MoneyFormat;
 };
 
-export const MONEY_COLS: readonly MoneyCol[] = [
+const MONEY_COLS: readonly MoneyCol[] = [
   { field: 'sales', label: 'Sales', as: 'usd' },
   { field: 'venus', label: 'Venus', as: 'usd' },
   { field: 'sv', label: 'S+V', as: 'usd' },
@@ -106,6 +108,7 @@ export const MONEY_COLS: readonly MoneyCol[] = [
   { field: 'svm', label: 'S+V+M', as: 'usd' },
   { field: 'sprint', label: 'Venus extras', as: 'usd' },
   { field: 'prize', label: 'Prize', as: 'usd' },
+  { field: 'bonus', label: 'Bonus', as: 'usd' },
   { field: 'vmp', label: 'V2+M+P', as: 'usd' },
   { field: 'multiple_v', label: 'V2/S', as: 'x' },
   { field: 'multiple_ex', label: '(V2+M)/S', as: 'x' },
@@ -113,14 +116,21 @@ export const MONEY_COLS: readonly MoneyCol[] = [
   { field: 'raised', label: 'Raised', as: 'usd' },
 ];
 
-export const MONEY_INDEXES = MONEY_COLS.map((_, i) => i + 1);
-export const RAISED_INDEX = MONEY_COLS.findIndex((col) => col.field === 'raised') + 1;
+export function moneyColumns(includeBonus = false): MoneyCol[] {
+  return MONEY_COLS.flatMap((col) => {
+    if (col.field === 'bonus') return includeBonus ? [col] : [];
+    if (col.field === 'vmp') return [{ ...col, label: includeBonus ? 'V2+M+P+B' : 'V2+M+P' }];
+    if (col.field === 'multiple') return [{ ...col, label: includeBonus ? '(V2+M+P+B)/S' : '(V2+M+P)/S' }];
+    return [col];
+  });
+}
 
 type MoneyRow = {
   sales?: number | null;
   venus?: number | null;
   match?: number | null;
   prize?: number | null;
+  bonus?: number | null;
   sprint?: number | null;
   raised?: number | null;
 };
@@ -133,6 +143,7 @@ function funded(row: MoneyRow): Funded {
     venus: row.venus ?? 0,
     match: row.match ?? 0,
     prize: row.prize ?? 0,
+    bonus: row.bonus ?? 0,
     sprint: row.sprint ?? 0,
     raised: row.raised ?? 0,
   });
@@ -157,13 +168,13 @@ function moneyLabel(row: Funded, col: MoneyCol): string {
   return usd(row[col.field] as number, true);
 }
 
-export function moneyHeaders(className = 'text-end'): string {
-  return MONEY_COLS.map((col) => `<th class="${className}">${col.label}</th>`).join('');
+export function moneyHeaders(className = 'text-end', cols: readonly MoneyCol[] = moneyColumns()): string {
+  return cols.map((col) => `<th class="${className}">${col.label}</th>`).join('');
 }
 
-export function moneyCells(row: MoneyRow, tag = 'td'): string {
+export function moneyCells(row: MoneyRow, tag = 'td', cols: readonly MoneyCol[] = moneyColumns()): string {
   const f = funded(row);
-  return MONEY_COLS.map((col) => endCell(moneyLabel(f, col), tag)).join('');
+  return cols.map((col) => endCell(moneyLabel(f, col), tag)).join('');
 }
 
 export function rankPct(rank: number | undefined, total: number): number | undefined {

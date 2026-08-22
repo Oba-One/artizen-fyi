@@ -104,6 +104,21 @@ export function hidden(row?: Row | null): boolean {
   return Boolean(row?.['Hide'] || row?.['unPublished']);
 }
 
+const BONUS_POWER = 0.2;
+
+export function bonusWeight(points: number): number {
+  return points > 0 ? points ** BONUS_POWER : 0;
+}
+
+export function bonusShare(points: number, weightSum: number, pot: number): number {
+  if (!(weightSum > 0) || !(pot > 0)) return 0;
+  return (bonusWeight(points) / weightSum) * pot;
+}
+
+export function bonusWeightSum(rows: Row[]): number {
+  return sum(rows, (row) => bonusWeight(num(row['boost points received'])));
+}
+
 export function leftoverMatch(rows: Row[]): number {
   return sum(rows, (r) => num(r['match cap $']) - num(r['match unlocked']));
 }
@@ -113,7 +128,12 @@ export function communitySales(gross: unknown, venus: unknown): number {
   return sales > 0 ? sales : 0.0;
 }
 
-export function seasonFunding(row: Row, split: { venus?: number; sprint?: number } = {}, extraPrize?: number) {
+export function seasonFunding(
+  row: Row,
+  split: { venus?: number; sprint?: number } = {},
+  extraPrize?: number,
+  extraBonus?: number,
+) {
   const venus = num(split.venus);
   const sprint = num(split.sprint);
   const sales = communitySales(row['funding total sales'], venus + sprint);
@@ -123,14 +143,20 @@ export function seasonFunding(row: Row, split: { venus?: number; sprint?: number
     num(extraPrize),
     num(row['old funding prize leaderboard  (usd)']),
   );
+  const bonus = num(extraBonus);
   return {
     sales,
     venus,
     sprint,
     match,
     prize,
-    raised: sales + venus + sprint + match + prize,
+    bonus,
+    raised: sales + venus + sprint + match + prize + bonus,
   };
+}
+
+export function driveHasBonusPot(drive: Drive): boolean {
+  return num(drive.bonus_projects) > 0 || num(drive.bonus_funds) > 0;
 }
 
 export function driveContext(drive?: Drive) {

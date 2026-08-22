@@ -12,6 +12,7 @@ export type DriveStat = {
   venus: number;
   match: number;
   prize?: number;
+  bonus?: number;
   sprint?: number;
   raised: number;
   available?: number;
@@ -34,6 +35,7 @@ export type PodiumRow = {
   sales_match: number;
   points: number;
   score: number;
+  bonus?: number;
 };
 
 export type Drive = {
@@ -54,6 +56,9 @@ export type Drive = {
   match_pot?: number | null;
   prize_projects?: number | null;
   prize_funds?: number | null;
+  bonus_projects?: number | null;
+  bonus_funds?: number | null;
+  goal?: number | null;
   match_per_project?: number | null;
   project_first?: number | null;
   project_second?: number | null;
@@ -74,6 +79,7 @@ export type ProjectRow = {
   venus: number;
   match: number;
   prize: number;
+  bonus?: number;
   sprint?: number;
   raised: number;
 };
@@ -140,6 +146,7 @@ export type ProjectFundingSeason = {
   venus: number;
   match: number;
   prize: number;
+  bonus?: number;
   sprint?: number;
   raised: number;
   available?: number;

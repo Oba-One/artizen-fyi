@@ -3,8 +3,11 @@ import { legacySeasonProjectRows } from './legacy';
 import type { BoostHolder, BoostsPage, Drive, FundRow, Leaderboard, PodiumRow, ProjectRow, Row, Season } from './types';
 import {
   LEAD_CREATOR,
+  bonusShare,
+  bonusWeightSum,
   bump,
   byId,
+  driveHasBonusPot,
   hidden,
   localFundPath,
   localProjectPath,
@@ -38,14 +41,12 @@ export async function buildLeaderboard(
   const season = client.pickSeason(seasons, seasonNumber);
   if (!season) return { seasons, season: null, drives: [], projects: [], funds: [], error: true };
 
-  return {
-    seasons,
-    season,
-    drives: await fetchDrives(client, season.id),
-    projects: await projectRows(client, season),
-    funds: await fundRows(client, season.id, { current: season.current }),
-    error: false,
-  };
+  const { drives, bonuses } = await fetchDrives(client, season.id);
+  const [projects, funds] = await Promise.all([
+    projectRows(client, season, bonuses),
+    fundRows(client, season.id, { current: season.current }),
+  ]);
+  return { seasons, season, drives, projects, funds, error: false };
 }
 
 export async function buildBoosts(client: Bubble): Promise<BoostsPage> {
@@ -128,7 +129,7 @@ function median(values: number[]): number {
   return sorted[Math.floor(sorted.length / 2)];
 }
 
-async function projectRows(client: Bubble, season: Season): Promise<ProjectRow[]> {
+async function projectRows(client: Bubble, season: Season, bonuses: Record<string, number>): Promise<ProjectRow[]> {
   const seasonId = season.id;
   const rows = (
     await client.list('projectseason', {
@@ -158,7 +159,12 @@ async function projectRows(client: Bubble, season: Season): Promise<ProjectRow[]
       if (!name) return undefined;
 
       const slug = text(project['Slug']) ?? row['project'];
-      const funding = seasonFunding(row, byId(venusByProject, row['project']), byId(prizes, row['project']));
+      const funding = seasonFunding(
+        row,
+        byId(venusByProject, row['project']),
+        byId(prizes, row['project']),
+        byId(bonuses, row['project']),
+      );
       return {
         name,
         url: localProjectPath(slug),
@@ -171,7 +177,7 @@ async function projectRows(client: Bubble, season: Season): Promise<ProjectRow[]
   );
 }
 
-async function fetchDrives(client: Bubble, seasonId: string): Promise<Drive[]> {
+async function fetchDrives(client: Bubble, seasonId: string): Promise<{ drives: Drive[]; bonuses: Record<string, number> }> {
   const drives = sortByDesc(
     (
       await client.list('boost', {
@@ -183,16 +189,34 @@ async function fetchDrives(client: Bubble, seasonId: string): Promise<Drive[]> {
     ).map((row) => client.normalizeDrive(row)),
     (drive) => drive.number || 0,
   );
-  await attachDrivePodiums(client, drives);
-  return drives;
+  return { drives, bonuses: await attachDrivePodiums(client, drives) };
 }
 
-async function attachDrivePodiums(client: Bubble, drives: Drive[]): Promise<void> {
-  if (drives.length === 0) return;
+async function attachDrivePodiums(client: Bubble, drives: Drive[]): Promise<Record<string, number>> {
+  if (drives.length === 0) return {};
 
-  const pages = await Promise.all(
-    drives.flatMap((drive) => [topBoostParticipants(client, drive.id, 'project'), topBoostParticipants(client, drive.id, 'fund')]),
-  );
+  const [pages, bonusParts] = await Promise.all([
+    Promise.all(
+      drives.flatMap((drive) => {
+        const rankField = driveHasBonusPot(drive) ? 'sales + match (both)' : 'boost score';
+        return [topBoostParticipants(client, drive.id, 'project', rankField), topBoostParticipants(client, drive.id, 'fund', rankField)];
+      }),
+    ),
+    Promise.all(
+      drives.map(async (drive) => {
+        if (!driveHasBonusPot(drive) || drive.active) return { project: [] as Row[], fund: [] as Row[] };
+        const [project, fund] = await Promise.all([
+          client.driveBonusParticipants(drive.id, 'project'),
+          client.driveBonusParticipants(drive.id, 'fund'),
+        ]);
+        return { project, fund };
+      }),
+    ),
+  ]);
+  const weights = bonusParts.map((parts) => ({
+    project: bonusWeightSum(parts.project),
+    fund: bonusWeightSum(parts.fund),
+  }));
   const records = pages.flat();
   const catalogs = {
     project: await client.indexed(
@@ -205,16 +229,35 @@ async function attachDrivePodiums(client: Bubble, drives: Drive[]): Promise<void
     ),
   };
   drives.forEach((drive, i) => {
-    drive.podium = podiumRows(pages[i * 2], 'project', catalogs.project);
-    drive.fund_podium = podiumRows(pages[i * 2 + 1], 'fund', catalogs.fund);
+    const salesRank = driveHasBonusPot(drive);
+    drive.podium = podiumRows(pages[i * 2], 'project', catalogs.project, salesRank, num(drive.bonus_projects), weights[i].project);
+    drive.fund_podium = podiumRows(pages[i * 2 + 1], 'fund', catalogs.fund, salesRank, num(drive.bonus_funds), weights[i].fund);
   });
+
+  const bonuses: Record<string, number> = {};
+  drives.forEach((drive, i) => {
+    const weightSum = weights[i].project;
+    const pot = num(drive.bonus_projects);
+    if (!(weightSum > 0) || !(pot > 0)) return;
+    for (const row of bonusParts[i].project) {
+      const pid = row['project'];
+      if (!pid) continue;
+      bump(bonuses, String(pid), bonusShare(num(row['boost points received']), weightSum, pot));
+    }
+  });
+  return bonuses;
 }
 
-function topBoostParticipants(client: Bubble, boostId: string, kind: 'project' | 'fund'): Promise<Row[]> {
+function topBoostParticipants(
+  client: Bubble,
+  boostId: string,
+  kind: 'project' | 'fund',
+  sortField: string,
+): Promise<Row[]> {
   return client.getResults('boostparticipant', {
-    limit: 3,
+    limit: sortField === 'sales + match (both)' ? 8 : 3,
     cursor: 0,
-    sort_field: 'boost score',
+    sort_field: sortField,
     descending: true,
     constraints: [
       { key: 'boost', constraint_type: 'equals', value: boostId },
@@ -223,10 +266,17 @@ function topBoostParticipants(client: Bubble, boostId: string, kind: 'project' |
   });
 }
 
-function podiumRows(rows: Row[], kind: 'project' | 'fund', records: Record<string, Row>): PodiumRow[] {
+function podiumRows(
+  rows: Row[],
+  kind: 'project' | 'fund',
+  records: Record<string, Row>,
+  salesRank = false,
+  pot = 0,
+  weightSum = 0,
+): PodiumRow[] {
   const field = kind;
   const nameField = kind === 'fund' ? 'name' : 'Name';
-  return mapSome(rows, (row) => {
+  const mapped = mapSome(rows, (row) => {
     if (kind === 'fund' && row['project']) return undefined;
 
     const id = row[field];
@@ -242,8 +292,11 @@ function podiumRows(rows: Row[], kind: 'project' | 'fund', records: Record<strin
       sales_match: salesMatch,
       points,
       score: (points * salesMatch) / 100.0,
+      bonus: salesRank && weightSum > 0 ? bonusShare(points, weightSum, pot) : undefined,
     };
-  }).slice(0, 3);
+  });
+  if (salesRank) sortByDesc(mapped, (row) => row.sales_match, (row) => row.points);
+  return mapped.slice(0, 3);
 }
 
 async function fundRows(client: Bubble, seasonId: string, { current = false } = {}): Promise<FundRow[]> {

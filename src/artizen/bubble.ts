@@ -2,6 +2,7 @@ import type { BubbleResponse, Constraint, Drive, Row, Season } from './types';
 import {
   SITE_URL,
   batches,
+  bonusWeightSum,
   byId,
   hidden,
   ids,
@@ -148,9 +149,27 @@ export class Bubble {
       match_pot: maybeNum(row['total match pot funds']),
       prize_projects: maybeNum(row['prize pot projects']),
       prize_funds: maybeNum(row['prize pot funds']),
+      bonus_projects: maybeNum(row['Project bonus pot']),
+      bonus_funds: maybeNum(row['Fund bonus pot']),
+      goal: maybeNum(row['goal']),
       match_per_project: maybeNum(row['Artizen match per project']),
       ...this.drivePlacePrizes(row),
     };
+  }
+
+  async driveBonusParticipants(boostId: string, kind: 'project' | 'fund'): Promise<Row[]> {
+    const rows = await this.list('boostparticipant', {
+      constraints: [
+        { key: 'boost', constraint_type: 'equals', value: boostId },
+        { key: kind, constraint_type: 'is_not_empty' },
+        { key: 'boost points received', constraint_type: 'greater than', value: 0 },
+      ],
+    });
+    return kind === 'fund' ? rows.filter((row) => !row['project']) : rows;
+  }
+
+  async driveBonusWeightSum(boostId: string, kind: 'project' | 'fund'): Promise<number> {
+    return bonusWeightSum(await this.driveBonusParticipants(boostId, kind));
   }
 
   async venusTransactions(opts: { seasonId?: string | null; projectId?: string | null } = {}): Promise<Row[]> {

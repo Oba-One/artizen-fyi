@@ -146,7 +146,6 @@ export function layout(opts: {
   body: string;
   extra?: string;
   datatables?: boolean;
-  chart?: boolean;
   tree?: boolean;
   query?: string;
   season?: string | null;
@@ -175,7 +174,6 @@ export function layout(opts: {
     opts.datatables
       ? '<script src="https://cdn.datatables.net/v/bs5/dt-3.0.2/datatables.min.js"></script>'
       : '',
-    opts.chart ? '<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.5.1/chart.umd.min.js"></script>' : '',
     opts.tree ? TREE_SCRIPT : '',
     opts.extra || '',
   ]
@@ -282,10 +280,8 @@ const FOOTER = `
 `;
 
 
-export function panel(inner: string, opts?: { flush?: boolean; className?: string }): string {
-  const cls = ['artizen-panel', opts?.flush ? 'artizen-panel-flush' : '', opts?.className || '']
-    .filter(Boolean)
-    .join(' ');
+export function panel(inner: string, opts?: { className?: string }): string {
+  const cls = ['artizen-panel', opts?.className || ''].filter(Boolean).join(' ');
   return `<div class="${cls}">${inner}</div>`;
 }
 

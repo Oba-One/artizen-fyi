@@ -1,4 +1,5 @@
 export { Artizen } from './artizen/client';
+export { driveHasBonusPot } from './artizen/util';
 export type {
   BoostBucket,
   BoostHolder,

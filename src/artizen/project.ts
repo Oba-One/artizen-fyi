@@ -14,10 +14,12 @@ import type {
 import {
   LEAD_CREATOR,
   assignVenusDrive,
+  bonusShare,
   bump,
   byId,
   communitySales,
   driveContext,
+  driveHasBonusPot,
   firstMedia,
   groupBy,
   ids,
@@ -104,6 +106,23 @@ export async function buildProject(client: Bubble, slug: string): Promise<Projec
       bump(prizeBySeason, String(seasonId), prize);
     }
   }
+  const bonusBySeason: Record<string, number> = {};
+  const bonusDrives = drives.filter((d) => driveHasBonusPot(d) && !d.active);
+  const weightSums = await Promise.all(bonusDrives.map((drive) => client.driveBonusWeightSum(drive.id, 'project')));
+  bonusDrives.forEach((drive, i) => {
+    const part = participants.find((row) => String(row['boost'] ?? '') === drive.id);
+    const bonus = bonusShare(num(part?.['boost points received']), weightSums[i], num(drive.bonus_projects));
+    const stat = stats[id][drive.id];
+    if (stat) {
+      stat.bonus = bonus;
+      stat.raised += bonus;
+    } else if (bonus > 0) {
+      stats[id][drive.id] = { sales: 0, venus: 0, match: 0, prize: 0, bonus, raised: bonus };
+    }
+    if (drive.season_id != null && drive.season_id !== false && bonus > 0) {
+      bump(bonusBySeason, String(drive.season_id), bonus);
+    }
+  });
   for (const [boostId, grouped] of groupBy(slices, (s) => s['boost'])) {
     if (!boostId) continue;
 
@@ -155,6 +174,7 @@ export async function buildProject(client: Bubble, slug: string): Promise<Projec
       srow,
       { venus: venusBySeason[seasonKey], sprint: sprintBySeason[seasonKey] },
       prizeBySeason[seasonKey],
+      bonusBySeason[seasonKey],
     );
     if (!(funding.raised > 0)) return undefined;
 
@@ -190,7 +210,8 @@ function projectDriveDetails(drives: Drive[], statsByDrive: Record<string, Drive
   return mapSome(drives, (drive) => {
     const stat = statsByDrive[drive.id];
     if (!stat) return undefined;
-    if (!(num(stat.available) > 0 || num(stat.raised) > 0 || num(stat.sales) > 0 || num(stat.venus) > 0)) return undefined;
+    if (!(num(stat.available) > 0 || num(stat.raised) > 0 || num(stat.sales) > 0 || num(stat.venus) > 0 || num(stat.bonus) > 0))
+      return undefined;
 
     return {
       ...stat,
