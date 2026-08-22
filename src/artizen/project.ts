@@ -206,7 +206,7 @@ export async function buildProject(client: Bubble, slug: string): Promise<Projec
     tags,
     seasons: nestProjectFunding(seasons, driveDetails, matchingFunds),
     submissions: await formatProjectSubmissions(client, submissionRows, seasonsMeta),
-    siblings: await projectSiblings(client, id, submissionRows),
+    siblings: await projectSiblings(client, id, submissionRows, seasonsMeta),
   };
 }
 
@@ -334,17 +334,34 @@ async function formatProjectSubmissions(
 const SIBLING_LIMIT = 10;
 const SIBLING_CANDIDATES = 25;
 
-async function projectSiblings(client: Bubble, projectId: string, submissionRows: Row[]): Promise<ProjectSibling[]> {
+function submissionInSeason(row: Row, season: Season): boolean {
+  if (season.id && String(row['season'] ?? '') === season.id) return true;
+  return season.number != null && int(row['season number']) === season.number;
+}
+
+async function projectSiblings(
+  client: Bubble,
+  projectId: string,
+  submissionRows: Row[],
+  seasonsMeta: Record<string, Season>,
+): Promise<ProjectSibling[]> {
+  const current = Object.values(seasonsMeta).find((season) => season.current);
+  if (!current) return [];
+
   const fundIds = ids(
-    submissionRows.filter((row) => text(row['Status']) === 'Curated').map((row) => row['Fund']),
+    submissionRows
+      .filter((row) => text(row['Status']) === 'Curated' && submissionInSeason(row, current))
+      .map((row) => row['Fund']),
   );
   if (fundIds.length === 0) return [];
 
   const others = await client.listWhereIn('projectsubmission', 'Fund', fundIds, [
     { key: 'Status', constraint_type: 'equals', value: 'Curated' },
+    { key: 'season', constraint_type: 'equals', value: current.id },
   ]);
   const shared = new Map<string, Set<string>>();
   for (const row of others) {
+    if (!submissionInSeason(row, current)) continue;
     const siblingId = String(row['Project'] ?? '');
     const fundId = String(row['Fund'] ?? '');
     if (!siblingId || siblingId === projectId || !fundId) continue;
