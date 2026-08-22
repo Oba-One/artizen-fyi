@@ -177,7 +177,7 @@ function projectSiblings(siblings: ProjectSibling[]): string {
         .join('');
       return `<tr>
         <td><span class="text-muted">${i + 1}.</span> ${namedLink(sibling.url, sibling.name)}${logline}</td>
-        <td class="text-end">${sibling.funds.length}</td>
+        <td class="text-center">${sibling.funds.length}</td>
         <td><ul class="artizen-sibling-funds">${funds}</ul></td>
       </tr>`;
     })
@@ -186,7 +186,7 @@ function projectSiblings(siblings: ProjectSibling[]): string {
     <h2 class="artizen-panel-title">Top siblings</h2>
     <div class="table-responsive">
       <table class="table table-sm artizen-siblings">
-        <thead><tr><th>Project</th><th class="text-end">Funds</th><th></th></tr></thead>
+        <thead><tr><th>Project</th><th class="text-center">Funds</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`);
@@ -200,7 +200,7 @@ function projectSiblingFunds(funds: ProjectSiblingFund[]): string {
         .join('');
       return `<tr>
         <td><span class="text-muted">${i + 1}.</span> ${namedLink(fund.url, fund.name)}${fundAvailable(fund.available)}</td>
-        <td class="text-end">${fund.siblings.length}</td>
+        <td class="text-center">${fund.siblings.length}</td>
         <td><ul class="artizen-sibling-funds">${siblings}</ul></td>
       </tr>`;
     })
@@ -209,7 +209,7 @@ function projectSiblingFunds(funds: ProjectSiblingFund[]): string {
     <h2 class="artizen-panel-title">Other funds of top siblings</h2>
     <div class="table-responsive">
       <table class="table table-sm artizen-siblings">
-        <thead><tr><th>Fund</th><th class="text-end">Siblings</th><th></th></tr></thead>
+        <thead><tr><th>Fund</th><th class="text-center">Siblings</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`);
