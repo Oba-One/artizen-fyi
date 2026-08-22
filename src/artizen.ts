@@ -20,6 +20,7 @@ export type {
   ProjectPage,
   ProjectRow,
   ProjectSibling,
+  ProjectSiblingFund,
   ProjectSubmission,
   Row,
   Season,

@@ -1,4 +1,4 @@
-import type { ProjectPage, ProjectSibling, ProjectSubmission } from '../artizen';
+import type { ProjectPage, ProjectSibling, ProjectSiblingFund, ProjectSubmission } from '../artizen';
 import { moneyCells, moneyColumns, moneyHeaders, truncate, usd } from '../format';
 import { artizenLinks, driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow } from './layout';
 
@@ -7,6 +7,7 @@ export function renderProject(project: ProjectPage): string {
   const fundingTable = project.seasons.length ? projectFundingTable(project) : '';
   const submissions = project.submissions?.length ? projectSubmissions(project.submissions) : '';
   const siblings = project.siblings?.length ? projectSiblings(project.siblings) : '';
+  const siblingFunds = project.sibling_funds?.length ? projectSiblingFunds(project.sibling_funds) : '';
   return layout({
     title: project.name,
     description: project.logline || `Artizen project: ${project.name}`,
@@ -24,6 +25,7 @@ export function renderProject(project: ProjectPage): string {
       ${fundingTable}
       ${submissions}
       ${siblings}
+      ${siblingFunds}
     `,
   });
 }
@@ -183,9 +185,37 @@ function projectSiblings(siblings: ProjectSibling[]): string {
   return panel(`
     <h2 class="artizen-panel-title">Top siblings</h2>
     <div class="table-responsive">
-      <table class="table table-sm">
+      <table class="table table-sm artizen-siblings">
         <thead><tr><th>Project</th><th class="text-end">Funds</th><th></th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>`);
+}
+
+function projectSiblingFunds(funds: ProjectSiblingFund[]): string {
+  const rows = funds
+    .map((fund, i) => {
+      const siblings = fund.siblings
+        .map((sibling) => `<li>${namedLink(sibling.url, sibling.name)}</li>`)
+        .join('');
+      return `<tr>
+        <td><span class="text-muted">${i + 1}.</span> ${namedLink(fund.url, fund.name)}${fundAvailable(fund.available)}</td>
+        <td class="text-end">${fund.siblings.length}</td>
+        <td><ul class="artizen-sibling-funds">${siblings}</ul></td>
+      </tr>`;
+    })
+    .join('');
+  return panel(`
+    <h2 class="artizen-panel-title">Other funds of top siblings</h2>
+    <div class="table-responsive">
+      <table class="table table-sm artizen-siblings">
+        <thead><tr><th>Fund</th><th class="text-end">Siblings</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`);
+}
+
+function fundAvailable(available?: number): string {
+  const amount = usd(available);
+  return amount ? `<br><small class="text-muted">${amount}</small>` : '';
 }

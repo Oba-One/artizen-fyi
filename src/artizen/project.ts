@@ -8,6 +8,7 @@ import type {
   ProjectFundingSeason,
   ProjectPage,
   ProjectSibling,
+  ProjectSiblingFund,
   ProjectSubmission,
   Row,
   Season,
@@ -30,6 +31,7 @@ import {
   localFundPath,
   localProjectPath,
   mapSome,
+  maybeNum,
   num,
   seasonFunding,
   projectUrl,
@@ -197,6 +199,7 @@ export async function buildProject(client: Bubble, slug: string): Promise<Projec
   appendLegacyProjectSeasons(seasons, row, seasonsMeta);
   applyLegacySubmissionAwards(seasons, submissionRows, seasonsMeta);
   sortByDesc(seasons, (s) => s.number || 0);
+  const { siblings, sibling_funds } = await projectSiblings(client, id, submissionRows, seasonsMeta);
   return {
     name: text(row['Name']) ?? '',
     artizen_url: projectUrl(slugValue),
@@ -206,7 +209,8 @@ export async function buildProject(client: Bubble, slug: string): Promise<Projec
     tags,
     seasons: nestProjectFunding(seasons, driveDetails, matchingFunds),
     submissions: await formatProjectSubmissions(client, submissionRows, seasonsMeta),
-    siblings: await projectSiblings(client, id, submissionRows, seasonsMeta),
+    siblings,
+    sibling_funds,
   };
 }
 
@@ -333,6 +337,7 @@ async function formatProjectSubmissions(
 
 const SIBLING_LIMIT = 10;
 const SIBLING_CANDIDATES = 25;
+const emptySiblings = { siblings: [] as ProjectSibling[], sibling_funds: [] as ProjectSiblingFund[] };
 
 function submissionInSeason(row: Row, season: Season): boolean {
   if (season.id && String(row['season'] ?? '') === season.id) return true;
@@ -344,20 +349,20 @@ async function projectSiblings(
   projectId: string,
   submissionRows: Row[],
   seasonsMeta: Record<string, Season>,
-): Promise<ProjectSibling[]> {
+): Promise<{ siblings: ProjectSibling[]; sibling_funds: ProjectSiblingFund[] }> {
   const current = Object.values(seasonsMeta).find((season) => season.current);
-  if (!current) return [];
+  if (!current) return emptySiblings;
 
   const candidateFundIds = ids(
     submissionRows
       .filter((row) => text(row['Status']) === 'Curated' && submissionInSeason(row, current))
       .map((row) => row['Fund']),
   );
-  if (candidateFundIds.length === 0) return [];
+  if (candidateFundIds.length === 0) return emptySiblings;
 
   const fundsById = await client.indexed('fund', candidateFundIds);
   const fundIds = candidateFundIds.filter((id) => byId(fundsById, id)?.['active'] !== false);
-  if (fundIds.length === 0) return [];
+  if (fundIds.length === 0) return emptySiblings;
 
   const others = await client.listWhereIn('projectsubmission', 'Fund', fundIds, [
     { key: 'Status', constraint_type: 'equals', value: 'Curated' },
@@ -382,7 +387,7 @@ async function projectSiblings(
     (row) => row.count,
   ).slice(0, SIBLING_CANDIDATES);
   const projects = await client.indexed('project', ranked.map((row) => row.id));
-  return mapSome(ranked, (row) => {
+  const siblings = mapSome(ranked, (row) => {
     const project = byId(projects, row.id);
     if (!project || hidden(project)) return undefined;
     const name = text(project['Name']);
@@ -396,12 +401,81 @@ async function projectSiblings(
     }).sort((a, b) => a.name.localeCompare(b.name));
     if (!funds.length) return undefined;
     return {
+      id: row.id,
       name,
       url: localProjectPath(text(project['Slug']) ?? row.id),
       logline: text(project['Logline']),
       funds,
-    } satisfies ProjectSibling;
+    };
   }).slice(0, SIBLING_LIMIT);
+  const sibling_funds = await siblingOnlyFunds(client, siblings, new Set(fundIds), current);
+  return {
+    siblings: siblings.map((sibling) => ({
+      name: sibling.name,
+      url: sibling.url,
+      logline: sibling.logline,
+      funds: sibling.funds,
+    })),
+    sibling_funds,
+  };
+}
+
+async function siblingOnlyFunds(
+  client: Bubble,
+  siblings: { id: string; name: string; url: string }[],
+  ownFundIds: Set<string>,
+  current: Season,
+): Promise<ProjectSiblingFund[]> {
+  if (siblings.length === 0) return [];
+
+  const siblingById = new Map(siblings.map((sibling) => [sibling.id, sibling]));
+  const rows = await client.listWhereIn(
+    'projectsubmission',
+    'Project',
+    siblings.map((sibling) => sibling.id),
+    [
+      { key: 'Status', constraint_type: 'equals', value: 'Curated' },
+      { key: 'season', constraint_type: 'equals', value: current.id },
+    ],
+  );
+  const byFund = new Map<string, Set<string>>();
+  for (const row of rows) {
+    if (!submissionInSeason(row, current)) continue;
+    const fundId = String(row['Fund'] ?? '');
+    const siblingId = String(row['Project'] ?? '');
+    if (!fundId || ownFundIds.has(fundId) || !siblingById.has(siblingId)) continue;
+    let projects = byFund.get(fundId);
+    if (!projects) {
+      projects = new Set();
+      byFund.set(fundId, projects);
+    }
+    projects.add(siblingId);
+  }
+  if (byFund.size === 0) return [];
+
+  const fundsById = await client.indexed('fund', [...byFund.keys()]);
+  return sortByDesc(
+    mapSome([...byFund.entries()], ([fundId, projectIds]) => {
+      const fund = byId(fundsById, fundId);
+      if (!fund || fund['active'] === false) return undefined;
+      const name = text(fund['name']);
+      if (!name) return undefined;
+      const linked = mapSome([...projectIds], (id) => siblingById.get(id)).sort((a, b) =>
+        a.name.localeCompare(b.name),
+      );
+      if (!linked.length) return undefined;
+      return {
+        name,
+        url: localFundPath(text(fund['Slug']) ?? fundId),
+        available: maybeNum(fund['Funding - current']),
+        siblings: linked.map((sibling) => ({ name: sibling.name, url: sibling.url })),
+        count: linked.length,
+      };
+    }),
+    (row) => row.count,
+  )
+    .slice(0, SIBLING_LIMIT)
+    .map((row) => ({ name: row.name, url: row.url, available: row.available, siblings: row.siblings }));
 }
 
 function submissionStatusRank(status: string | undefined): number {

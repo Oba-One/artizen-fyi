@@ -707,6 +707,19 @@ table.dataTable.table-sm > thead > tr th.dt-type-date .dt-column-order {
   cursor: help;
 }
 .artizen-tree-season td { font-family: var(--bs-heading-font-family); }
+.artizen-siblings {
+  table-layout: fixed;
+  width: 100%;
+}
+.artizen-siblings th,
+.artizen-siblings td { vertical-align: top; }
+.artizen-siblings th:nth-last-child(2),
+.artizen-siblings td:nth-last-child(2) {
+  width: 6rem;
+  white-space: nowrap;
+}
+.artizen-siblings th:last-child,
+.artizen-siblings td:last-child { width: 40%; }
 .artizen-sibling-funds {
   margin: 0;
   padding: 0;
