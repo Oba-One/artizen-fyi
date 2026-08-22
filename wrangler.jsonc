@@ -23,6 +23,18 @@
       "id": "a8dd813cf26448dbb3ac37d31d8d5a43"
     }
   ],
+  "env": {
+    "cron": {
+      "routes": [],
+      "kv_namespaces": [
+        {
+          "binding": "CACHE",
+          "id": "a8dd813cf26448dbb3ac37d31d8d5a43",
+          "remote": true
+        }
+      ]
+    }
+  },
   "rules": [
     { "type": "Text", "globs": ["**/*.css", "**/*.svg"], "fallthrough": true },
     { "type": "Data", "globs": ["**/*.ico", "**/*.png"], "fallthrough": true }

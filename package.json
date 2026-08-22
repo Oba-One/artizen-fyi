@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
+    "cron:prod": "wrangler dev --env cron --port 8788",
     "deploy": "wrangler deploy",
     "kv:create": "wrangler kv namespace create CACHE",
     "types": "wrangler types"

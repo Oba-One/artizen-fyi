@@ -26,6 +26,26 @@ npm run dev          # local Worker + local KV
 
 Wipe local KV (Wrangler persist) with `rm -rf .wrangler/state`, then restart `npm run dev`. The next page load recrawls Bubble (~30–60s). After that, pages read KV. On artizen.fyi those list pages never crawl; they wait for cron. A project or fund detail with no stash still crawls that one page.
 
+Local cron (writes local KV):
+
+```bash
+curl "http://localhost:8787/cdn-cgi/local/scheduled"
+```
+
+Production cron (writes the live CACHE namespace). Uses 8788 so `npm run dev` can stay on 8787:
+
+```bash
+npx wrangler dev --env cron --port 8788
+```
+
+Then in another terminal:
+
+```bash
+curl "http://localhost:8788/cdn-cgi/local/scheduled"
+```
+
+A full run crawls every season and can take several minutes. Watch the Wrangler log for `[Artizen] refreshed`.
+
 ## Routes
 
 | Path | Page |
