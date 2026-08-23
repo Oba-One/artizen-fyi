@@ -1,0 +1,369 @@
+import type { Bubble } from '../artizen/bubble';
+import type {
+  FundProfileV2,
+  MatchIndexV1,
+  MatchIndexSource,
+  MatchIndexV2,
+  MatchRelationshipKind,
+  ProjectFundRelationship,
+  ProjectProfileV2,
+  Row,
+  ScoringConfigV2,
+} from '../artizen/types';
+import { hidden, int, mapSome, maybeNum, num, text } from '../artizen/util';
+import { FUND_PROFILE_OVERRIDES } from './overrides';
+import { SEMANTIC_CATALOG } from './semantic-config';
+import {
+  MATCH_FACETS,
+  MATCH_TAXONOMY_VERSION,
+  conceptCandidates,
+  extractFacetIds,
+  extractFundFocusFacetIds,
+} from './taxonomy';
+
+export const MATCH_INDEX_V2_KEY = 'artizen/matching/v2';
+
+export const DEFAULT_SCORING_V2: ScoringConfigV2 = {
+  version: 'baseline-2026-08-23.1',
+  lexicalWeight: 0.4,
+  facetWeight: 0.4,
+  coreCoverageWeight: 0.2,
+  semanticWeight: 0.55,
+  semanticFacetWeight: 0.25,
+  semanticCoreCoverageWeight: 0.15,
+  semanticLexicalWeight: 0.05,
+  strongThreshold: 0.55,
+  goodThreshold: 0.34,
+  exploratoryThreshold: 0.1,
+  unsupportedFocusPenalty: 0.35,
+};
+
+type BuildOptions = {
+  previous?: MatchIndexV2 | null;
+  sourceKind?: MatchIndexSource['kind'];
+};
+
+function strings(value: unknown): string[] {
+  if (value == null || value === false || value === '') return [];
+  return (Array.isArray(value) ? value : [value]).map(String);
+}
+
+function uniqueSorted(values: string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+}
+
+function relationshipKind(row: Row): MatchRelationshipKind | undefined {
+  if (row['Submitted'] === false) return undefined;
+  if (num(row['$ amount raised']) > 0) return 'funded';
+  const status = (text(row['Status']) || '').toLowerCase();
+  if (status === 'curated' || status === 'approved') return 'curated';
+  if (row['Project'] && row['Fund']) return 'submitted';
+}
+
+function relationshipRank(kind: MatchRelationshipKind): number {
+  return kind === 'funded' ? 3 : kind === 'curated' ? 2 : 1;
+}
+
+async function digest(value: unknown): Promise<string> {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export function deriveCoreConcepts(funds: FundProfileV2[]): void {
+  const candidatesByFund = new Map<string, string[]>();
+  const documentFrequency = new Map<string, number>();
+  for (const fund of funds) {
+    const candidates = uniqueSorted(conceptCandidates(fund.name, fund.forTitle, fund.subtitle));
+    candidatesByFund.set(fund.id, candidates);
+    for (const candidate of candidates) {
+      documentFrequency.set(candidate, (documentFrequency.get(candidate) || 0) + 1);
+    }
+  }
+
+  const count = Math.max(1, funds.length);
+  for (const fund of funds) {
+    const override = FUND_PROFILE_OVERRIDES[fund.slug] || {};
+    const excluded = new Set(override.excludedCoreConcepts || []);
+    const titleCandidates = new Set(conceptCandidates(fund.name, fund.forTitle));
+    fund.coreConcepts = (candidatesByFund.get(fund.id) || [])
+      .filter((candidate) => !excluded.has(candidate))
+      .map((candidate) => {
+        const frequency = documentFrequency.get(candidate) || 1;
+        const idf = Math.log(1 + count / frequency);
+        const phraseBoost = candidate.includes(' ') ? 1.3 : 1;
+        const titleBoost = titleCandidates.has(candidate) ? 1.35 : 1;
+        return { candidate, score: idf * phraseBoost * titleBoost, frequency };
+      })
+      .filter((row) => row.frequency / count <= 0.18)
+      .sort((a, b) => b.score - a.score || a.candidate.localeCompare(b.candidate))
+      .slice(0, 8)
+      .map((row) => row.candidate);
+  }
+}
+
+export async function upgradeMatchIndexV1(
+  input: MatchIndexV1,
+  sourceKind: MatchIndexSource['kind'] = 'fixture',
+): Promise<MatchIndexV2> {
+  const projects: ProjectProfileV2[] = input.projects.map((project) => ({
+    ...project,
+    tags: uniqueSorted(project.tags),
+    facets: extractFacetIds(project.name, project.description, project.tags.join(' ')),
+  }));
+  const funds: FundProfileV2[] = [];
+  for (const fund of input.funds) {
+    const override = FUND_PROFILE_OVERRIDES[fund.slug] || {};
+    const themes = uniqueSorted(override.themes || fund.themes || []);
+    const aliases = uniqueSorted(override.aliases || fund.aliases || []);
+    const preferredTerms = uniqueSorted(override.preferredTerms || fund.preferredTerms || []);
+    const excludedTerms = uniqueSorted(override.excludedTerms || fund.excludedTerms || []);
+    const profileText = [fund.name, fund.subtitle, fund.forTitle, ...themes, ...aliases, ...preferredTerms]
+      .filter(Boolean)
+      .join('. ');
+    const excludedFacets = new Set(override.excludedFacets || []);
+    const facets = uniqueSorted([...extractFacetIds(profileText), ...(override.facets || [])]).filter(
+      (facetId) => !excludedFacets.has(facetId),
+    );
+    const focusFacets = uniqueSorted([
+      ...extractFundFocusFacetIds(fund.name, fund.forTitle, fund.subtitle),
+      ...(override.focusFacets || []),
+    ]).filter((facetId) => facets.includes(facetId) && !excludedFacets.has(facetId));
+    funds.push({
+      id: fund.id,
+      slug: fund.slug,
+      name: fund.name,
+      subtitle: fund.subtitle,
+      forTitle: fund.forTitle,
+      active: fund.active,
+      available: fund.available,
+      themes,
+      aliases,
+      preferredTerms,
+      excludedTerms,
+      profileText,
+      profileHash: await digest({
+        name: fund.name,
+        subtitle: fund.subtitle,
+        forTitle: fund.forTitle,
+        themes,
+        aliases,
+        preferredTerms,
+        excludedTerms,
+        facets,
+        focusFacets,
+      }),
+      facets,
+      focusFacets,
+      coreConcepts: [],
+    });
+  }
+  deriveCoreConcepts(funds);
+  const source: MatchIndexSource = {
+    kind: sourceKind,
+    projects: projects.length,
+    funds: funds.length,
+    relationships: input.relationships.length,
+  };
+  const versionable = {
+    source,
+    taxonomyVersion: MATCH_TAXONOMY_VERSION,
+    facets: MATCH_FACETS,
+    projects,
+    funds,
+    relationships: input.relationships,
+    scoring: { ...DEFAULT_SCORING_V2 },
+    semantic: SEMANTIC_CATALOG,
+  };
+  const index: MatchIndexV2 = {
+    schemaVersion: 2,
+    indexVersion: (await digest(versionable)).slice(0, 20),
+    generatedAt: new Date().toISOString(),
+    ...versionable,
+  };
+  validateMatchIndexV2(index);
+  return index;
+}
+
+function rejectUnexpectedDrop(previous: MatchIndexV2 | null | undefined, next: MatchIndexV2): void {
+  if (!previous || previous.source.kind !== 'artizen-api' || next.source.kind !== 'artizen-api') return;
+  for (const field of ['projects', 'funds', 'relationships'] as const) {
+    const before = previous.source[field];
+    const after = next.source[field];
+    if (before > 0 && after < before * 0.8) {
+      throw new Error(`matching v2 ${field} count dropped from ${before} to ${after}`);
+    }
+  }
+}
+
+export async function buildMatchIndexV2(client: Bubble, options: BuildOptions = {}): Promise<MatchIndexV2> {
+  const [projectRows, fundRows, extendedRows, submissionRows, tagRows] = await Promise.all([
+    client.list('project', { concurrency: 6 }),
+    client.list('fund', { concurrency: 6 }),
+    client.list('fundextendedinfo', { concurrency: 6 }),
+    client.list('projectsubmission', { concurrency: 6 }),
+    client.list('impacttag', { concurrency: 6 }),
+  ]);
+
+  const tagsById = new Map(
+    tagRows.flatMap((row) => {
+      const id = text(row['_id']);
+      const name = text(row['name']);
+      return id && name ? [[id, name] as const] : [];
+    }),
+  );
+  const extendedById = new Map(extendedRows.flatMap((row) => (row['_id'] ? [[String(row['_id']), row] as const] : [])));
+
+  const projects: ProjectProfileV2[] = mapSome(projectRows, (row) => {
+    if (hidden(row)) return undefined;
+    const id = text(row['_id']);
+    const name = text(row['Name']);
+    if (!id || !name) return undefined;
+    const description = text(row['Logline']) || '';
+    const tags = uniqueSorted(strings(row['impact tags (impact tag)']).flatMap((tagId) => tagsById.get(tagId) || []));
+    return {
+      id,
+      slug: text(row['Slug']) || id,
+      name,
+      description,
+      tags,
+      facets: extractFacetIds(name, description, tags.join(' ')),
+    };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+
+  const funds: FundProfileV2[] = [];
+  for (const row of fundRows) {
+    const id = text(row['_id']);
+    const baseName = text(row['name']);
+    if (!id || !baseName) continue;
+    const slug = text(row['Slug']) || id;
+    const ext = extendedById.get(String(row['Extended info'] ?? ''));
+    const override = FUND_PROFILE_OVERRIDES[slug] || {};
+    const name = text(ext?.['full title']) || baseName;
+    const subtitle = text(ext?.['subtitle']);
+    const forTitle = text(ext?.['for title']);
+    const themes = uniqueSorted(override.themes || []);
+    const aliases = uniqueSorted(override.aliases || []);
+    const preferredTerms = uniqueSorted(override.preferredTerms || []);
+    const excludedTerms = uniqueSorted(override.excludedTerms || []);
+    const profileText = [name, subtitle, forTitle, ...themes, ...aliases, ...preferredTerms].filter(Boolean).join('. ');
+    const excludedFacets = new Set(override.excludedFacets || []);
+    const facets = uniqueSorted([
+      ...extractFacetIds(profileText),
+      ...(override.facets || []),
+    ]).filter((facetId) => !excludedFacets.has(facetId));
+    const focusFacets = uniqueSorted([
+      ...extractFundFocusFacetIds(name, forTitle, subtitle),
+      ...(override.focusFacets || []),
+    ]).filter((facetId) => facets.includes(facetId) && !excludedFacets.has(facetId));
+    funds.push({
+      id,
+      slug,
+      name,
+      subtitle,
+      forTitle,
+      active: row['active'] !== false,
+      available: maybeNum(row['Funding - current']),
+      themes,
+      aliases,
+      preferredTerms,
+      excludedTerms,
+      profileText,
+      profileHash: await digest({ name, subtitle, forTitle, themes, aliases, preferredTerms, excludedTerms, facets, focusFacets }),
+      facets,
+      focusFacets,
+      coreConcepts: [],
+    });
+  }
+  funds.sort((a, b) => a.name.localeCompare(b.name));
+  deriveCoreConcepts(funds);
+
+  const projectIds = new Set(projects.map((project) => project.id));
+  const fundIds = new Set(funds.map((fund) => fund.id));
+  const relationshipByPair = new Map<string, ProjectFundRelationship>();
+  for (const row of submissionRows) {
+    const projectId = text(row['Project']);
+    const fundId = text(row['Fund']);
+    const kind = relationshipKind(row);
+    if (!projectId || !fundId || !kind || !projectIds.has(projectId) || !fundIds.has(fundId)) continue;
+    const seasonNumber = row['season number'] == null ? undefined : int(row['season number']);
+    const createdAt = text(row['Created Date']);
+    const candidate: ProjectFundRelationship = { projectId, fundId, kind, seasonNumber, createdAt };
+    const key = `${projectId}\0${fundId}`;
+    const previous = relationshipByPair.get(key);
+    if (
+      !previous ||
+      relationshipRank(candidate.kind) > relationshipRank(previous.kind) ||
+      (relationshipRank(candidate.kind) === relationshipRank(previous.kind) &&
+        (candidate.seasonNumber || 0) >= (previous.seasonNumber || 0))
+    ) {
+      relationshipByPair.set(key, candidate);
+    }
+  }
+  const relationships = [...relationshipByPair.values()].sort(
+    (a, b) => a.projectId.localeCompare(b.projectId) || a.fundId.localeCompare(b.fundId),
+  );
+
+  const source: MatchIndexSource = {
+    kind: options.sourceKind || 'artizen-api',
+    projects: projects.length,
+    funds: funds.length,
+    relationships: relationships.length,
+  };
+  const versionable = {
+    source,
+    taxonomyVersion: MATCH_TAXONOMY_VERSION,
+    facets: MATCH_FACETS,
+    projects,
+    funds,
+    relationships,
+    scoring: DEFAULT_SCORING_V2,
+    semantic: SEMANTIC_CATALOG,
+  };
+  const index: MatchIndexV2 = {
+    schemaVersion: 2,
+    indexVersion: (await digest(versionable)).slice(0, 20),
+    generatedAt: new Date().toISOString(),
+    ...versionable,
+  };
+  validateMatchIndexV2(index);
+  rejectUnexpectedDrop(options.previous, index);
+  return index;
+}
+
+export function validateMatchIndexV2(index: MatchIndexV2): void {
+  if (index.schemaVersion !== 2) throw new Error('unsupported matching v2 schema');
+  if (!index.indexVersion || !index.generatedAt) throw new Error('matching v2 version is missing');
+  if (!index.source || index.source.projects !== index.projects.length || index.source.funds !== index.funds.length) {
+    throw new Error('matching v2 source counts do not match the catalog');
+  }
+  if (index.projects.length === 0 || index.funds.length === 0) throw new Error('matching v2 catalog is empty');
+  const projectIds = new Set(index.projects.map((project) => project.id));
+  const fundIds = new Set(index.funds.map((fund) => fund.id));
+  if (projectIds.size !== index.projects.length || fundIds.size !== index.funds.length) {
+    throw new Error('matching v2 catalog contains duplicate ids');
+  }
+  const facetIds = new Set(index.facets.map((facet) => facet.id));
+  for (const fund of index.funds) {
+    if (!fund.profileHash || !fund.profileText || fund.profileHash.length !== 64) {
+      throw new Error(`matching v2 fund profile is invalid: ${fund.id}`);
+    }
+    if ([...fund.facets, ...fund.focusFacets].some((facetId) => !facetIds.has(facetId))) {
+      throw new Error(`matching v2 fund has an unknown facet: ${fund.id}`);
+    }
+  }
+  for (const relationship of index.relationships) {
+    if (!projectIds.has(relationship.projectId) || !fundIds.has(relationship.fundId)) {
+      throw new Error('matching v2 relationship references a missing record');
+    }
+  }
+  const baselineWeight = index.scoring.lexicalWeight + index.scoring.facetWeight + index.scoring.coreCoverageWeight;
+  const semanticWeight =
+    index.scoring.semanticWeight +
+    index.scoring.semanticFacetWeight +
+    index.scoring.semanticCoreCoverageWeight +
+    index.scoring.semanticLexicalWeight;
+  if (Math.abs(baselineWeight - 1) > 0.0001 || Math.abs(semanticWeight - 1) > 0.0001) {
+    throw new Error('matching v2 weights must total 1');
+  }
+}

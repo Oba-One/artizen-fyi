@@ -2,7 +2,9 @@ import { Bubble } from './bubble';
 import { buildBoosts, buildLeaderboard } from './leaderboard';
 import { buildFund } from './fund';
 import { buildProject } from './project';
-import type { BoostsPage, DetailPreview, FundPage, Leaderboard, ProjectPage } from './types';
+import { buildMatchIndex, MATCH_INDEX_KEY } from '../matching/index';
+import { buildMatchIndexV2, MATCH_INDEX_V2_KEY } from '../matching/index-v2';
+import type { BoostsPage, DetailPreview, FundPage, Leaderboard, MatchIndexV1, MatchIndexV2, ProjectPage } from './types';
 import { failed } from './util';
 
 const keys = {
@@ -12,6 +14,8 @@ const keys = {
   boosts: 'artizen/boosts/v2',
   projects: 'artizen/project/v44/',
   funds: 'artizen/fund/v10/',
+  matching: MATCH_INDEX_KEY,
+  matchingV2: MATCH_INDEX_V2_KEY,
 };
 
 export class Artizen {
@@ -71,6 +75,19 @@ export class Artizen {
     return this.cached(keys.boosts, () => buildBoosts(this.bubble), 'require', fallback);
   }
 
+  async matchIndex(): Promise<MatchIndexV1 | null> {
+    return this.cached(keys.matching, () => buildMatchIndex(this.bubble), 'require', null);
+  }
+
+  async matchIndexV2(): Promise<MatchIndexV2 | null> {
+    return this.cached(
+      keys.matchingV2,
+      async () => buildMatchIndexV2(this.bubble, { previous: await this.get<MatchIndexV2>(keys.matchingV2) }),
+      'require',
+      null,
+    );
+  }
+
   async refreshCache(): Promise<string> {
     const started = Date.now();
     const seasons = await this.bubble.fetchSeasons();
@@ -85,10 +102,27 @@ export class Artizen {
     console.log('[Artizen] boosts');
     const boosts = await this.cached(keys.boosts, () => buildBoosts(this.bubble), 'refresh', null);
 
+    console.log('[Artizen] matching index');
+    const matching = await this.cached(keys.matching, () => buildMatchIndex(this.bubble), 'refresh', null);
+
+    console.log('[Artizen] matching v2 index');
+    const matchingV2 = await this.cached(
+      keys.matchingV2,
+      async () => buildMatchIndexV2(this.bubble, { previous: await this.get<MatchIndexV2>(keys.matchingV2) }),
+      'refresh',
+      null,
+    );
+
     let dropped = await this.deleteByPrefix(keys.projects);
     dropped += await this.deleteByPrefix(keys.funds);
 
-    const summary = `[Artizen] refreshed ${seasons.length} seasons, boosts ${boosts && !boosts.error ? 'ok' : 'failed'}, dropped ${dropped} project/fund stashes in ${Math.round((Date.now() - started) / 1000)}s`;
+    const matchSummary = matching
+      ? `${matching.projects.length} projects/${matching.funds.length} funds/${matching.relationships.length} relationships (${matching.indexVersion})`
+      : 'failed';
+    const matchV2Summary = matchingV2
+      ? `${matchingV2.projects.length} projects/${matchingV2.funds.length} funds/${matchingV2.relationships.length} relationships (${matchingV2.indexVersion})`
+      : 'failed';
+    const summary = `[Artizen] refreshed ${seasons.length} seasons, boosts ${boosts && !boosts.error ? 'ok' : 'failed'}, matching ${matchSummary}, matching v2 ${matchV2Summary}, dropped ${dropped} project/fund stashes in ${Math.round((Date.now() - started) / 1000)}s`;
     console.log(summary);
     return summary;
   }

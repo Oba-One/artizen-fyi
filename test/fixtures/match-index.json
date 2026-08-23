@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "indexVersion": "browser-fixture-v2",
+  "generatedAt": "2026-08-22T00:00:00.000Z",
+  "projects": [
+    {
+      "id": "climate-frames",
+      "slug": "climate-frames",
+      "name": "Climate Frames",
+      "description": "Documentary films about community-led climate action and environmental justice.",
+      "tags": ["Climate", "Film", "Community"]
+    },
+    {
+      "id": "open-studio",
+      "slug": "open-studio",
+      "name": "Open Studio",
+      "description": "Free creative education and mentorship for young artists.",
+      "tags": ["Education", "Art"]
+    },
+    {
+      "id": "green-goods",
+      "slug": "green-goods",
+      "name": "Green Goods",
+      "description": "Open infrastructure for communities to fund and govern regenerative public goods.",
+      "tags": ["Climate", "Community", "Public Goods", "Technology"]
+    }
+  ],
+  "funds": [
+    { "id": "climate-culture", "slug": "climate-culture", "name": "Climate Culture Fund", "subtitle": "Stories that move climate action", "active": true, "available": 25000, "themes": ["Climate"], "derivedThemes": ["Film", "Community"], "aliases": [], "preferredTerms": [], "excludedTerms": [] },
+    { "id": "documentary", "slug": "documentary", "name": "Documentary Fund", "subtitle": "Independent documentary projects", "active": false, "available": 0, "themes": ["Film"], "derivedThemes": [], "aliases": [], "preferredTerms": [], "excludedTerms": [] },
+    { "id": "environment", "slug": "environment", "name": "Environmental Justice Fund", "subtitle": "Community-led environmental work", "active": true, "available": 8000, "themes": ["Climate", "Community"], "derivedThemes": [], "aliases": [], "preferredTerms": [], "excludedTerms": [] },
+    { "id": "community-media", "slug": "community-media", "name": "Community Media Fund", "subtitle": "Local media and public storytelling", "active": true, "available": 0, "themes": ["Community", "Film"], "derivedThemes": [], "aliases": [], "preferredTerms": [], "excludedTerms": [] },
+    { "id": "learning", "slug": "learning", "name": "Creative Learning Fund", "subtitle": "Arts education for young people", "active": true, "available": 12000, "themes": ["Education", "Art"], "derivedThemes": [], "aliases": [], "preferredTerms": [], "excludedTerms": [] },
+    { "id": "future-cities", "slug": "future-cities", "name": "Future Cities Fund", "subtitle": "Civic imagination and public space", "active": false, "available": 0, "themes": ["Community"], "derivedThemes": [], "aliases": [], "preferredTerms": [], "excludedTerms": [] },
+    { "id": "artist-led", "slug": "artist-led", "name": "Artist-Led Fund", "subtitle": "Independent artists making public work", "active": true, "available": 5000, "themes": ["Art"], "derivedThemes": [], "aliases": [], "preferredTerms": [], "excludedTerms": [] },
+    { "id": "story", "slug": "story", "name": "Story Fund", "subtitle": "Stories for social change", "active": true, "available": 3000, "themes": ["Film", "Community"], "derivedThemes": [], "aliases": [], "preferredTerms": [], "excludedTerms": [] },
+    { "id": "public-goods", "slug": "public-goods", "name": "Public Goods Fund", "subtitle": "Open infrastructure for shared benefit", "active": true, "available": 18000, "themes": ["Public Goods", "Technology"], "derivedThemes": ["Community"], "aliases": [], "preferredTerms": [], "excludedTerms": [] },
+    { "id": "regenerative-communities", "slug": "regenerative-communities", "name": "Regenerative Communities Fund", "subtitle": "Community-owned climate and ecological work", "active": true, "available": 9000, "themes": ["Climate", "Community"], "derivedThemes": ["Public Goods"], "aliases": [], "preferredTerms": [], "excludedTerms": [] },
+    { "id": "open-technology", "slug": "open-technology", "name": "Open Technology Fund", "subtitle": "Open-source tools for communities", "active": false, "available": 0, "themes": ["Technology", "Public Goods"], "derivedThemes": [], "aliases": [], "preferredTerms": [], "excludedTerms": [] }
+  ],
+  "relationships": [
+    { "projectId": "climate-frames", "fundId": "climate-culture", "kind": "curated", "seasonNumber": 5 },
+    { "projectId": "climate-frames", "fundId": "documentary", "kind": "submitted", "seasonNumber": 5 },
+    { "projectId": "open-studio", "fundId": "learning", "kind": "funded", "seasonNumber": 5 },
+    { "projectId": "open-studio", "fundId": "artist-led", "kind": "curated", "seasonNumber": 5 },
+    { "projectId": "green-goods", "fundId": "public-goods", "kind": "curated", "seasonNumber": 5 },
+    { "projectId": "green-goods", "fundId": "regenerative-communities", "kind": "submitted", "seasonNumber": 5 }
+  ],
+  "scoring": {
+    "contentWeight": 0.45,
+    "tagWeight": 0.25,
+    "graphWeight": 0.3,
+    "directRelationshipShare": 0.6,
+    "similarProjectLimit": 20,
+    "fundHistoryLimit": 24
+  }
+}

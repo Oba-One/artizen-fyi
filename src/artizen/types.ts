@@ -177,6 +177,8 @@ export type ProjectSiblingFund = {
 };
 
 export type ProjectPage = {
+  id: string;
+  slug: string;
   name: string;
   artizen_url: string;
   creator?: string;
@@ -242,6 +244,190 @@ export type FundPage = {
   active: unknown;
   contrib_total: number;
   seasons: FundFundingSeason[];
+};
+
+export type MatchRelationshipKind = 'submitted' | 'curated' | 'funded';
+
+export type MatchFit = 'strong' | 'good' | 'exploratory' | 'limited';
+
+export type MatchReason = {
+  kind:
+    | 'content'
+    | 'tag'
+    | 'facet'
+    | 'core-concept'
+    | 'semantic'
+    | 'similar-project'
+    | 'relationship'
+    | 'limited-evidence';
+  label: string;
+};
+
+export type ProjectMatchInput = {
+  projectId?: string;
+  title?: string;
+  description: string;
+  tags: string[];
+};
+
+export type ProjectProfile = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  tags: string[];
+};
+
+export type FundProfile = {
+  id: string;
+  slug: string;
+  name: string;
+  subtitle?: string;
+  forTitle?: string;
+  active: boolean;
+  available?: number;
+  themes: string[];
+  derivedThemes: string[];
+  aliases: string[];
+  preferredTerms: string[];
+  excludedTerms: string[];
+};
+
+export type ProjectFundRelationship = {
+  projectId: string;
+  fundId: string;
+  kind: MatchRelationshipKind;
+  seasonNumber?: number;
+  createdAt?: string;
+};
+
+export type ScoringConfig = {
+  contentWeight: number;
+  tagWeight: number;
+  graphWeight: number;
+  directRelationshipShare: number;
+  similarProjectLimit: number;
+  fundHistoryLimit: number;
+};
+
+export type MatchIndexV1 = {
+  schemaVersion: 1;
+  indexVersion: string;
+  generatedAt: string;
+  projects: ProjectProfile[];
+  funds: FundProfile[];
+  relationships: ProjectFundRelationship[];
+  scoring: ScoringConfig;
+};
+
+export type FundRecommendation = {
+  fundId: string;
+  score: number;
+  fit: MatchFit;
+  reasons: MatchReason[];
+  knownRelationship?: MatchRelationshipKind;
+  active: boolean;
+  available?: number;
+};
+
+export type SemanticReranker = {
+  rerank(
+    input: ProjectMatchInput,
+    candidates: FundRecommendation[],
+    index: MatchIndexV1,
+  ): Promise<FundRecommendation[]>;
+};
+
+export type MatchIndexSource = {
+  kind: 'artizen-api' | 'fixture';
+  projects: number;
+  funds: number;
+  relationships: number;
+};
+
+export type MatchFacetCategory = 'domain' | 'medium' | 'approach' | 'audience' | 'place';
+
+export type MatchFacet = {
+  id: string;
+  label: string;
+  category: MatchFacetCategory;
+};
+
+export type ProjectProfileV2 = ProjectProfile & {
+  facets: string[];
+};
+
+export type FundProfileV2 = Omit<FundProfile, 'derivedThemes'> & {
+  profileText: string;
+  profileHash: string;
+  facets: string[];
+  focusFacets: string[];
+  coreConcepts: string[];
+};
+
+export type ScoreBreakdown = {
+  lexical: number;
+  facets: number;
+  coreCoverage: number;
+  semantic?: number;
+};
+
+export type ScoringConfigV2 = {
+  version: string;
+  lexicalWeight: number;
+  facetWeight: number;
+  coreCoverageWeight: number;
+  semanticWeight: number;
+  semanticFacetWeight: number;
+  semanticCoreCoverageWeight: number;
+  semanticLexicalWeight: number;
+  strongThreshold: number;
+  goodThreshold: number;
+  exploratoryThreshold: number;
+  unsupportedFocusPenalty: number;
+};
+
+export type SemanticCatalogManifest = {
+  modelId: 'mixedbread-ai/mxbai-embed-xsmall-v1';
+  modelRevision: string;
+  dtype: 'q8';
+  dimensions: 256;
+  weightsBytes: number;
+  modelPath: string;
+  wasmPath: string;
+  vectorsUrl: string;
+  vectorVersion: string;
+};
+
+export type MatchIndexV2 = {
+  schemaVersion: 2;
+  indexVersion: string;
+  generatedAt: string;
+  source: MatchIndexSource;
+  taxonomyVersion: string;
+  facets: MatchFacet[];
+  projects: ProjectProfileV2[];
+  funds: FundProfileV2[];
+  relationships: ProjectFundRelationship[];
+  scoring: ScoringConfigV2;
+  semantic?: SemanticCatalogManifest;
+};
+
+export type FundRecommendationV2 = FundRecommendation & {
+  breakdown: ScoreBreakdown;
+  supportedFocus: boolean;
+};
+
+export type MatchResultV2 = {
+  sufficient: boolean;
+  recommendations: FundRecommendationV2[];
+  mode: 'baseline' | 'semantic';
+};
+
+export type SemanticScorer = {
+  load(onProgress: (progress: number) => void): Promise<void>;
+  score(input: ProjectMatchInput, fundIds: string[]): Promise<Map<string, number>>;
+  dispose(): void;
 };
 
 export type BoostHolder = {

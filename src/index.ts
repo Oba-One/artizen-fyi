@@ -9,6 +9,8 @@ import {
   renderDrives,
   renderFund,
   renderFunds,
+  renderMatch,
+  renderMatchReview,
   renderNotFound,
   renderProject,
   renderProjects,
@@ -26,6 +28,51 @@ function html(body: string, status = 200): Response {
     status,
     headers: { 'content-type': 'text/html; charset=utf-8' },
   });
+}
+
+async function matchingIndexResponse(artizen: Artizen, request: Request): Promise<Response> {
+  const index = await artizen.matchIndex();
+  if (!index) {
+    return new Response(JSON.stringify({ error: 'matching_index_unavailable' }), {
+      status: 503,
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'no-store',
+        'retry-after': '300',
+      },
+    });
+  }
+  const etag = `"${index.indexVersion}"`;
+  const headers = {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'public, max-age=300, stale-while-revalidate=86400',
+    etag,
+  };
+  if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers });
+  return new Response(JSON.stringify(index), { headers });
+}
+
+async function matchingIndexV2Response(artizen: Artizen, request: Request, url: URL): Promise<Response> {
+  const index = await artizen.matchIndexV2();
+  const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  if (!index || (index.source.kind === 'fixture' && !local)) {
+    return new Response(JSON.stringify({ error: 'matching_v2_index_unavailable' }), {
+      status: 503,
+      headers: {
+        'content-type': 'application/json; charset=utf-8',
+        'cache-control': 'no-store',
+        'retry-after': '300',
+      },
+    });
+  }
+  const etag = `"${index.indexVersion}"`;
+  const headers = {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'public, max-age=300, stale-while-revalidate=86400',
+    etag,
+  };
+  if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers });
+  return new Response(JSON.stringify(index), { headers });
 }
 
 function detail<T>(data: T | null, render: (data: T) => string): Response {
@@ -102,6 +149,23 @@ export default {
     if (request.method === 'GET' && path === '/search') {
       const q = url.searchParams.get('q') || '';
       return html(renderSearch(await artizen.leaderboard(season), q, season));
+    }
+
+    if (request.method === 'GET' && path === '/match') {
+      return html(renderMatch());
+    }
+
+    if (request.method === 'GET' && path === '/match/review') {
+      const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+      return local ? html(renderMatchReview()) : html(renderNotFound(), 404);
+    }
+
+    if (request.method === 'GET' && path === '/match/index.json') {
+      return matchingIndexResponse(artizen, request);
+    }
+
+    if (request.method === 'GET' && path === '/match/index.v2.json') {
+      return matchingIndexV2Response(artizen, request, url);
     }
 
     if (request.method === 'GET' && path === '/boosts') {

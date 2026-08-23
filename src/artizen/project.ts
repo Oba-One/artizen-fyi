@@ -201,6 +201,8 @@ export async function buildProject(client: Bubble, slug: string): Promise<Projec
   sortByDesc(seasons, (s) => s.number || 0);
   const { siblings, sibling_funds } = await projectSiblings(client, id, submissionRows, seasonsMeta);
   return {
+    id,
+    slug: slugValue,
     name: text(row['Name']) ?? '',
     artizen_url: projectUrl(slugValue),
     creator: text(row[LEAD_CREATOR]),

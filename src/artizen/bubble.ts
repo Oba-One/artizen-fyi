@@ -43,15 +43,23 @@ export class Bubble {
     if (opts.descending) params.descending = true;
 
     const first = await this.get(type, { ...params, cursor: 0 });
-    for (const row of first.results || []) fn(row);
+    const firstResults = first.results || [];
+    for (const row of firstResults) fn(row);
     const remaining = int(first.remaining);
     if (remaining <= 0) return;
 
     const cursors = Array.from({ length: Math.ceil(remaining / PAGE_SIZE) }, (_, i) => (i + 1) * PAGE_SIZE);
     const conc = opts.concurrency ?? BOOST_LIST_CONCURRENCY;
+    let received = 0;
     for (const batch of batches(cursors, conc)) {
       const pages = await Promise.all(batch.map((cursor) => this.getResultsRetry(type, { ...params, cursor })));
-      for (const page of pages) for (const row of page) fn(row);
+      for (const page of pages) {
+        received += page.length;
+        for (const row of page) fn(row);
+      }
+    }
+    if (received !== remaining) {
+      throw new Error(`incomplete ${type} pagination: expected ${remaining} more records, received ${received}`);
     }
   }
 
