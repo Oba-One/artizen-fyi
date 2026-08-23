@@ -10,11 +10,11 @@ export type Funded = ProjectRow & {
   multiple?: number;
 };
 
-export function usd(value?: number | null, blankZero = false): string {
+export function usd(value?: number | null): string {
   if (value == null || Number.isNaN(Number(value))) return '';
   const n = Number(value);
-  if (blankZero && n === 0) return '';
   const precision = Math.abs(n) >= 100 ? 0 : 2;
+  if (Math.abs(n) < 0.5 / 10 ** precision) return '';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -159,13 +159,13 @@ function projectedLabel(label: string, title = 'Projected prize — not yet earn
 }
 
 export function prizeLabel(value?: number | null, projected = false): string {
-  const label = usd(value, true);
+  const label = usd(value);
   return projected ? projectedLabel(label) : label;
 }
 
 function moneyLabel(row: Funded, col: MoneyCol): string {
   if (col.as === 'x') return multipleLabel(row[col.field] as number | undefined);
-  return usd(row[col.field] as number, true);
+  return usd(row[col.field] as number);
 }
 
 export function moneyHeaders(className = 'text-end', cols: readonly MoneyCol[] = moneyColumns()): string {
@@ -234,7 +234,7 @@ export function heatTd(
 ): string {
   const value = Number(row[field]) || 0;
   const pct = rankPct(ranks[index], total);
-  const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value, true);
+  const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value);
   const note = label && pct != null ? `<br><small class="artizen-rank">${pct}%</small>` : '';
   const heat = label ? rankStyle(pct, maxPct, rankPct(1, total) ?? 1) : 'background-color: #fff';
   return `<td class="text-end artizen-heat" data-order="${value}" style="${heat}">${label}${note}</td>`;

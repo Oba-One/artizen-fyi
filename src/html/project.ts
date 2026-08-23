@@ -46,7 +46,7 @@ function projectFundingTable(project: ProjectPage): string {
         open: seasonOpen,
         hasKids: drives.length > 0,
         label: escapeHtml(season.title),
-        cells: `${moneyCells(season, 'td', cols)}<td class="text-end">${Number(season.available) > 0 ? usd(season.available) : ''}</td>`,
+        cells: `${moneyCells(season, 'td', cols)}<td class="text-end">${usd(season.available)}</td>`,
       });
       const driveRows = drives
         .map((drive, di) => {

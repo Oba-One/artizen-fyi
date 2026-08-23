@@ -58,7 +58,7 @@ function fundFundingTable(fund: FundPage): string {
         cells: fundCells(
           usd(season.total),
           usd(season.unlocked),
-          Number(season.available) > 0 ? usd(season.available) : '',
+          usd(season.available),
           raisedLabel(season.unlocked, season.available),
         ),
       });

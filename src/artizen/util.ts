@@ -11,6 +11,17 @@ export function num(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** First non-empty field; keys match after trim so Bubble trailing spaces still hit. */
+export function field(row: Row, ...keys: string[]): unknown {
+  const wanted = new Set(keys.flatMap((key) => [key, key.trim()]));
+  for (const [key, value] of Object.entries(row)) {
+    if (!wanted.has(key) && !wanted.has(key.trim())) continue;
+    if (value == null || value === false || value === '') continue;
+    return value;
+  }
+  return undefined;
+}
+
 export function maybeNum(value: unknown): number | undefined {
   return value == null ? undefined : num(value);
 }
