@@ -13,6 +13,7 @@ export function renderProjects(data: Leaderboard, seasonParam: string | null): s
     const heat = heatRanks(
       rows,
       cols.map((col) => col.field),
+      (_row, i) => i < 100,
     );
     const body = rows
       .map((project, i) => {
@@ -22,10 +23,10 @@ export function renderProjects(data: Leaderboard, seasonParam: string | null): s
         const cells = cols
           .map((col) => {
             const colHeat = heat[String(col.field)];
-            return heatTd(project, String(col.field), colHeat.ranks, i, rows.length, col.as, colHeat.maxPct);
+            return heatTd(project, String(col.field), colHeat.ranks, i, col.as, colHeat.maxRank);
           })
           .join('');
-        return `<tr>
+        return `<tr${i < 100 ? ' data-top="1"' : ''}>
           <td><strong>${namedLink(project.url, project.name)}</strong>${logline}</td>
           ${cells}
         </tr>`;
@@ -43,14 +44,14 @@ export function renderProjects(data: Leaderboard, seasonParam: string | null): s
           <div><dt>V+M+P${includeBonus ? '+B' : ''}</dt><dd>V + M + Prize${includeBonus ? ' + Bonus' : ''}</dd></div>
           <div><dt>Raised</dt><dd>S + V + M + P${includeBonus ? ' + B' : ''}</dd></div>
         </dl>
-        <p>The % under each figure is that project’s rank in the column — 1% is the top 1%. Color follows that percentile on a log scale: full green at 1%, fading to white at the smallest non-zero value. <span class="text-body">Tables scroll horizontally on small screens.</span> <a href="/strategies${seasonQuery(seasonParam)}">The three strategies</a>.</p>
+        <p>The number under each figure is that project’s rank in the column among the 100 that raised the most. Color follows that rank on a log scale: full green at 1, fading to white at the smallest non-zero value. <span class="text-body">Tables scroll horizontally on small screens.</span> <a href="/strategies${seasonQuery(seasonParam)}">The three strategies</a>.</p>
       </div>
       ${dtPlaceholder()}
       <table id="artizen-projects-table" class="table table-sm">
         <thead><tr><th>Project</th>${moneyHeaders('text-end artizen-heat', cols)}</tr></thead>
         <tbody>${body}</tbody>
       </table>`);
-    extra = datatable('artizen-projects-table', [[raisedIndex, 'desc']], moneyIndexes, { noun: 'projects' });
+    extra = datatable('artizen-projects-table', [[raisedIndex, 'desc']], moneyIndexes, { noun: 'projects', topFilter: 100 });
   }
   return layout({
     title: pageTitle(data),

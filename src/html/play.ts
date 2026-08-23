@@ -74,7 +74,7 @@ function scoreOf(row: Funded, id: ArchetypeId): number {
 }
 
 function featured(rows: Funded[]): Record<ArchetypeId, Funded[]> {
-  const top = [...rows].sort((a, b) => (b.raised || 0) - (a.raised || 0)).slice(0, 25);
+  const top = [...rows].sort((a, b) => (b.raised || 0) - (a.raised || 0)).slice(0, 100);
   const pick = (id: ArchetypeId) =>
     top
       .filter((item) => (item.sales || 0) > 0)

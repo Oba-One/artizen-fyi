@@ -181,21 +181,19 @@ export function moneyCells(row: MoneyRow, tag = 'td', cols: readonly MoneyCol[] 
   return cols.map((col) => endCell(moneyLabel(f, col), tag)).join('');
 }
 
-export function rankPct(rank: number | undefined, total: number): number | undefined {
-  if (!rank || total <= 0) return undefined;
-  return Math.max(Math.ceil((rank / total) * 100), 1);
-}
-
 export function heatRanks<T extends Record<string, unknown>>(
   rows: T[],
   fields: (keyof T)[],
-): Record<string, { ranks: number[]; maxPct: number }> {
-  const heat: Record<string, { ranks: number[]; maxPct: number }> = {};
-  const total = rows.length;
+  eligible?: (row: T, index: number) => boolean,
+): Record<string, { ranks: (number | undefined)[]; maxRank: number }> {
+  const heat: Record<string, { ranks: (number | undefined)[]; maxRank: number }> = {};
+  const inPlay = rows.map((row, i) => !eligible || eligible(row, i));
   for (const field of fields) {
-    const pairs = rows.map((row, i) => [i, Number(row[field]) || 0] as const);
+    const pairs = rows
+      .map((row, i) => [i, Number(row[field]) || 0] as const)
+      .filter(([i]) => inPlay[i]);
     pairs.sort((a, b) => b[1] - a[1]);
-    const ranks: number[] = new Array(rows.length);
+    const ranks: (number | undefined)[] = new Array(rows.length);
     let lastVal: number | null = null;
     let lastRank = 0;
     let maxNonZeroRank = 0;
@@ -209,18 +207,18 @@ export function heatRanks<T extends Record<string, unknown>>(
     });
     heat[String(field)] = {
       ranks,
-      maxPct: rankPct(maxNonZeroRank, total) ?? 100,
+      maxRank: maxNonZeroRank || 1,
     };
   }
   return heat;
 }
 
-export function rankStyle(pct?: number, maxPct = 100, minPct = 1): string {
-  if (pct == null) return 'background-color: #1ACC6C';
-  const lo = Math.max(minPct, 1);
-  const hi = Math.max(maxPct, pct, lo);
-  if (pct <= lo || hi <= lo) return 'background-color: #1ACC6C';
-  const t = Math.min((Math.log(pct) - Math.log(lo)) / (Math.log(hi) - Math.log(lo)), 1);
+export function rankStyle(rank?: number, maxRank = 100, minRank = 1): string {
+  if (rank == null) return 'background-color: #1ACC6C';
+  const lo = Math.max(minRank, 1);
+  const hi = Math.max(maxRank, rank, lo);
+  if (rank <= lo || hi <= lo) return 'background-color: #1ACC6C';
+  const t = Math.min((Math.log(rank) - Math.log(lo)) / (Math.log(hi) - Math.log(lo)), 1);
   const r = Math.round(26 + (255 - 26) * t);
   const g = Math.round(204 + (255 - 204) * t);
   const b = Math.round(108 + (255 - 108) * t);
@@ -230,17 +228,16 @@ export function rankStyle(pct?: number, maxPct = 100, minPct = 1): string {
 export function heatTd(
   row: Record<string, unknown>,
   field: string,
-  ranks: number[],
+  ranks: (number | undefined)[],
   index: number,
-  total: number,
   as: 'usd' | 'x',
-  maxPct = 100,
+  maxRank = 100,
 ): string {
   const value = Number(row[field]) || 0;
-  const pct = rankPct(ranks[index], total);
+  const rank = ranks[index];
   const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value);
-  const note = label && pct != null ? `<br><small class="artizen-rank">${pct}%</small>` : '';
-  const heat = label ? rankStyle(pct, maxPct, rankPct(1, total) ?? 1) : 'background-color: #fff';
+  const note = label && rank != null ? `<br><small class="artizen-rank">${rank}</small>` : '';
+  const heat = label && rank != null ? rankStyle(rank, maxRank) : 'background-color: #fff';
   return `<td class="text-end artizen-heat" data-order="${value}" style="${heat}">${label}${note}</td>`;
 }
 

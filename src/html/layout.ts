@@ -374,12 +374,13 @@ export function datatable(
   tableId: string,
   order: Array<[number, string]>,
   numeric: number[],
-  opts?: { pageLength?: number; paging?: boolean; info?: boolean; noun?: string },
+  opts?: { pageLength?: number; paging?: boolean; info?: boolean; noun?: string; topFilter?: number },
 ): string {
   const pageLength = opts?.pageLength ?? 25;
   const paging = opts?.paging ?? true;
   const info = opts?.info ?? true;
   const noun = opts?.noun ?? 'entries';
+  const topFilter = opts?.topFilter ?? 0;
   const language = {
     search: '_INPUT_',
     searchPlaceholder: `Search ${noun}`,
@@ -394,7 +395,24 @@ export function datatable(
       var table = document.getElementById('${tableId}');
       if (!table) return;
       var ph = table.previousElementSibling;
-      new DataTable(table, {
+      var rowCount = table.tBodies[0] ? table.tBodies[0].rows.length : 0;
+      var topFilter = ${topFilter};
+      var showTop = topFilter && rowCount > topFilter;
+      var toggle = null;
+      var input = null;
+      if (showTop) {
+        toggle = document.createElement('label');
+        toggle.className = 'artizen-dt-toggle';
+        input = document.createElement('input');
+        input.type = 'checkbox';
+        input.className = 'visually-hidden';
+        input.checked = true;
+        var cap = document.createElement('span');
+        cap.textContent = 'Top ' + topFilter;
+        toggle.appendChild(input);
+        toggle.appendChild(cap);
+      }
+      var dt = new DataTable(table, {
         paging: ${paging},
         pageLength: ${pageLength},
         lengthChange: false,
@@ -404,7 +422,7 @@ export function datatable(
         order: ${JSON.stringify(order)},
         columnDefs: [{ type: 'num', targets: ${JSON.stringify(numeric)} }],
         layout: {
-          topStart: null,
+          topStart: toggle,
           topEnd: 'search',
           bottomStart: ${info ? "'info'" : 'null'},
           bottomEnd: ${paging ? "'paging'" : 'null'}
@@ -425,8 +443,22 @@ export function datatable(
         searchBox.insertBefore(icon, searchInput);
         searchInput.setAttribute('aria-label', ${JSON.stringify(`Search ${noun}`)});
       }
-      container.parentNode.insertBefore(wrap, container);
-      wrap.appendChild(container);
+      table.parentNode.insertBefore(wrap, table);
+      wrap.appendChild(table);
+      if (showTop && input) {
+        dt.search.fixed('top', function(_str, _data, index) {
+          if (!input.checked) return true;
+          var tr = dt.row(index).node();
+          return tr && tr.getAttribute('data-top') === '1';
+        });
+        input.addEventListener('change', function() { dt.draw(); });
+        if (searchInput) {
+          searchInput.addEventListener('input', function() {
+            if (searchInput.value && input.checked) input.checked = false;
+          }, true);
+        }
+        dt.draw();
+      }
     });
   </script>`;
 }

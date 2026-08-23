@@ -116,6 +116,51 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border-color: transparent;
 }
 .dt-container .dt-search input::placeholder { color: var(--muted); }
+.dt-container > .row:first-child {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+.dt-container > .row:first-child > .dt-layout-start {
+  width: auto;
+  flex: 0 0 auto;
+}
+.dt-container > .row:first-child > .dt-layout-end {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+@media (min-width: 768px) {
+  .dt-container > .row:first-child { justify-content: space-between; }
+  .dt-container .dt-search { margin-left: auto; }
+}
+.artizen-dt-toggle {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  cursor: pointer;
+}
+.artizen-dt-toggle span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.4rem 0.95rem;
+  color: var(--ink);
+  background: var(--panel);
+  white-space: nowrap;
+  font-size: 0.92rem;
+}
+.artizen-dt-toggle input:checked + span {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+.artizen-dt-toggle input:focus-visible + span {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
 .page-link, .dt-container .dt-paging .dt-paging-button .page-link {
   color: var(--ink);
   border-radius: 999px;
@@ -629,7 +674,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-panel .dt-container { margin-top: 0.15rem; }
 @media (max-width: 767px) {
   .artizen-dt-ph-search,
-  .dt-container .dt-search { width: 100%; }
+  .dt-container .dt-search { width: min(22rem, 100%); }
   div.dt-container div.dt-search,
   div.dt-container div.dt-info,
   div.dt-container div.dt-paging {
