@@ -6,8 +6,9 @@ export type Funded = ProjectRow & {
   v2: number;
   vmp: number;
   multiple_v?: number;
-  multiple_ex?: number;
-  multiple?: number;
+  multiple_m?: number;
+  multiple_p?: number;
+  multiple_b?: number;
 };
 
 export function usd(value?: number | null): string {
@@ -81,15 +82,18 @@ export function funding(row: ProjectRow): Funded {
     v2,
     vmp,
     multiple_v: sales !== 0 ? v2 / sales : undefined,
-    multiple_ex: sales !== 0 ? (v2 + match) / sales : undefined,
-    multiple: sales !== 0 ? (v2 + match + prize + bonus) / sales : undefined,
+    multiple_m: sales !== 0 ? match / sales : undefined,
+    multiple_p: sales !== 0 ? prize / sales : undefined,
+    multiple_b: sales !== 0 ? bonus / sales : undefined,
     raised: row.raised == null ? sales + vmp : Number(row.raised) || 0,
   };
 }
 
 function multipleLabel(multiple?: number): string {
   if (multiple == null || multiple === 0) return '';
-  return `${multiple.toFixed(1)}x`;
+  const text = multiple.toFixed(1);
+  if (text === '0.0' || text === '-0.0') return '';
+  return `${text}x`;
 }
 
 export type MoneyFormat = 'usd' | 'x';
@@ -102,25 +106,25 @@ type MoneyCol = {
 
 const MONEY_COLS: readonly MoneyCol[] = [
   { field: 'sales', label: 'Sales', as: 'usd' },
-  { field: 'venus', label: 'Venus', as: 'usd' },
-  { field: 'sv', label: 'S+V', as: 'usd' },
+  { field: 'venus', label: 'Venus sales', as: 'usd' },
+  { field: 'sv', label: 'S+VS', as: 'usd' },
   { field: 'match', label: 'Match', as: 'usd' },
-  { field: 'svm', label: 'S+V+M', as: 'usd' },
+  { field: 'svm', label: 'S+VS+M', as: 'usd' },
   { field: 'sprint', label: 'Venus extras', as: 'usd' },
   { field: 'prize', label: 'Prize', as: 'usd' },
   { field: 'bonus', label: 'Bonus', as: 'usd' },
-  { field: 'vmp', label: 'V2+M+P', as: 'usd' },
-  { field: 'multiple_v', label: 'V2/S', as: 'x' },
-  { field: 'multiple_ex', label: '(V2+M)/S', as: 'x' },
-  { field: 'multiple', label: '(V2+M+P)/S', as: 'x' },
+  { field: 'vmp', label: 'V+M+P', as: 'usd' },
+  { field: 'multiple_v', label: 'V/S', as: 'x' },
+  { field: 'multiple_m', label: 'M/S', as: 'x' },
+  { field: 'multiple_p', label: 'P/S', as: 'x' },
+  { field: 'multiple_b', label: 'B/S', as: 'x' },
   { field: 'raised', label: 'Raised', as: 'usd' },
 ];
 
 export function moneyColumns(includeBonus = false): MoneyCol[] {
   return MONEY_COLS.flatMap((col) => {
-    if (col.field === 'bonus') return includeBonus ? [col] : [];
-    if (col.field === 'vmp') return [{ ...col, label: includeBonus ? 'V2+M+P+B' : 'V2+M+P' }];
-    if (col.field === 'multiple') return [{ ...col, label: includeBonus ? '(V2+M+P+B)/S' : '(V2+M+P)/S' }];
+    if (col.field === 'bonus' || col.field === 'multiple_b') return includeBonus ? [col] : [];
+    if (col.field === 'vmp') return [{ ...col, label: includeBonus ? 'V+M+P+B' : 'V+M+P' }];
     return [col];
   });
 }

@@ -4,5 +4,6 @@ export { renderDrives } from './drives';
 export { renderFund } from './fund';
 export { renderFunds } from './funds';
 export { renderDetailPlaceholder, renderNotFound } from './layout';
+export { renderPlay } from './play';
 export { renderProject } from './project';
 export { renderProjects } from './projects';

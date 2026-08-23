@@ -1,6 +1,6 @@
 import type { Leaderboard } from '../artizen';
 import { funding, heatRanks, heatTd, moneyColumns, moneyHeaders, truncate } from '../format';
-import { board, boardEmpty, datatable, dtPlaceholder, escapeHtml, layout, namedLink, pageTitle, panel } from './layout';
+import { board, boardEmpty, datatable, dtPlaceholder, escapeHtml, layout, namedLink, pageTitle, panel, seasonQuery } from './layout';
 
 export function renderProjects(data: Leaderboard, seasonParam: string | null): string {
   const empty = boardEmpty(data);
@@ -37,13 +37,13 @@ export function renderProjects(data: Leaderboard, seasonParam: string | null): s
       <div class="artizen-note">
         <p>Sales excludes Venus artifact buys.</p>
         <dl class="artizen-defs">
-          <div><dt>S+V</dt><dd>Sales + Venus</dd></div>
-          <div><dt>S+V+M</dt><dd>S + V + Match</dd></div>
-          <div><dt>V2</dt><dd>V + Venus extras</dd></div>
-          <div><dt>V2+M+P${includeBonus ? '+B' : ''}</dt><dd>V2 + M + Prize${includeBonus ? ' + Bonus' : ''}</dd></div>
-          <div><dt>Raised</dt><dd>S + V2 + M + P${includeBonus ? ' + B' : ''}</dd></div>
+          <div><dt>S+VS</dt><dd>Sales + Venus sales</dd></div>
+          <div><dt>S+VS+M</dt><dd>S + VS + Match</dd></div>
+          <div><dt>V</dt><dd>VS + Venus extras</dd></div>
+          <div><dt>V+M+P${includeBonus ? '+B' : ''}</dt><dd>V + M + Prize${includeBonus ? ' + Bonus' : ''}</dd></div>
+          <div><dt>Raised</dt><dd>S + V + M + P${includeBonus ? ' + B' : ''}</dd></div>
         </dl>
-        <p>The % under each figure is that project’s rank in the column — 1% is the top 1%. Color follows that percentile on a log scale: full green at 1%, fading to white at the smallest non-zero value. <span class="text-body">Tables scroll horizontally on small screens.</span></p>
+        <p>The % under each figure is that project’s rank in the column — 1% is the top 1%. Color follows that percentile on a log scale: full green at 1%, fading to white at the smallest non-zero value. <span class="text-body">Tables scroll horizontally on small screens.</span> <a href="/strategies${seasonQuery(seasonParam)}">The three strategies</a>.</p>
       </div>
       ${dtPlaceholder()}
       <table id="artizen-projects-table" class="table table-sm">
