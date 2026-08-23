@@ -1,6 +1,6 @@
 import type { Leaderboard } from '../artizen';
 import { funding, heatRanks, heatTd, moneyColumns, moneyHeaders, truncate } from '../format';
-import { board, boardEmpty, datatable, dtPlaceholder, escapeHtml, layout, namedLink, pageTitle, panel, seasonQuery } from './layout';
+import { board, boardEmpty, datatable, dtPlaceholder, escapeHtml, layout, namedLink, pageTitle, panel } from './layout';
 
 export function renderProjects(data: Leaderboard, seasonParam: string | null): string {
   const empty = boardEmpty(data);
@@ -43,7 +43,7 @@ export function renderProjects(data: Leaderboard, seasonParam: string | null): s
           <div><dt>V</dt><dd>VS + Venus extras</dd></div>
           <div><dt>Raised</dt><dd>S + V + M + P${includeBonus ? ' + B' : ''}</dd></div>
         </dl>
-        <p>The number under each figure is that project’s rank in the column among the 100 that raised the most. Color follows that rank on a log scale: full green at 1, fading to white at the smallest non-zero value. <span class="text-body">Tables scroll horizontally on small screens.</span> <a href="/strategies${seasonQuery(seasonParam)}">The three strategies</a>.</p>
+        <p>The number under each figure is that project’s rank in the column among the 100 that raised the most. Color follows that rank on a log scale: full green at 1, fading to white at the smallest non-zero value. <span class="text-body">Tables scroll horizontally on small screens.</span></p>
       </div>
       ${dtPlaceholder()}
       <table id="artizen-projects-table" class="table table-sm">
