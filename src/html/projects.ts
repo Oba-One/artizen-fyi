@@ -41,7 +41,6 @@ export function renderProjects(data: Leaderboard, seasonParam: string | null): s
           <div><dt>S+VS</dt><dd>Sales + Venus sales</dd></div>
           <div><dt>S+VS+M</dt><dd>S + VS + Match</dd></div>
           <div><dt>V</dt><dd>VS + Venus extras</dd></div>
-          <div><dt>V+M+P${includeBonus ? '+B' : ''}</dt><dd>V + M + Prize${includeBonus ? ' + Bonus' : ''}</dd></div>
           <div><dt>Raised</dt><dd>S + V + M + P${includeBonus ? ' + B' : ''}</dd></div>
         </dl>
         <p>The number under each figure is that project’s rank in the column among the 100 that raised the most. Color follows that rank on a log scale: full green at 1, fading to white at the smallest non-zero value. <span class="text-body">Tables scroll horizontally on small screens.</span> <a href="/strategies${seasonQuery(seasonParam)}">The three strategies</a>.</p>

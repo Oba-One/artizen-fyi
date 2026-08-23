@@ -113,7 +113,6 @@ const MONEY_COLS: readonly MoneyCol[] = [
   { field: 'sprint', label: 'Venus extras', as: 'usd' },
   { field: 'prize', label: 'Prize', as: 'usd' },
   { field: 'bonus', label: 'Bonus', as: 'usd' },
-  { field: 'vmp', label: 'V+M+P', as: 'usd' },
   { field: 'multiple_v', label: 'V/S', as: 'x' },
   { field: 'multiple_m', label: 'M/S', as: 'x' },
   { field: 'multiple_p', label: 'P/S', as: 'x' },
@@ -124,7 +123,6 @@ const MONEY_COLS: readonly MoneyCol[] = [
 export function moneyColumns(includeBonus = false): MoneyCol[] {
   return MONEY_COLS.flatMap((col) => {
     if (col.field === 'bonus' || col.field === 'multiple_b') return includeBonus ? [col] : [];
-    if (col.field === 'vmp') return [{ ...col, label: includeBonus ? 'V+M+P+B' : 'V+M+P' }];
     return [col];
   });
 }
