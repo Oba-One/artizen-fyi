@@ -6,14 +6,11 @@ import { build } from 'esbuild';
 
 const indexPath = resolve(process.argv[2] || 'test/fixtures/match-index.json');
 const port = Number(process.argv[3] || 8787);
-const indexText = await readFile(indexPath, 'utf8');
-const suppliedIndex = JSON.parse(indexText);
-if (![1, 2].includes(suppliedIndex.schemaVersion) || !Array.isArray(suppliedIndex.funds) || suppliedIndex.funds.length === 0) {
+const sourceText = await readFile(indexPath, 'utf8');
+const index = JSON.parse(sourceText);
+if (index.schemaVersion !== 2 || !Array.isArray(index.funds) || index.funds.length === 0) {
   throw new Error(`Invalid matching index file: ${indexPath}`);
 }
-
-const index = suppliedIndex;
-if (index.schemaVersion !== 2) throw new Error('A schema-2 matching index is required; v1 fixtures are no longer converted');
 const indexText = JSON.stringify(index);
 
 const bundlePath = `/private/tmp/artizen-fyi-match-qa-worker-${process.pid}.mjs`;
@@ -36,7 +33,6 @@ const worker = (await import(`${pathToFileURL(bundlePath).href}?v=${Date.now()}`
 const kv = {
   async get(key) {
     if (key === 'artizen/matching/v2') return indexText;
-    if (key === 'artizen/matching/v1' && suppliedIndex.schemaVersion === 1) return indexText;
     return null;
   },
   async put() {},

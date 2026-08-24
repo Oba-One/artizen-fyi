@@ -84,10 +84,6 @@ export function facetCategory(id: string): MatchFacetCategory | undefined {
   return FACETS_BY_ID.get(id)?.category;
 }
 
-export function isNarrowFacet(id: string): boolean {
-  return FACETS_BY_ID.get(id)?.narrow === true;
-}
-
 const GENERIC_CONCEPTS = new Set([
   'action',
   'art',

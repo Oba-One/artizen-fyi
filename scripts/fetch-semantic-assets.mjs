@@ -1,9 +1,35 @@
 import { createHash } from 'node:crypto';
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { build } from 'esbuild';
 
-const modelId = 'mixedbread-ai/mxbai-embed-xsmall-v1';
-const revision = 'b0561d9a97e6b298da39f0ef3e7d3cf153b1b29a';
+// Read the pin from the same constants the vector builder and the browser use. Repeating the
+// revision, size and hash here meant a model bump could update the catalog config while this kept
+// downloading the old weights - and the mismatch would only surface as vectors that never match.
+const temp = await mkdtemp(join(tmpdir(), 'artizen-semantic-pin-'));
+const shim = join(temp, 'pin.mjs');
+await build({
+  stdin: {
+    contents: `export { SEMANTIC_CATALOG, SEMANTIC_MODEL_REVISION, SEMANTIC_MODEL_SHA256, SEMANTIC_MODEL_BYTES } from ${JSON.stringify(join(process.cwd(), 'src/matching/semantic-config.ts'))};`,
+    resolveDir: process.cwd(),
+    sourcefile: 'pin-entry.ts',
+  },
+  outfile: shim,
+  bundle: true,
+  platform: 'node',
+  format: 'esm',
+  target: 'node22',
+  logLevel: 'silent',
+});
+const { SEMANTIC_CATALOG, SEMANTIC_MODEL_REVISION, SEMANTIC_MODEL_SHA256, SEMANTIC_MODEL_BYTES } = await import(
+  pathToFileURL(shim).href
+);
+await rm(temp, { recursive: true, force: true });
+
+const modelId = SEMANTIC_CATALOG.modelId;
+const revision = SEMANTIC_MODEL_REVISION;
 const base = `https://huggingface.co/${modelId}/resolve/${revision}`;
 const target = join('public/assets/models', modelId);
 const files = [
@@ -17,10 +43,7 @@ const files = [
   '1_Pooling/config.json',
   'onnx/model_quantized.onnx',
 ];
-const expectedModel = {
-  bytes: 24_448_010,
-  sha256: '952f996d8cf46c311ee8654a750fa942b71c8b94aabe69d043dbb2bcaff5528e',
-};
+const expectedModel = { bytes: SEMANTIC_MODEL_BYTES, sha256: SEMANTIC_MODEL_SHA256 };
 const maxStaticFileBytes = 25 * 1024 * 1024;
 
 async function alreadyPinned() {
