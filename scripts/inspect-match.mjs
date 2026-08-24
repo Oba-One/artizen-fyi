@@ -7,18 +7,17 @@ import { build } from 'esbuild';
 const inputPath = process.argv[2];
 const query = process.argv.slice(3).join(' ');
 if (!inputPath || !query) {
-  console.error('Usage: node scripts/inspect-match-v2.mjs <match-index.json> <project name>');
+  console.error('Usage: node scripts/inspect-match.mjs <match-index.json> <project name>');
   process.exitCode = 1;
 } else {
   const source = JSON.parse(await readFile(inputPath, 'utf8'));
-  const temp = await mkdtemp(join(tmpdir(), 'artizen-matching-v2-inspect-'));
+  const temp = await mkdtemp(join(tmpdir(), 'artizen-matching-inspect-'));
   const outfile = join(temp, 'inspect.mjs');
   try {
     await build({
       stdin: {
         contents: `
-          export { upgradeMatchIndexV1 } from ${JSON.stringify(join(process.cwd(), 'src/matching/index-v2.ts'))};
-          export { prepareMatchIndexV2, matchFundsV2 } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine-v2.ts'))};
+          export { prepareMatchIndex, matchFunds } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine.ts'))};
         `,
         resolveDir: process.cwd(),
         sourcefile: 'inspect-entry.ts',
@@ -30,10 +29,11 @@ if (!inputPath || !query) {
       target: 'node22',
       logLevel: 'silent',
     });
-    const { upgradeMatchIndexV1, prepareMatchIndexV2, matchFundsV2 } = await import(
+    const { prepareMatchIndex, matchFunds } = await import(
       `${pathToFileURL(outfile).href}?v=${Date.now()}`
     );
-    const index = source.schemaVersion === 2 ? source : await upgradeMatchIndexV1(source, 'fixture');
+    const index = source;
+    if (index.schemaVersion !== 2) throw new Error('A schema-2 matching index is required');
     const lower = query.toLowerCase();
     const project = index.projects.find(
       (candidate) => candidate.name.toLowerCase() === lower || candidate.name.toLowerCase().includes(lower),
@@ -41,11 +41,11 @@ if (!inputPath || !query) {
     const matchInput = project
       ? { projectId: project.id, title: project.name, description: project.description, tags: project.tags }
       : { description: query, tags: [] };
-    const result = matchFundsV2(prepareMatchIndexV2(index), {
+    const result = matchFunds(prepareMatchIndex(index), {
       ...matchInput,
     });
     const anonymousResult = project
-      ? matchFundsV2(prepareMatchIndexV2(index), { title: project.name, description: project.description, tags: project.tags })
+      ? matchFunds(prepareMatchIndex(index), { title: project.name, description: project.description, tags: project.tags })
       : result;
     const projectIdInvariant = result.recommendations.every((row, rank) => {
       const anonymous = anonymousResult.recommendations[rank];

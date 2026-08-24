@@ -1,130 +1,42 @@
 import type {
   FundProfile,
   FundRecommendation,
-  MatchIndexV1,
+  MatchFit,
+  MatchIndex,
   MatchReason,
   MatchRelationshipKind,
+  MatchResult,
   ProjectFundRelationship,
   ProjectMatchInput,
-  ProjectProfile,
+  ScoreBreakdown,
 } from '../artizen/types';
-
-const STOP_WORDS = new Set([
-  'a',
-  'about',
-  'an',
-  'and',
-  'are',
-  'as',
-  'at',
-  'be',
-  'by',
-  'for',
-  'from',
-  'fund',
-  'has',
-  'in',
-  'into',
-  'is',
-  'it',
-  'its',
-  'of',
-  'on',
-  'or',
-  'our',
-  'project',
-  'projects',
-  'shared',
-  'shar',
-  'that',
-  'the',
-  'their',
-  'this',
-  'through',
-  'to',
-  'we',
-  'with',
-  'work',
-  'works',
-  'led',
-]);
-
-const KIND_STRENGTH: Record<MatchRelationshipKind, number> = {
-  submitted: 0.5,
-  curated: 0.85,
-  funded: 1,
-};
+import { normalizeTerms } from './terms';
+import { extractFacetIds, facetCategory, facetLabel } from './taxonomy';
 
 type Terms = Map<string, number>;
 
 type PreparedFund = {
   fund: FundProfile;
   terms: Terms;
-  tagKeys: Map<string, string>;
-};
-
-type PreparedProject = {
-  project: ProjectProfile;
-  terms: Terms;
-  tagKeys: Set<string>;
+  facets: Set<string>;
+  focusFacets: Set<string>;
 };
 
 export type PreparedMatchIndex = {
-  index: MatchIndexV1;
+  index: MatchIndex;
   funds: PreparedFund[];
-  projects: PreparedProject[];
   fundsById: Map<string, PreparedFund>;
-  projectsById: Map<string, PreparedProject>;
   relationshipsByProject: Map<string, ProjectFundRelationship[]>;
-  relationshipsByFund: Map<string, ProjectFundRelationship[]>;
-  fundIdf: Map<string, number>;
-  averageFundLength: number;
-  projectIdf: Map<string, number>;
+  idf: Map<string, number>;
 };
-
-export type MatchResult = {
-  sufficient: boolean;
-  recommendations: FundRecommendation[];
-};
-
-export const MATCH_INDEX_STALE_MS = 26 * 60 * 60 * 1000;
-
-export function isMatchIndexStale(
-  index: Pick<MatchIndexV1, 'generatedAt'>,
-  now = Date.now(),
-  maxAgeMs = MATCH_INDEX_STALE_MS,
-): boolean {
-  const generatedAt = Date.parse(index.generatedAt);
-  return !Number.isFinite(generatedAt) || now - generatedAt > maxAgeMs;
-}
-
-function stem(term: string): string {
-  if (term.length <= 3) return term;
-  if (term.endsWith('ies') && term.length > 4) return `${term.slice(0, -3)}y`;
-  if (term.endsWith('ing') && term.length > 6) return term.slice(0, -3);
-  if (term.endsWith('ed') && term.length > 5) return term.slice(0, -2);
-  if (term.endsWith('es') && term.length > 5) return term.slice(0, -2);
-  if (term.endsWith('s') && !term.endsWith('ss') && term.length > 4) return term.slice(0, -1);
-  return term;
-}
-
-export function normalizeTerms(value: string): string[] {
-  return value
-    .normalize('NFKD')
-    .toLowerCase()
-    .replace(/[’']/g, '')
-    .match(/[\p{L}\p{N}]+/gu)
-    ?.map(stem)
-    .filter((term) => term.length > 1 && !STOP_WORDS.has(term)) || [];
-}
 
 function addText(terms: Terms, value: string | undefined, weight = 1): void {
-  if (!value || !(weight > 0)) return;
+  if (!value || weight <= 0) return;
   for (const term of normalizeTerms(value)) terms.set(term, (terms.get(term) || 0) + weight);
 }
 
-function tagKey(value: string): string {
-  return normalizeTerms(value).join(' ');
+function removeText(terms: Terms, value: string): void {
+  for (const term of normalizeTerms(value)) terms.delete(term);
 }
 
 function documentFrequency(documents: Terms[]): Map<string, number> {
@@ -134,14 +46,8 @@ function documentFrequency(documents: Terms[]): Map<string, number> {
   }
   const count = Math.max(1, documents.length);
   return new Map(
-    [...counts].map(([term, frequency]) => [term, Math.log(1 + (count - frequency + 0.5) / (frequency + 0.5))]),
+    [...counts].map(([term, frequency]) => [term, Math.log(1 + count / Math.max(1, frequency))]),
   );
-}
-
-function termLength(terms: Terms): number {
-  let total = 0;
-  for (const value of terms.values()) total += value;
-  return total;
 }
 
 function cosine(left: Terms, right: Terms, idf: Map<string, number>): number {
@@ -153,100 +59,81 @@ function cosine(left: Terms, right: Terms, idf: Map<string, number>): number {
     leftNorm += weighted * weighted;
   }
   for (const [term, value] of right) {
-    const weighted = value * (idf.get(term) || 0);
+    const idfValue = idf.get(term) || 0;
+    const weighted = value * idfValue;
     rightNorm += weighted * weighted;
-    const leftValue = left.get(term);
-    if (leftValue) dot += weighted * leftValue * (idf.get(term) || 0);
+    dot += weighted * (left.get(term) || 0) * idfValue;
   }
-  return leftNorm > 0 && rightNorm > 0 ? dot / Math.sqrt(leftNorm * rightNorm) : 0;
+  if (!(leftNorm > 0) || !(rightNorm > 0)) return 0;
+  return Math.max(0, Math.min(1, dot / Math.sqrt(leftNorm * rightNorm)));
 }
 
-function bm25(query: Terms, document: Terms, idf: Map<string, number>, averageLength: number): number {
-  const length = Math.max(1, termLength(document));
-  const k1 = 1.2;
-  const b = 0.75;
-  let score = 0;
-  for (const [term, queryWeight] of query) {
-    const frequency = document.get(term) || 0;
-    if (!(frequency > 0)) continue;
-    const denominator = frequency + k1 * (1 - b + b * (length / Math.max(1, averageLength)));
-    score += (idf.get(term) || 0) * ((frequency * (k1 + 1)) / denominator) * Math.min(2, queryWeight);
-  }
-  return score;
-}
-
-function relationshipMap(
-  relationships: ProjectFundRelationship[],
-  key: 'projectId' | 'fundId',
-): Map<string, ProjectFundRelationship[]> {
+/**
+ * Per-project history is the canonical source; the flat relationship table is the fallback for
+ * indexes built before histories existed. The split payloads carry only the histories, so a
+ * browser that has fetched one project still gets that project's badges.
+ *
+ * The fallback is decided per project rather than for the index as a whole. A single project
+ * carrying a history would otherwise switch the whole index onto that source and silently strip
+ * the badges from every project that only appears in the table.
+ */
+function relationshipMap(index: MatchIndex): Map<string, ProjectFundRelationship[]> {
   const result = new Map<string, ProjectFundRelationship[]>();
-  for (const relationship of relationships) {
-    const id = relationship[key];
-    const rows = result.get(id) || [];
+  for (const project of index.projects) {
+    if (!project.history?.length) continue;
+    result.set(
+      project.id,
+      project.history.map(([fundId, kind]) => ({ projectId: project.id, fundId, kind })),
+    );
+  }
+  const fromHistory = new Set(result.keys());
+  for (const relationship of index.relationships || []) {
+    if (fromHistory.has(relationship.projectId)) continue;
+    const rows = result.get(relationship.projectId) || [];
     rows.push(relationship);
-    result.set(id, rows);
+    result.set(relationship.projectId, rows);
   }
   return result;
 }
 
-export function prepareMatchIndex(index: MatchIndexV1): PreparedMatchIndex {
-  if (index.schemaVersion !== 1 || !Array.isArray(index.projects) || !Array.isArray(index.funds)) {
-    throw new Error('Unsupported matching index');
-  }
-  const relationshipsByProject = relationshipMap(index.relationships, 'projectId');
-  const relationshipsByFund = relationshipMap(index.relationships, 'fundId');
-  const projects: PreparedProject[] = index.projects.map((project) => {
-    const terms = new Map<string, number>();
-    addText(terms, project.name, 1.4);
-    addText(terms, project.description, 1);
-    for (const tag of project.tags) addText(terms, tag, 2);
-    return { project, terms, tagKeys: new Set(project.tags.map(tagKey).filter(Boolean)) };
-  });
-  const projectById = new Map(projects.map((project) => [project.project.id, project]));
+/** A catalog older than a day means the hourly cron has stopped; the UI says so rather than pretending. */
+export const MATCH_INDEX_STALE_MS = 26 * 60 * 60 * 1000;
 
-  const funds: PreparedFund[] = index.funds.map((fund) => {
+export function isMatchIndexStale(
+  index: Pick<MatchIndex, 'generatedAt'>,
+  now = Date.now(),
+  maxAgeMs = MATCH_INDEX_STALE_MS,
+): boolean {
+  const generatedAt = Date.parse(index.generatedAt);
+  return !Number.isFinite(generatedAt) || now - generatedAt > maxAgeMs;
+}
+
+export function prepareMatchIndex(index: MatchIndex): PreparedMatchIndex {
+  if (index.schemaVersion !== 2 || !Array.isArray(index.projects) || !Array.isArray(index.funds)) {
+    throw new Error('Unsupported matching v2 index');
+  }
+  const funds = index.funds.map((fund) => {
     const terms = new Map<string, number>();
     addText(terms, fund.name, 2);
-    addText(terms, fund.subtitle, 1.5);
-    addText(terms, fund.forTitle, 1.5);
-    for (const theme of fund.themes) addText(terms, theme, 2);
-    for (const theme of fund.derivedThemes || []) addText(terms, theme, 1.4);
-    for (const alias of fund.aliases) addText(terms, alias, 1.5);
-    for (const preferred of fund.preferredTerms) addText(terms, preferred, 2);
-
-    const history = (relationshipsByFund.get(fund.id) || [])
-      .filter((relationship) => relationship.kind !== 'submitted')
-      .sort((a, b) => (b.seasonNumber || 0) - (a.seasonNumber || 0))
-      .slice(0, index.scoring.fundHistoryLimit);
-    const historyWeight = history.length ? 0.35 / Math.sqrt(history.length) : 0;
-    for (const relationship of history) {
-      const project = projectById.get(relationship.projectId)?.project;
-      if (!project) continue;
-      addText(terms, project.description, historyWeight);
-      for (const tag of project.tags) addText(terms, tag, historyWeight * 2);
-    }
-    for (const excluded of fund.excludedTerms) {
-      for (const term of normalizeTerms(excluded)) terms.delete(term);
-    }
-    const tagKeys = new Map<string, string>();
-    for (const theme of [...fund.themes, ...(fund.derivedThemes || [])]) {
-      const key = tagKey(theme);
-      if (key) tagKeys.set(key, theme);
-    }
-    return { fund, terms, tagKeys };
+    addText(terms, fund.subtitle, 1.25);
+    addText(terms, fund.forTitle, 1.75);
+    for (const theme of fund.themes) addText(terms, theme, 1.5);
+    for (const alias of fund.aliases) addText(terms, alias, 1.25);
+    for (const preferred of fund.preferredTerms) addText(terms, preferred, 1.75);
+    for (const excluded of fund.excludedTerms) removeText(terms, excluded);
+    return {
+      fund,
+      terms,
+      facets: new Set(fund.facets),
+      focusFacets: new Set(fund.focusFacets),
+    };
   });
-  const fundLengths = funds.map((fund) => termLength(fund.terms));
   return {
     index,
     funds,
-    projects,
-    fundsById: new Map(funds.map((fund) => [fund.fund.id, fund])),
-    projectsById: projectById,
-    relationshipsByProject,
-    relationshipsByFund,
-    fundIdf: documentFrequency(funds.map((fund) => fund.terms)),
-    averageFundLength: fundLengths.reduce((sum, length) => sum + length, 0) / Math.max(1, fundLengths.length),
-    projectIdf: documentFrequency(projects.map((project) => project.terms)),
+    fundsById: new Map(funds.map((candidate) => [candidate.fund.id, candidate])),
+    relationshipsByProject: relationshipMap(index),
+    idf: documentFrequency(funds.map((fund) => fund.terms)),
   };
 }
 
@@ -254,179 +141,241 @@ function inputTerms(input: ProjectMatchInput): Terms {
   const terms = new Map<string, number>();
   addText(terms, input.title, 1.4);
   addText(terms, input.description, 1);
-  for (const tag of input.tags) addText(terms, tag, 2);
+  for (const tag of input.tags) addText(terms, tag, 1.8);
   return terms;
 }
 
-function tagOverlap(input: Set<string>, fund: Map<string, string>): { score: number; labels: string[] } {
-  if (input.size === 0 || fund.size === 0) return { score: 0, labels: [] };
-  const labels: string[] = [];
-  for (const key of input) {
-    const label = fund.get(key);
-    if (label) labels.push(label);
-  }
-  const union = new Set([...input, ...fund.keys()]).size;
-  return { score: union ? labels.length / union : 0, labels };
+function disambiguateProjectInput(input: ProjectMatchInput): ProjectMatchInput {
+  const clean = (value: string | undefined) => value?.replace(/\bsoil health\b/gi, 'soil vitality');
+  return {
+    ...input,
+    title: clean(input.title),
+    description: clean(input.description) || '',
+    tags: input.tags.map((tag) => clean(tag) || tag),
+  };
 }
 
-function maxNormalize(values: Map<string, number>): Map<string, number> {
-  const max = Math.max(0, ...values.values());
-  return new Map([...values].map(([key, value]) => [key, max > 0 ? value / max : 0]));
+const FACET_WEIGHTS: Record<string, number> = {
+  domain: 1,
+  medium: 1.15,
+  approach: 0.8,
+  audience: 0.75,
+  place: 0.65,
+};
+
+function facetWeight(id: string): number {
+  return FACET_WEIGHTS[facetCategory(id) || 'domain'] || 1;
 }
+
+function facetAlignment(
+  input: Set<string>,
+  fund: Set<string>,
+  focus: Set<string>,
+): { score: number; shared: string[]; supportedFocus: boolean } {
+  const shared = [...input].filter((id) => fund.has(id));
+  const overlapWeight = shared.reduce((sum, id) => sum + facetWeight(id), 0);
+  const inputWeight = [...input].reduce((sum, id) => sum + facetWeight(id), 0);
+  const fundWeight = [...fund].reduce((sum, id) => sum + facetWeight(id), 0);
+  const projectPrecision = inputWeight > 0 ? overlapWeight / inputWeight : 0;
+  const fundCoverage = fundWeight > 0 ? overlapWeight / fundWeight : 0;
+  const balancedOverlap =
+    projectPrecision + fundCoverage > 0
+      ? (2 * projectPrecision * fundCoverage) / (projectPrecision + fundCoverage)
+      : 0;
+  const focusWeight = [...focus].reduce((sum, id) => sum + facetWeight(id), 0);
+  const focusOverlap = [...focus]
+    .filter((id) => input.has(id))
+    .reduce((sum, id) => sum + facetWeight(id), 0);
+  const focusCoverage = focusWeight > 0 ? focusOverlap / focusWeight : 0;
+  return {
+    score: focus.size > 0 ? focusCoverage * 0.7 + fundCoverage * 0.2 + projectPrecision * 0.1 : balancedOverlap,
+    shared: shared.sort(
+      (a, b) => Number(focus.has(b)) - Number(focus.has(a)) || facetWeight(b) - facetWeight(a) || a.localeCompare(b),
+    ),
+    supportedFocus: focus.size === 0 || focusOverlap > 0,
+  };
+}
+
+function normalizedInputPhrases(input: ProjectMatchInput): Set<string> {
+  const terms = normalizeTerms([input.title, input.description, ...input.tags].filter(Boolean).join(' '));
+  const phrases = new Set(terms);
+  for (let index = 0; index < terms.length - 1; index += 1) phrases.add(`${terms[index]} ${terms[index + 1]}`);
+  return phrases;
+}
+
+function coreCoverage(inputPhrases: Set<string>, concepts: string[]): { score: number; matched: string[] } {
+  if (concepts.length === 0) return { score: 0, matched: [] };
+  const matched = concepts.filter((concept) => inputPhrases.has(concept));
+  return { score: matched.length / concepts.length, matched };
+}
+
+const RELATIONSHIP_STRENGTH: Record<MatchRelationshipKind, number> = {
+  submitted: 1,
+  curated: 2,
+  funded: 3,
+};
 
 function knownRelationship(rows: ProjectFundRelationship[] | undefined, fundId: string): MatchRelationshipKind | undefined {
-  const candidates = (rows || []).filter((row) => row.fundId === fundId).map((row) => row.kind);
-  return candidates.sort((a, b) => KIND_STRENGTH[b] - KIND_STRENGTH[a])[0];
+  return (rows || [])
+    .filter((row) => row.fundId === fundId)
+    .map((row) => row.kind)
+    .sort((a, b) => RELATIONSHIP_STRENGTH[b] - RELATIONSHIP_STRENGTH[a])[0];
 }
 
-function readableTerm(term: string): string {
-  const labels: Record<string, string> = {
-    artist: 'Art',
-    creat: 'Creative work',
+function readableConcept(value: string): string {
+  const replacements: Record<string, string> = {
+    agroforestry: 'Agroforestry',
+    desci: 'DeSci',
     educat: 'Education',
     environ: 'Environment',
     film: 'Film',
-    good: 'Public goods',
     govern: 'Governance',
-    owned: 'Ownership',
-    owner: 'Ownership',
-    storytell: 'Storytelling',
+    decentraliz: 'Decentralized',
   };
-  return labels[term] || term.replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return value
+    .split(' ')
+    .map((word) => replacements[word] || word.replace(/\b\w/g, (letter) => letter.toUpperCase()))
+    .join(' ');
 }
 
-function contentReason(query: Terms, document: Terms, idf: Map<string, number>): MatchReason | undefined {
-  const shared = [...query.keys()]
-    .filter((term) => document.has(term) && term.length > 2)
-    .sort((a, b) => (idf.get(b) || 0) - (idf.get(a) || 0) || a.localeCompare(b))
-    .slice(0, 3);
-  const labels = [...new Set(shared.map(readableTerm))];
-  return labels.length ? { kind: 'content', label: `Shared focus: ${labels.join(', ')}` } : undefined;
+const GENERIC_REASON_TERMS = new Set([
+  'action',
+  'art',
+  'build',
+  'community',
+  'creat',
+  'creative',
+  'environment',
+  'fund',
+  'help',
+  'impact',
+  'initiative',
+  'local',
+  'open',
+  'people',
+  'project',
+  'research',
+  'researcher',
+  'support',
+]);
+
+function contentReason(query: Terms, fund: Terms, idf: Map<string, number>): MatchReason | undefined {
+  const shared = specificSharedTerms(query, fund, idf).slice(0, 3).map(readableConcept);
+  return shared.length ? { kind: 'content', label: `Shared language: ${shared.join(', ')}` } : undefined;
 }
 
-function relationshipReason(kind: MatchRelationshipKind | undefined): MatchReason | undefined {
-  if (!kind) return undefined;
-  const labels: Record<MatchRelationshipKind, string> = {
-    submitted: 'This project previously submitted to this fund',
-    curated: 'This project was previously curated by this fund',
-    funded: 'This project previously received support from this fund',
-  };
-  return { kind: 'relationship', label: labels[kind] };
+function specificSharedTerms(query: Terms, fund: Terms, idf: Map<string, number>): string[] {
+  return [...query.keys()]
+    .filter((term) => term.length > 2 && !GENERIC_REASON_TERMS.has(term) && fund.has(term))
+    .sort((a, b) => (idf.get(b) || 0) - (idf.get(a) || 0) || a.localeCompare(b));
 }
 
-function fitFor(score: number, max: number): FundRecommendation['fit'] {
-  if (score >= 0.25 && score >= max * 0.72) return 'strong';
-  if (score >= 0.1 && score >= max * 0.38) return 'good';
-  return 'exploratory';
+function fitFor(score: number, supportedFocus: boolean, definingEvidence: boolean, index: MatchIndex): MatchFit {
+  const config = index.scoring;
+  if ((!supportedFocus || !definingEvidence) && score >= config.exploratoryThreshold) return 'exploratory';
+  if (score >= config.strongThreshold) return 'strong';
+  if (score >= config.goodThreshold) return 'good';
+  if (score >= config.exploratoryThreshold) return 'exploratory';
+  return 'limited';
 }
 
-export function matchFunds(prepared: PreparedMatchIndex, input: ProjectMatchInput): MatchResult {
-  const query = inputTerms(input);
-  const inputTagKeys = new Set(input.tags.map(tagKey).filter(Boolean));
+const GENERIC_ALIGNMENT_FACETS = new Set([
+  'domain:arts-media',
+  'domain:climate-ecology',
+  'domain:community-economy',
+  'domain:culture-identity',
+]);
+
+function baselineScore(breakdown: ScoreBreakdown, index: MatchIndex): number {
+  const config = index.scoring;
+  return (
+    breakdown.lexical * config.lexicalWeight +
+    breakdown.facets * config.facetWeight +
+    breakdown.coreCoverage * config.coreCoverageWeight
+  );
+}
+
+function semanticScore(breakdown: ScoreBreakdown, index: MatchIndex): number {
+  const config = index.scoring;
+  return (
+    (breakdown.semantic || 0) * config.semanticWeight +
+    breakdown.facets * config.semanticFacetWeight +
+    breakdown.coreCoverage * config.semanticCoreCoverageWeight +
+    breakdown.lexical * config.semanticLexicalWeight
+  );
+}
+
+export function matchFunds(
+  prepared: PreparedMatchIndex,
+  input: ProjectMatchInput,
+  semanticScores?: Map<string, number>,
+): MatchResult {
+  const scoringInput = disambiguateProjectInput(input);
+  const query = inputTerms(scoringInput);
+  const inputFacets = new Set(extractFacetIds(scoringInput.title, scoringInput.description, scoringInput.tags.join(' ')));
+  const inputPhrases = normalizedInputPhrases(scoringInput);
+  const specificTerms = [...query.keys()].filter((term) => !GENERIC_REASON_TERMS.has(term));
+  const sufficient =
+    specificTerms.length >= 2 || [...inputFacets].some((facetId) => !GENERIC_ALIGNMENT_FACETS.has(facetId));
+  if (!sufficient) return { sufficient: false, recommendations: [], mode: semanticScores ? 'semantic' : 'baseline' };
+
+  const rows = prepared.funds.map((candidate) => {
+    const alignment = facetAlignment(inputFacets, candidate.facets, candidate.focusFacets);
+    const coverage = coreCoverage(inputPhrases, candidate.fund.coreConcepts);
+    const semantic = semanticScores?.get(candidate.fund.id);
+    const breakdown: ScoreBreakdown = {
+      lexical: cosine(query, candidate.terms, prepared.idf),
+      facets: alignment.score,
+      coreCoverage: coverage.score,
+      ...(semantic == null ? {} : { semantic: Math.max(0, Math.min(1, semantic)) }),
+    };
+    const combined = semantic == null ? baselineScore(breakdown, prepared.index) : semanticScore(breakdown, prepared.index);
+    const score = alignment.supportedFocus
+      ? combined
+      : combined * prepared.index.scoring.unsupportedFocusPenalty;
+    const definingEvidence =
+      alignment.shared.some((facetId) => !GENERIC_ALIGNMENT_FACETS.has(facetId)) ||
+      coverage.matched.length > 0 ||
+      specificSharedTerms(query, candidate.terms, prepared.idf).length > 0;
+    return { candidate, alignment, coverage, breakdown, score, definingEvidence };
+  });
+
+  rows.sort((a, b) => b.score - a.score || a.candidate.fund.name.localeCompare(b.candidate.fund.name));
   const directRows = input.projectId ? prepared.relationshipsByProject.get(input.projectId) || [] : [];
-  const sufficient = query.size >= 2 || inputTagKeys.size > 0 || directRows.length > 0;
-  if (!sufficient) return { sufficient: false, recommendations: [] };
-
-  const rawContent = new Map<string, number>();
-  const tagScores = new Map<string, number>();
-  const tagLabels = new Map<string, string[]>();
-  for (const candidate of prepared.funds) {
-    rawContent.set(
-      candidate.fund.id,
-      bm25(query, candidate.terms, prepared.fundIdf, prepared.averageFundLength),
-    );
-    const overlap = tagOverlap(inputTagKeys, candidate.tagKeys);
-    tagScores.set(candidate.fund.id, overlap.score);
-    tagLabels.set(candidate.fund.id, overlap.labels);
-  }
-  const contentScores = maxNormalize(rawContent);
-
-  const similarProjects = prepared.projects
-    .filter((candidate) => candidate.project.id !== input.projectId)
-    .map((candidate) => ({
-      candidate,
-      score: cosine(query, candidate.terms, prepared.projectIdf),
-    }))
-    .filter((row) => row.score > 0)
-    .sort((a, b) => b.score - a.score || a.candidate.project.name.localeCompare(b.candidate.project.name))
-    .slice(0, prepared.index.scoring.similarProjectLimit);
-  const neighborRaw = new Map<string, number>();
-  const neighborEvidence = new Map<string, { name: string; score: number }>();
-  const similarityTotal = similarProjects.reduce((sum, row) => sum + row.score, 0) || 1;
-  for (const row of similarProjects) {
-    for (const relationship of prepared.relationshipsByProject.get(row.candidate.project.id) || []) {
-      const contribution = (row.score / similarityTotal) * KIND_STRENGTH[relationship.kind];
-      neighborRaw.set(relationship.fundId, (neighborRaw.get(relationship.fundId) || 0) + contribution);
-      const previous = neighborEvidence.get(relationship.fundId);
-      if (!previous || contribution > previous.score) {
-        neighborEvidence.set(relationship.fundId, { name: row.candidate.project.name, score: contribution });
-      }
-    }
-  }
-  const neighborScores = maxNormalize(neighborRaw);
-  const graphScores = new Map<string, number>();
-  for (const candidate of prepared.funds) {
-    const direct = knownRelationship(directRows, candidate.fund.id);
-    const neighbor = neighborScores.get(candidate.fund.id) || 0;
-    graphScores.set(
-      candidate.fund.id,
-      direct
-        ? prepared.index.scoring.directRelationshipShare * KIND_STRENGTH[direct] +
-            (1 - prepared.index.scoring.directRelationshipShare) * neighbor
-        : neighbor,
-    );
-  }
-
-  const config = prepared.index.scoring;
-  const signalWeights = {
-    content: query.size > 0 && [...contentScores.values()].some((score) => score > 0) ? config.contentWeight : 0,
-    tags: inputTagKeys.size > 0 && [...tagScores.values()].some((score) => score > 0) ? config.tagWeight : 0,
-    graph: [...graphScores.values()].some((score) => score > 0) ? config.graphWeight : 0,
-  };
-  const weightTotal = signalWeights.content + signalWeights.tags + signalWeights.graph;
-  if (!(weightTotal > 0)) return { sufficient: true, recommendations: [] };
-
-  const scored = prepared.funds
-    .map((candidate) => {
-      const fundId = candidate.fund.id;
-      const score =
-        ((contentScores.get(fundId) || 0) * signalWeights.content +
-          (tagScores.get(fundId) || 0) * signalWeights.tags +
-          (graphScores.get(fundId) || 0) * signalWeights.graph) /
-        weightTotal;
-      return { candidate, score };
-    })
-    .sort((a, b) => b.score - a.score || a.candidate.fund.name.localeCompare(b.candidate.fund.name));
-  const max = scored[0]?.score || 0;
-  const recommendations: FundRecommendation[] = scored.map(({ candidate, score }) => {
-    const fundId = candidate.fund.id;
-    const known = knownRelationship(directRows, fundId);
+  const recommendations: FundRecommendation[] = rows.map(({ candidate, alignment, coverage, breakdown, score, definingEvidence }) => {
+    const known = knownRelationship(directRows, candidate.fund.id);
     const reasons: Array<MatchReason | undefined> = [
-      relationshipReason(known),
-      ...(tagLabels.get(fundId) || []).slice(0, 1).map((tag) => ({
-        kind: 'tag' as const,
-        label: `Shared impact tag: ${tag}`,
-      })),
-      contentReason(query, candidate.terms, prepared.fundIdf),
-      neighborEvidence.has(fundId)
+      alignment.shared.length
         ? {
-            kind: 'similar-project' as const,
-            label: `Supports projects similar to ${neighborEvidence.get(fundId)!.name}`,
+            kind: 'facet',
+            label: `Shared focus: ${alignment.shared.slice(0, 2).map(facetLabel).join(', ')}`,
           }
         : undefined,
+      coverage.matched.length
+        ? {
+            kind: 'core-concept',
+            label: `Specific overlap: ${coverage.matched.slice(0, 2).map(readableConcept).join(', ')}`,
+          }
+        : undefined,
+      contentReason(query, candidate.terms, prepared.idf),
+      breakdown.semantic != null && breakdown.semantic >= 0.6
+        ? { kind: 'semantic', label: 'The project description is similar to this fund’s stated focus' }
+        : undefined,
     ];
-    const evidenceReasons = reasons.filter((reason): reason is MatchReason => Boolean(reason)).slice(0, 3);
+    const evidence = reasons.filter((reason): reason is MatchReason => Boolean(reason)).slice(0, 3);
     return {
-      fundId,
+      fundId: candidate.fund.id,
       score,
-      fit: fitFor(score, max),
-      reasons: evidenceReasons.length
-        ? evidenceReasons
-        : [{ kind: 'limited-evidence', label: 'No strong alignment evidence found for this fund' }],
+      fit: fitFor(score, alignment.supportedFocus, definingEvidence, prepared.index),
+      reasons: evidence.length
+        ? evidence
+        : [{ kind: 'limited-evidence', label: 'No clear alignment evidence found for this fund' }],
       knownRelationship: known,
       active: candidate.fund.active,
       available: candidate.fund.available,
+      breakdown,
+      supportedFocus: alignment.supportedFocus,
     };
   });
-  return { sufficient: true, recommendations };
+  return { sufficient: true, recommendations, mode: semanticScores ? 'semantic' : 'baseline' };
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ProjectProfile, ProjectProfileV2 } from '../src/artizen/types';
+import type { ProjectProfile, ProjectProfile } from '../src/artizen/types';
 import { findExactProject, matchInputForProject, searchProjects } from '../src/matching/project-search';
 
 const projects: ProjectProfile[] = [
@@ -46,7 +46,7 @@ describe('project search', () => {
   });
 
   it('leads the empty-query browse list with the most fund-engaged projects', () => {
-    const engaged: ProjectProfileV2[] = [
+    const engaged: ProjectProfile[] = [
       { ...projects[0], facets: [], history: [['a', 'curated']] },
       { ...projects[1], facets: [], history: [['a', 'submitted'], ['b', 'funded'], ['c', 'curated']] },
       { ...projects[2], facets: [] },
@@ -59,7 +59,7 @@ describe('project search', () => {
   });
 
   it('keeps engagement out of a searched query, which stays ranked by how well the name matches', () => {
-    const engaged: ProjectProfileV2[] = [
+    const engaged: ProjectProfile[] = [
       { ...projects[0], facets: [] },
       { ...projects[1], facets: [], history: [['a', 'funded'], ['b', 'funded']] },
       { ...projects[2], facets: [] },

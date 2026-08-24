@@ -13,7 +13,7 @@ import { env, pipeline } from '@huggingface/transformers';
 const inputPath = process.argv[2];
 const outputDir = process.argv[3] || 'public/assets';
 if (!inputPath) {
-  console.error('Usage: npm run build:semantic-vectors -- <match-index-v2.json | url> [output-dir]');
+  console.error('Usage: npm run build:semantic-vectors -- <match-index.json | url> [output-dir]');
   process.exitCode = 1;
 } else {
   // A URL is accepted so the vectors can be built straight from a deployed catalog, which is the
@@ -22,14 +22,14 @@ if (!inputPath) {
   if (/^https?:\/\//.test(inputPath)) {
     const response = await fetch(inputPath, { headers: { Accept: 'application/json' } });
     // Without this the Worker's 503 body parses as JSON and fails later with a misleading
-    // "not a MatchIndexV2", or as HTML with a bare SyntaxError naming no URL.
+    // "not a MatchIndex", or as HTML with a bare SyntaxError naming no URL.
     if (!response.ok) throw new Error(`Could not fetch the matching index (${response.status}): ${inputPath}`);
     index = await response.json();
   } else {
     index = JSON.parse(await readFile(inputPath, 'utf8'));
   }
   if (index.schemaVersion !== 2 || !index.semantic || !Array.isArray(index.funds) || !Array.isArray(index.projects)) {
-    throw new Error('A MatchIndexV2 with a semantic manifest, funds, and projects is required');
+    throw new Error('A MatchIndex with a semantic manifest, funds, and projects is required');
   }
   await mkdir(outputDir, { recursive: true });
 

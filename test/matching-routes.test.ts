@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import worker from '../src/index';
-import type { MatchIndexV2 } from '../src/artizen/types';
+import type { MatchIndex } from '../src/artizen/types';
 
-function index(kind: 'artizen-api' | 'fixture'): MatchIndexV2 {
+function index(kind: 'artizen-api' | 'fixture'): MatchIndex {
   return {
     schemaVersion: 2,
     indexVersion: `${kind}-index`,
@@ -56,7 +56,7 @@ function index(kind: 'artizen-api' | 'fixture'): MatchIndexV2 {
   };
 }
 
-function environment(value: MatchIndexV2): Env {
+function environment(value: MatchIndex): Env {
   return {
     CACHE: {
       async get(key: string) {
@@ -71,39 +71,39 @@ function environment(value: MatchIndexV2): Env {
   } as Env;
 }
 
-describe('matching v2 routes', () => {
+describe('matching routes', () => {
   it('rejects fixture indexes outside local QA', async () => {
     const response = await worker.fetch(
-      new Request('https://artizen.fyi/match/index.v2.json'),
+      new Request('https://artizen.fyi/match/index.json'),
       environment(index('fixture')),
     );
     expect(response.status).toBe(503);
-    expect(await response.json()).toEqual({ error: 'matching_v2_index_unavailable' });
+    expect(await response.json()).toEqual({ error: 'matching_index_unavailable' });
   });
 
   it('serves fixture indexes and blind review only on localhost', async () => {
     const env = environment(index('fixture'));
-    expect((await worker.fetch(new Request('http://localhost/match/index.v2.json'), env)).status).toBe(200);
+    expect((await worker.fetch(new Request('http://localhost/match/index.json'), env)).status).toBe(200);
     expect((await worker.fetch(new Request('http://localhost/match/review'), env)).status).toBe(200);
     expect((await worker.fetch(new Request('https://artizen.fyi/match/review'), env)).status).toBe(404);
   });
 
   it('keeps the split payloads to what each page needs', async () => {
     const env = environment(index('artizen-api'));
-    const core = await worker.fetch(new Request('https://artizen.fyi/match/core.v3.json'), env);
+    const core = await worker.fetch(new Request('https://artizen.fyi/match/core.json'), env);
     expect(core.status).toBe(200);
-    const coreBody = (await core.json()) as MatchIndexV2;
+    const coreBody = (await core.json()) as MatchIndex;
     expect(coreBody.funds).toHaveLength(1);
     expect(coreBody.projects).toEqual([]);
     expect(coreBody.relationships).toEqual([]);
 
-    const projects = await worker.fetch(new Request('https://artizen.fyi/match/projects.v3.json'), env);
-    const projectsBody = (await projects.json()) as { projects: MatchIndexV2['projects'] };
+    const projects = await worker.fetch(new Request('https://artizen.fyi/match/projects.json'), env);
+    const projectsBody = (await projects.json()) as { projects: MatchIndex['projects'] };
     expect(projectsBody.projects).toHaveLength(1);
     expect(projectsBody.projects[0].history).toEqual([['fund', 'curated']]);
 
     const one = await worker.fetch(new Request('https://artizen.fyi/match/project/project.json'), env);
-    const oneBody = (await one.json()) as { projects: MatchIndexV2['projects'] };
+    const oneBody = (await one.json()) as { projects: MatchIndex['projects'] };
     expect(oneBody.projects.map((project) => project.id)).toEqual(['project']);
 
     const missing = await worker.fetch(new Request('https://artizen.fyi/match/project/nope.json'), env);
@@ -112,13 +112,13 @@ describe('matching v2 routes', () => {
 
   it('gives each split payload its own validator so one cannot satisfy another', async () => {
     const env = environment(index('artizen-api'));
-    const core = await worker.fetch(new Request('https://artizen.fyi/match/core.v3.json'), env);
+    const core = await worker.fetch(new Request('https://artizen.fyi/match/core.json'), env);
     const etag = core.headers.get('etag');
     expect(etag).toBe('"artizen-api-index-core"');
-    const projects = await worker.fetch(new Request('https://artizen.fyi/match/projects.v3.json'), env);
+    const projects = await worker.fetch(new Request('https://artizen.fyi/match/projects.json'), env);
     expect(projects.headers.get('etag')).toBe('"artizen-api-index-projects"');
     const revalidated = await worker.fetch(
-      new Request('https://artizen.fyi/match/core.v3.json', { headers: { 'if-none-match': etag as string } }),
+      new Request('https://artizen.fyi/match/core.json', { headers: { 'if-none-match': etag as string } }),
       env,
     );
     expect(revalidated.status).toBe(304);
@@ -141,7 +141,7 @@ describe('matching v2 routes', () => {
 
   it('withholds fixture catalogs from the split payloads too', async () => {
     const env = environment(index('fixture'));
-    for (const path of ['/match/core.v3.json', '/match/projects.v3.json', '/match/project/project.json']) {
+    for (const path of ['/match/core.json', '/match/projects.json', '/match/project/project.json']) {
       expect((await worker.fetch(new Request(`https://artizen.fyi${path}`), env)).status).toBe(503);
       expect((await worker.fetch(new Request(`http://localhost${path}`), env)).status).toBe(200);
     }
@@ -149,11 +149,11 @@ describe('matching v2 routes', () => {
 
   it('serves real indexes with a stable ETag', async () => {
     const env = environment(index('artizen-api'));
-    const response = await worker.fetch(new Request('https://artizen.fyi/match/index.v2.json'), env);
+    const response = await worker.fetch(new Request('https://artizen.fyi/match/index.json'), env);
     expect(response.status).toBe(200);
     expect(response.headers.get('etag')).toBe('"artizen-api-index"');
     const cached = await worker.fetch(
-      new Request('https://artizen.fyi/match/index.v2.json', { headers: { 'if-none-match': '"artizen-api-index"' } }),
+      new Request('https://artizen.fyi/match/index.json', { headers: { 'if-none-match': '"artizen-api-index"' } }),
       env,
     );
     expect(cached.status).toBe(304);

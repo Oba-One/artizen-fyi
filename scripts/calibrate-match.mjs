@@ -7,18 +7,17 @@ import { build } from 'esbuild';
 const inputPath = process.argv[2];
 const sampleSize = Number(process.argv[3] || 0) || Infinity;
 if (!inputPath) {
-  console.error('Usage: node scripts/calibrate-match-v2.mjs <match-index-v2.json> [sample]');
+  console.error('Usage: node scripts/calibrate-match.mjs <match-index.json> [sample]');
   process.exitCode = 1;
 } else {
   const source = JSON.parse(await readFile(inputPath, 'utf8'));
-  const temp = await mkdtemp(join(tmpdir(), 'artizen-matching-v2-calibrate-'));
+  const temp = await mkdtemp(join(tmpdir(), 'artizen-matching-calibrate-'));
   const outfile = join(temp, 'calibrate.mjs');
   try {
     await build({
       stdin: {
         contents: `
-          export { upgradeMatchIndexV1 } from ${JSON.stringify(join(process.cwd(), 'src/matching/index-v2.ts'))};
-          export { prepareMatchIndexV2, matchFundsV2 } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine-v2.ts'))};
+          export { prepareMatchIndex, matchFunds } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine.ts'))};
         `,
         resolveDir: process.cwd(),
         sourcefile: 'calibrate-entry.ts',
@@ -30,11 +29,12 @@ if (!inputPath) {
       target: 'node22',
       logLevel: 'silent',
     });
-    const { upgradeMatchIndexV1, prepareMatchIndexV2, matchFundsV2 } = await import(
+    const { prepareMatchIndex, matchFunds } = await import(
       `${pathToFileURL(outfile).href}?v=${Date.now()}`
     );
-    const index = source.schemaVersion === 2 ? source : await upgradeMatchIndexV1(source, 'fixture');
-    const prepared = prepareMatchIndexV2(index);
+    const index = source;
+    if (index.schemaVersion !== 2) throw new Error('A schema-2 matching index is required');
+    const prepared = prepareMatchIndex(index);
 
     const projects = index.projects.filter((project) => project.description || project.tags.length);
     const sampled = Number.isFinite(sampleSize) ? projects.slice(0, sampleSize) : projects;
@@ -44,7 +44,7 @@ if (!inputPath) {
     const allScores = [];
     let insufficient = 0;
     for (const project of sampled) {
-      const result = matchFundsV2(prepared, {
+      const result = matchFunds(prepared, {
         title: project.name,
         description: project.description,
         tags: project.tags,
@@ -82,7 +82,7 @@ if (!inputPath) {
     const reach = (values, threshold) => round(values.filter((score) => score >= threshold).length / Math.max(1, values.length));
     const bandWidths = (threshold) => {
       const widths = sampled.slice(0, 200).map((project) => {
-        const result = matchFundsV2(prepared, { title: project.name, description: project.description, tags: project.tags });
+        const result = matchFunds(prepared, { title: project.name, description: project.description, tags: project.tags });
         return result.recommendations.filter((row) => row.score >= threshold).length;
       });
       return { p50: quantile(widths, 0.5), p90: quantile(widths, 0.9), max: quantile(widths, 1) };

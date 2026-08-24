@@ -1,4 +1,4 @@
-import type { MatchIndexV2, ProjectMatchInput, SemanticScorer } from '../artizen/types';
+import type { MatchIndex, ProjectMatchInput, SemanticScorer } from '../artizen/types';
 import { semanticManifest } from '../matching/semantic-config';
 import { matchInputVectorText, vectorFingerprint } from '../matching/semantic-text';
 import { cosine, parseVectorCatalog, scoreAgainstFunds, serializeVectorCatalog, truncateAndNormalize } from './vector-catalog';
@@ -27,7 +27,7 @@ export class LocalSemanticScorer implements SemanticScorer {
   private extractor: FeatureExtractor | undefined;
   private vectors = new Map<string, Float32Array>();
 
-  constructor(private readonly index: MatchIndexV2) {}
+  constructor(private readonly index: MatchIndex) {}
 
   async load(onProgress: (progress: number) => void): Promise<void> {
     const manifest = semanticManifest(this.index);

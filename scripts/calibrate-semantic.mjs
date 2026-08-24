@@ -12,18 +12,18 @@ import { env, pipeline } from '@huggingface/transformers';
 const inputPath = process.argv[2];
 const sampleSize = Number(process.argv[3] || 300);
 if (!inputPath) {
-  console.error('Usage: node scripts/calibrate-semantic-v2.mjs <match-index-v2.json> [sample]');
+  console.error('Usage: node scripts/calibrate-semantic.mjs <match-index.json> [sample]');
   process.exitCode = 1;
 } else {
   const index = JSON.parse(await readFile(inputPath, 'utf8'));
-  if (index.schemaVersion !== 2 || !index.semantic) throw new Error('A MatchIndexV2 with a semantic manifest is required');
+  if (index.schemaVersion !== 2 || !index.semantic) throw new Error('A MatchIndex with a semantic manifest is required');
 
   const temp = await mkdtemp(join(tmpdir(), 'artizen-semantic-calibrate-'));
   const outfile = join(temp, 'engine.mjs');
   try {
     await build({
       stdin: {
-        contents: `export { prepareMatchIndexV2, matchFundsV2 } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine-v2.ts'))};`,
+        contents: `export { prepareMatchIndex, matchFunds } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine.ts'))};`,
         resolveDir: process.cwd(),
         sourcefile: 'semantic-calibrate-entry.ts',
       },
@@ -34,8 +34,8 @@ if (!inputPath) {
       target: 'node22',
       logLevel: 'silent',
     });
-    const { prepareMatchIndexV2, matchFundsV2 } = await import(`${pathToFileURL(outfile).href}?v=${Date.now()}`);
-    const prepared = prepareMatchIndexV2(index);
+    const { prepareMatchIndex, matchFunds } = await import(`${pathToFileURL(outfile).href}?v=${Date.now()}`);
+    const prepared = prepareMatchIndex(index);
 
     env.allowRemoteModels = false;
     env.allowLocalModels = true;
@@ -98,7 +98,7 @@ if (!inputPath) {
           const vector = fundVectors.get(fund.id);
           if (vector) scores.set(fund.id, cosine(vectors[i], vector));
         }
-        const result = matchFundsV2(prepared, { title: project.name, description: project.description, tags: project.tags }, scores);
+        const result = matchFunds(prepared, { title: project.name, description: project.description, tags: project.tags }, scores);
         if (!result.sufficient || !result.recommendations.length) return;
         const ranked = result.recommendations.map((row) => row.score);
         rank1.push(ranked[0]);

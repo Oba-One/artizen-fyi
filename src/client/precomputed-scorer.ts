@@ -1,6 +1,6 @@
 /// <reference lib="webworker" />
 
-import type { MatchIndexV2, ProjectMatchInput, ProjectProfileV2 } from '../artizen/types';
+import type { MatchIndex, ProjectMatchInput, ProjectProfile } from '../artizen/types';
 import { semanticManifest } from '../matching/semantic-config';
 import { matchInputVectorText, projectVectorText, vectorBucket, vectorFingerprint } from '../matching/semantic-text';
 import { parseVectorCatalog, scoreAgainstFunds } from './vector-catalog';
@@ -37,7 +37,7 @@ export class PrecomputedSemanticScorer {
    */
   private readonly shards = new Map<number, Promise<Map<string, Float32Array> | undefined>>();
 
-  constructor(private readonly index: MatchIndexV2) {}
+  constructor(private readonly index: MatchIndex) {}
 
   /**
    * Only the fund vectors, which every comparison needs. Project vectors are fetched a shard at a
@@ -69,7 +69,7 @@ export class PrecomputedSemanticScorer {
 
   private shard(
     manifest: { vectorVersion: string; dimensions: number; projectVectorPrefix: string; projectVectorBuckets: number },
-    project: ProjectProfileV2,
+    project: ProjectProfile,
   ): Promise<Map<string, Float32Array> | undefined> {
     const bucket = vectorBucket(project.id, manifest.projectVectorBuckets);
     let pending = this.shards.get(bucket);

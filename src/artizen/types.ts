@@ -270,72 +270,12 @@ export type ProjectMatchInput = {
   tags: string[];
 };
 
-export type ProjectProfile = {
-  id: string;
-  slug: string;
-  name: string;
-  description: string;
-  tags: string[];
-};
-
-export type FundProfile = {
-  id: string;
-  slug: string;
-  name: string;
-  subtitle?: string;
-  forTitle?: string;
-  active: boolean;
-  available?: number;
-  themes: string[];
-  derivedThemes: string[];
-  aliases: string[];
-  preferredTerms: string[];
-  excludedTerms: string[];
-};
-
 export type ProjectFundRelationship = {
   projectId: string;
   fundId: string;
   kind: MatchRelationshipKind;
   seasonNumber?: number;
   createdAt?: string;
-};
-
-export type ScoringConfig = {
-  contentWeight: number;
-  tagWeight: number;
-  graphWeight: number;
-  directRelationshipShare: number;
-  similarProjectLimit: number;
-  fundHistoryLimit: number;
-};
-
-export type MatchIndexV1 = {
-  schemaVersion: 1;
-  indexVersion: string;
-  generatedAt: string;
-  projects: ProjectProfile[];
-  funds: FundProfile[];
-  relationships: ProjectFundRelationship[];
-  scoring: ScoringConfig;
-};
-
-export type FundRecommendation = {
-  fundId: string;
-  score: number;
-  fit: MatchFit;
-  reasons: MatchReason[];
-  knownRelationship?: MatchRelationshipKind;
-  active: boolean;
-  available?: number;
-};
-
-export type SemanticReranker = {
-  rerank(
-    input: ProjectMatchInput,
-    candidates: FundRecommendation[],
-    index: MatchIndexV1,
-  ): Promise<FundRecommendation[]>;
 };
 
 export type MatchIndexSource = {
@@ -362,13 +302,29 @@ export type MatchFacet = {
  */
 export type ProjectHistory = Array<[fundId: string, kind: MatchRelationshipKind]>;
 
-export type ProjectProfileV2 = ProjectProfile & {
+export type ProjectProfile = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  tags: string[];
   facets: string[];
   image?: string;
   history?: ProjectHistory;
 };
 
-export type FundProfileV2 = Omit<FundProfile, 'derivedThemes'> & {
+export type FundProfile = {
+  id: string;
+  slug: string;
+  name: string;
+  subtitle?: string;
+  forTitle?: string;
+  active: boolean;
+  available?: number;
+  themes: string[];
+  aliases: string[];
+  preferredTerms: string[];
+  excludedTerms: string[];
   profileText: string;
   profileHash: string;
   facets: string[];
@@ -384,7 +340,7 @@ export type ScoreBreakdown = {
   semantic?: number;
 };
 
-export type ScoringConfigV2 = {
+export type ScoringConfig = {
   version: string;
   lexicalWeight: number;
   facetWeight: number;
@@ -417,28 +373,35 @@ export type SemanticCatalogManifest = {
   vectorVersion: string;
 };
 
-export type MatchIndexV2 = {
+export type MatchIndex = {
   schemaVersion: 2;
   indexVersion: string;
   generatedAt: string;
   source: MatchIndexSource;
   taxonomyVersion: string;
   facets: MatchFacet[];
-  projects: ProjectProfileV2[];
-  funds: FundProfileV2[];
+  projects: ProjectProfile[];
+  funds: FundProfile[];
   relationships: ProjectFundRelationship[];
-  scoring: ScoringConfigV2;
+  scoring: ScoringConfig;
   semantic?: SemanticCatalogManifest;
 };
 
-export type FundRecommendationV2 = FundRecommendation & {
+export type FundRecommendation = {
+  fundId: string;
+  score: number;
+  fit: MatchFit;
+  reasons: MatchReason[];
+  knownRelationship?: MatchRelationshipKind;
+  active: boolean;
+  available?: number;
   breakdown: ScoreBreakdown;
   supportedFocus: boolean;
 };
 
-export type MatchResultV2 = {
+export type MatchResult = {
   sufficient: boolean;
-  recommendations: FundRecommendationV2[];
+  recommendations: FundRecommendation[];
   mode: 'baseline' | 'semantic';
 };
 

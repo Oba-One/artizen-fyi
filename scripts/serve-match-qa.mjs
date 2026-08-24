@@ -12,21 +12,9 @@ if (![1, 2].includes(suppliedIndex.schemaVersion) || !Array.isArray(suppliedInde
   throw new Error(`Invalid matching index file: ${indexPath}`);
 }
 
-let index = suppliedIndex;
-if (suppliedIndex.schemaVersion === 1) {
-  const converterPath = `/private/tmp/artizen-fyi-match-qa-converter-${process.pid}.mjs`;
-  await build({
-    entryPoints: ['src/matching/index-v2.ts'],
-    outfile: converterPath,
-    bundle: true,
-    format: 'esm',
-    platform: 'node',
-    target: 'node22',
-  });
-  const { upgradeMatchIndexV1 } = await import(`${pathToFileURL(converterPath).href}?v=${Date.now()}`);
-  index = await upgradeMatchIndexV1(suppliedIndex, 'fixture');
-}
-const v2IndexText = JSON.stringify(index);
+const index = suppliedIndex;
+if (index.schemaVersion !== 2) throw new Error('A schema-2 matching index is required; v1 fixtures are no longer converted');
+const indexText = JSON.stringify(index);
 
 const bundlePath = `/private/tmp/artizen-fyi-match-qa-worker-${process.pid}.mjs`;
 await build({
@@ -47,7 +35,7 @@ const worker = (await import(`${pathToFileURL(bundlePath).href}?v=${Date.now()}`
 
 const kv = {
   async get(key) {
-    if (key === 'artizen/matching/v2') return v2IndexText;
+    if (key === 'artizen/matching/v2') return indexText;
     if (key === 'artizen/matching/v1' && suppliedIndex.schemaVersion === 1) return indexText;
     return null;
   },

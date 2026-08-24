@@ -10,21 +10,20 @@ const inputPath = process.argv[2];
 const iterations = Number(process.argv[3] || 200);
 
 if (!inputPath) {
-  console.error('Usage: node scripts/benchmark-match-v2.mjs <match-index.json> [iterations]');
+  console.error('Usage: node scripts/benchmark-match.mjs <match-index.json> [iterations]');
   process.exitCode = 1;
 } else if (!Number.isInteger(iterations) || iterations < 10) {
   console.error('Iterations must be an integer of at least 10.');
   process.exitCode = 1;
 } else {
   const source = JSON.parse(await readFile(inputPath, 'utf8'));
-  const temp = await mkdtemp(join(tmpdir(), 'artizen-matching-v2-benchmark-'));
+  const temp = await mkdtemp(join(tmpdir(), 'artizen-matching-benchmark-'));
   const outfile = join(temp, 'benchmark.mjs');
   try {
     await build({
       stdin: {
         contents: `
-          export { upgradeMatchIndexV1 } from ${JSON.stringify(join(process.cwd(), 'src/matching/index-v2.ts'))};
-          export { prepareMatchIndexV2, matchFundsV2 } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine-v2.ts'))};
+          export { prepareMatchIndex, matchFunds } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine.ts'))};
         `,
         resolveDir: process.cwd(),
         sourcefile: 'benchmark-entry.ts',
@@ -36,11 +35,12 @@ if (!inputPath) {
       target: 'node22',
       logLevel: 'silent',
     });
-    const { upgradeMatchIndexV1, prepareMatchIndexV2, matchFundsV2 } = await import(
+    const { prepareMatchIndex, matchFunds } = await import(
       `${pathToFileURL(outfile).href}?v=${Date.now()}`
     );
-    const index = source.schemaVersion === 2 ? source : await upgradeMatchIndexV1(source, 'fixture');
-    const prepared = prepareMatchIndexV2(index);
+    const index = source;
+    if (index.schemaVersion !== 2) throw new Error('A schema-2 matching index is required');
+    const prepared = prepareMatchIndex(index);
     const projects = index.projects.map((project) => ({
       projectId: project.id,
       title: project.name,
@@ -50,13 +50,13 @@ if (!inputPath) {
     if (projects.length === 0) throw new Error('The benchmark index has no projects.');
 
     for (let warmup = 0; warmup < 10; warmup += 1) {
-      matchFundsV2(prepared, projects[warmup % projects.length]);
+      matchFunds(prepared, projects[warmup % projects.length]);
     }
 
     const timings = [];
     for (let iteration = 0; iteration < iterations; iteration += 1) {
       const startedAt = performance.now();
-      matchFundsV2(prepared, projects[iteration % projects.length]);
+      matchFunds(prepared, projects[iteration % projects.length]);
       timings.push(performance.now() - startedAt);
     }
     timings.sort((left, right) => left - right);

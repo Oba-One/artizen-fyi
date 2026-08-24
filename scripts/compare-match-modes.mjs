@@ -11,20 +11,20 @@ import { env, pipeline } from '@huggingface/transformers';
 const inputPath = process.argv[2];
 const sampleSize = Number(process.argv[3] || 200);
 if (!inputPath) {
-  console.error('Usage: npm run compare:match-modes -- <match-index-v2.json> [sample]');
+  console.error('Usage: npm run compare:match-modes -- <match-index.json> [sample]');
   process.exit(1);
 }
 const index = JSON.parse(await readFile(inputPath, 'utf8'));
-if (index.schemaVersion !== 2 || !index.semantic) throw new Error('A MatchIndexV2 with a semantic manifest is required');
+if (index.schemaVersion !== 2 || !index.semantic) throw new Error('A MatchIndex with a semantic manifest is required');
 const temp = await mkdtemp(join(tmpdir(), 'artizen-compare-'));
 const outfile = join(temp, 'engine.mjs');
 try {
   await build({
-    stdin: { contents: `export { prepareMatchIndexV2, matchFundsV2 } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine-v2.ts'))};`, resolveDir: process.cwd(), sourcefile: 'e.ts' },
+    stdin: { contents: `export { prepareMatchIndex, matchFunds } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine.ts'))};`, resolveDir: process.cwd(), sourcefile: 'e.ts' },
     outfile, bundle: true, platform: 'node', format: 'esm', target: 'node22', logLevel: 'silent',
   });
-  const { prepareMatchIndexV2, matchFundsV2 } = await import(`${pathToFileURL(outfile).href}?v=1`);
-  const prepared = prepareMatchIndexV2(index);
+  const { prepareMatchIndex, matchFunds } = await import(`${pathToFileURL(outfile).href}?v=1`);
+  const prepared = prepareMatchIndex(index);
 
   env.allowRemoteModels = false; env.allowLocalModels = true;
   env.localModelPath = `${resolve('public/assets/models')}/`; env.useFSCache = false;
@@ -49,11 +49,11 @@ try {
     const vecs = await embed(batch.map(p => [p.name,p.description,...p.tags].filter(Boolean).join('. ')));
     batch.forEach((project, i) => {
       const input = { title: project.name, description: project.description, tags: project.tags };
-      const base = matchFundsV2(prepared, input);
+      const base = matchFunds(prepared, input);
       if (!base.sufficient || !base.recommendations.length) return;
       const scores = new Map();
       for (const f of index.funds) { const v = fundVecs.get(f.id); if (v) scores.set(f.id, cos(vecs[i], v)); }
-      const sem = matchFundsV2(prepared, input, scores);
+      const sem = matchFunds(prepared, input, scores);
       const b10 = base.recommendations.slice(0,10).map(r=>r.fundId);
       const s10 = sem.recommendations.slice(0,10).map(r=>r.fundId);
       const shared = b10.filter(id => s10.includes(id)).length;

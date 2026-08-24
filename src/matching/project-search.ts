@@ -1,4 +1,4 @@
-import type { ProjectMatchInput, ProjectProfile, ProjectProfileV2 } from '../artizen/types';
+import type { ProjectMatchInput, ProjectProfile } from '../artizen/types';
 
 function normalize(value: string): string {
   return value
@@ -37,11 +37,10 @@ export function findExactProject(projects: ProjectProfile[], query: string): Pro
 /**
  * How many funds a project has already engaged with. Used only to order the default browse list,
  * where an alphabetical catalog opens on punctuation-led placeholder names - ":: DeBolso ::",
- * "?an!c NFTs", ".", "..." - none of which tell a visitor what the tool does. Absent on v1
- * profiles, which simply fall back to alphabetical.
+ * "?an!c NFTs", ".", "..." - none of which tell a visitor what the tool does.
  */
 function engagement(project: ProjectProfile): number {
-  return (project as ProjectProfileV2).history?.length || 0;
+  return project.history?.length || 0;
 }
 
 export function searchProjects(projects: ProjectProfile[], query: string, limit = 8): ProjectProfile[] {

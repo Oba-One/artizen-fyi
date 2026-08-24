@@ -1,4 +1,4 @@
-import type { MatchIndexV1, MatchIndexV2, SemanticCatalogManifest } from '../artizen/types';
+import type { MatchIndex, SemanticCatalogManifest } from '../artizen/types';
 import { MATCH_TAXONOMY_VERSION } from './taxonomy';
 
 export const SEMANTIC_MODEL_REVISION = 'b0561d9a97e6b298da39f0ef3e7d3cf153b1b29a';
@@ -29,6 +29,6 @@ export const SEMANTIC_CATALOG: SemanticCatalogManifest = {
  * changes. The index field stays the availability gate: an index built without semantic support
  * does not get the feature.
  */
-export function semanticManifest(index: MatchIndexV1 | MatchIndexV2): SemanticCatalogManifest | undefined {
+export function semanticManifest(index: MatchIndex): SemanticCatalogManifest | undefined {
   return index.schemaVersion === 2 && index.semantic ? SEMANTIC_CATALOG : undefined;
 }

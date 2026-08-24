@@ -40,7 +40,6 @@ if (!inputPath) {
     await build({
       stdin: {
         contents: `
-          export { upgradeMatchIndexV1 } from ${JSON.stringify(join(process.cwd(), 'src/matching/index-v2.ts'))};
           export { normalizeTerms } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine.ts'))};
           export { MATCH_FACET_DEFINITIONS, extractFacetIds } from ${JSON.stringify(join(process.cwd(), 'src/matching/taxonomy.ts'))};
         `,
@@ -54,10 +53,11 @@ if (!inputPath) {
       target: 'node22',
       logLevel: 'silent',
     });
-    const { upgradeMatchIndexV1, normalizeTerms, MATCH_FACET_DEFINITIONS, extractFacetIds } = await import(
+    const { normalizeTerms, MATCH_FACET_DEFINITIONS, extractFacetIds } = await import(
       `${pathToFileURL(outfile).href}?v=${Date.now()}`
     );
-    const index = source.schemaVersion === 2 ? source : await upgradeMatchIndexV1(source, 'fixture');
+    const index = source;
+    if (index.schemaVersion !== 2) throw new Error('A schema-2 matching index is required');
 
     // Terms any existing alias already covers are not gaps, they are hits the project missed for
     // some other reason - drop them so the list is only vocabulary the taxonomy has no word for.

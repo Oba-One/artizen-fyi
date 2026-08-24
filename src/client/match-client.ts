@@ -1,29 +1,25 @@
 import type {
   FundProfile,
-  FundProfileV2,
   FundRecommendation,
-  FundRecommendationV2,
-  MatchIndexV1,
-  MatchIndexV2,
-  MatchResultV2,
+  MatchIndex,
+  MatchResult,
   ProjectMatchInput,
   ProjectProfile,
-  ProjectProfileV2,
   SemanticCatalogManifest,
 } from '../artizen/types';
-import { isMatchIndexStale, type MatchResult } from '../matching/engine';
+import { isMatchIndexStale } from '../matching/engine';
 import { moveActive, pickerState } from '../matching/project-picker';
 import { semanticManifest } from '../matching/semantic-config';
 import { matchInputForProject } from '../matching/project-search';
 
 const INITIAL_RESULTS = 12;
-const PROJECTS_URL = '/match/projects.v3.json';
+const PROJECTS_URL = '/match/projects.json';
 const initialized = new WeakSet<Element>();
 
-type BrowserMatchIndex = MatchIndexV1 | MatchIndexV2;
-type BrowserFund = FundProfile | FundProfileV2;
-type BrowserRecommendation = FundRecommendation | FundRecommendationV2;
-type BrowserMatchResult = MatchResult | MatchResultV2;
+type BrowserMatchIndex = MatchIndex;
+type BrowserFund = FundProfile;
+type BrowserRecommendation = FundRecommendation;
+type BrowserMatchResult = MatchResult;
 
 type WorkerResponse =
   | { type: 'ready'; indexVersion: string }
@@ -170,7 +166,7 @@ function validIndex(value: unknown): value is BrowserMatchIndex {
   if (!value || typeof value !== 'object') return false;
   const index = value as Record<string, unknown>;
   return (
-    (index.schemaVersion === 1 || index.schemaVersion === 2) &&
+    index.schemaVersion === 2 &&
     typeof index.indexVersion === 'string' &&
     Array.isArray(index.projects) &&
     Array.isArray(index.funds) &&
@@ -183,7 +179,7 @@ function validIndex(value: unknown): value is BrowserMatchIndex {
  * the core route is tried first and the older whole-catalog routes only as fallbacks - a browser
  * holding a cached bundle from before the split still works against the routes it knows.
  */
-const CATALOG_URLS = ['/match/core.v3.json', '/match/index.v2.json', '/match/index.json'];
+const CATALOG_URLS = ['/match/core.json', '/match/index.json'];
 
 async function createMatcher(): Promise<BrowserMatcher> {
   let response: Response | undefined;
@@ -233,7 +229,7 @@ function setStatus(root: Element, message: string): void {
 
 function readyMessage(index: BrowserMatchIndex): string {
   const base = `Ready to compare with ${index.funds.length} funds.`;
-  if (index.schemaVersion === 2 && index.source.kind === 'fixture') {
+  if (index.source.kind === 'fixture') {
     return `${base} QA fixture data is loaded; these are not production recommendations.`;
   }
   if (!isMatchIndexStale(index)) return base;
@@ -296,7 +292,7 @@ const FIT_LABELS = {
 const FIT_CEILING = 0.6;
 
 function fitIndex(score: number, index: BrowserMatchIndex): number {
-  const scoring = index.schemaVersion === 2 ? index.scoring : undefined;
+  const scoring = index.scoring;
   const strong = scoring?.strongThreshold ?? 0.44;
   const stops: Array<[number, number]> = [
     [0, 0],
@@ -447,7 +443,7 @@ function recommendationCard(
 
   const header = document.createElement('div');
   header.className = 'artizen-match-card-head';
-  header.append(thumbnail(index.schemaVersion === 2 ? (fund as FundProfileV2).image : undefined, 'artizen-match-thumb'));
+  header.append(thumbnail(fund.image, 'artizen-match-thumb'));
   const heading = document.createElement('div');
   heading.className = 'artizen-match-card-title';
   const title = document.createElement('h3');
@@ -551,7 +547,7 @@ function fundDetailNodes(
   semantic?: SemanticControl,
 ): HTMLElement[] {
   const nodes: HTMLElement[] = [];
-  const image = index.schemaVersion === 2 ? (fund as FundProfileV2).image : undefined;
+  const image = fund.image;
   if (image) {
     const banner = document.createElement('div');
     banner.className = 'artizen-fund-dialog-banner';
@@ -591,7 +587,7 @@ function fundDetailNodes(
     facts.append(detailRow('History', RELATIONSHIP_TITLES[recommendation.knownRelationship]));
   }
   const labels = facetLabels(index);
-  const facets = index.schemaVersion === 2 ? (fund as FundProfileV2).facets : [];
+  const facets = fund.facets;
   if (facets.length) facts.append(detailRow('Focus', facets.map((facetId) => labels.get(facetId) || facetId).join(' · ')));
   if (facts.childElementCount) nodes.push(facts);
 
@@ -864,7 +860,7 @@ function installResults(
 
   function fundFacets(fundId: string): string[] {
     const fund = fundsById.get(fundId);
-    return fund && index.schemaVersion === 2 ? (fund as FundProfileV2).facets : [];
+    return fund?.facets || [];
   }
 
   function passesStatus(recommendation: BrowserRecommendation): boolean {
@@ -1458,7 +1454,7 @@ function fillTagCatalog(root: Element, projects: ProjectProfile[]): void {
 }
 
 function projectFacets(project: ProjectProfile): string[] {
-  return (project as ProjectProfileV2).facets || [];
+  return project.facets || [];
 }
 
 async function initializeDetail(root: Element, engine: BrowserMatcher): Promise<void> {
@@ -1566,7 +1562,7 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
   }
 
   function projectImage(project: ProjectProfile): string | undefined {
-    return (project as ProjectProfileV2).image;
+    return project.image;
   }
 
   function selectedProject(): ProjectProfile | undefined {

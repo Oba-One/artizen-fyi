@@ -1,5 +1,5 @@
 import type { MatchFacet, MatchFacetCategory } from '../artizen/types';
-import { normalizeTerms } from './engine';
+import { normalizeTerms } from './terms';
 
 type FacetDefinition = MatchFacet & {
   aliases: string[];

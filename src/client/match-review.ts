@@ -1,18 +1,15 @@
 import type {
-  FundProfileV2,
+  FundProfile,
   FundRecommendation,
-  FundRecommendationV2,
-  MatchIndexV1,
-  MatchIndexV2,
-  MatchResultV2,
+  MatchIndex,
+  MatchResult,
   ProjectMatchInput,
 } from '../artizen/types';
-import type { MatchResult } from '../matching/engine';
 
 const REVIEW_VERSION = 'cross-domain-review-2026-08-23.1';
 const POOL_TOP = 12;
 
-type Result = MatchResult | MatchResultV2;
+type Result = MatchResult;
 type WorkerMessage =
   | { type: 'ready' }
   | { type: 'result'; requestId: number; result: Result }
@@ -26,15 +23,15 @@ type Rating = {
   fundId: string;
   grade: 0 | 1 | 2 | 3;
   note?: string;
-  baseline?: FundRecommendationV2;
-  semantic?: FundRecommendationV2;
+  baseline?: FundRecommendation;
+  semantic?: FundRecommendation;
   v1?: FundRecommendation;
 };
 type CandidateEvidence = {
-  fund: FundProfileV2;
+  fund: FundProfile;
   v1?: { rank: number; recommendation: FundRecommendation };
-  baseline: { rank: number; recommendation: FundRecommendationV2 };
-  semantic?: { rank: number; recommendation: FundRecommendationV2 };
+  baseline: { rank: number; recommendation: FundRecommendation };
+  semantic?: { rank: number; recommendation: FundRecommendation };
 };
 
 class ReviewWorker {
@@ -66,7 +63,7 @@ class ReviewWorker {
     });
   }
 
-  static async create(index: MatchIndexV1 | MatchIndexV2): Promise<ReviewWorker> {
+  static async create(index: MatchIndex): Promise<ReviewWorker> {
     const worker = new Worker('/assets/match-worker.js', { type: 'module' });
     await new Promise<void>((resolve, reject) => {
       const timeout = window.setTimeout(() => reject(new Error('Review worker startup timed out')), 15_000);
@@ -119,9 +116,9 @@ function splitFor(projectId: string): 'tuning' | 'holdout' {
   return stableHash(`${REVIEW_VERSION}:${projectId}`) % 4 === 0 ? 'holdout' : 'tuning';
 }
 
-function inputFor(index: MatchIndexV2, projectId: string): ProjectMatchInput {
+function inputFor(index: MatchIndex, projectId: string): ProjectMatchInput {
   const project = index.projects.find((candidate) => candidate.id === projectId);
-  if (!project) throw new Error('Project is missing from V2');
+  if (!project) throw new Error('Project is missing from the catalog');
   return { projectId, title: project.name, description: project.description, tags: project.tags };
 }
 
@@ -130,11 +127,11 @@ function ranked<T extends FundRecommendation>(recommendations: T[]): Map<string,
 }
 
 function buildPool(
-  index: MatchIndexV2,
+  index: MatchIndex,
   projectId: string,
-  baseline: MatchResultV2,
+  baseline: MatchResult,
   v1?: MatchResult,
-  semantic?: MatchResultV2,
+  semantic?: MatchResult,
 ): CandidateEvidence[] {
   const baselineRanks = ranked(baseline.recommendations);
   const v1Ranks = v1 ? ranked(v1.recommendations) : new Map();
@@ -169,7 +166,7 @@ function buildPool(
     );
 }
 
-function algorithmLine(label: string, row?: { rank: number; recommendation: FundRecommendation | FundRecommendationV2 }): string {
+function algorithmLine(label: string, row?: { rank: number; recommendation: FundRecommendation | FundRecommendation }): string {
   if (!row) return `${label}: not in this review index`;
   const recommendation = row.recommendation;
   const breakdown = 'breakdown' in recommendation
@@ -187,19 +184,15 @@ async function initialize(root: HTMLElement): Promise<void> {
   const aiButton = find<HTMLButtonElement>(root, '[data-review-ai]');
   const exportButton = find<HTMLButtonElement>(root, '[data-review-export]');
   const importInput = find<HTMLInputElement>(root, '[data-review-import]');
-  const response = await fetch('/match/index.v2.json', { cache: 'no-cache' });
-  if (!response.ok) throw new Error('V2 review index is unavailable');
-  const index = (await response.json()) as MatchIndexV2;
-  const v1Response = await fetch('/match/index.json', { cache: 'no-cache' });
-  const v1Index = v1Response.ok ? ((await v1Response.json()) as MatchIndexV1) : undefined;
-  const v2Worker = await ReviewWorker.create(index);
-  const v1Worker = v1Index ? await ReviewWorker.create(v1Index) : undefined;
+  const response = await fetch('/match/index.json', { cache: 'no-cache' });
+  if (!response.ok) throw new Error('The review index is unavailable');
+  const index = (await response.json()) as MatchIndex;
+  const worker = await ReviewWorker.create(index);
   const ratings = new Map<string, Rating>();
   let pool: CandidateEvidence[] = [];
   let currentInput: ProjectMatchInput | undefined;
-  let baselineResult: MatchResultV2 | undefined;
-  let v1Result: MatchResult | undefined;
-  let semanticResult: MatchResultV2 | undefined;
+  let baselineResult: MatchResult | undefined;
+  let semanticResult: MatchResult | undefined;
 
   const domainGroups = new Set(index.projects.flatMap((project) => project.facets.filter((facet) => /^(domain|medium):/.test(facet))));
   const coverageWarning = index.projects.length < 24 || domainGroups.size < 8;
@@ -207,7 +200,7 @@ async function initialize(root: HTMLElement): Promise<void> {
     provenance.replaceChildren();
     const fields = [
       ['Source', index.source.kind],
-      ['Index', `V2 ${index.indexVersion}`],
+      ['Index', index.indexVersion],
       ['Generated', index.generatedAt],
       ['Records', `${index.source.projects} projects, ${index.source.funds} funds, ${index.source.relationships} display-only relationships`],
       ['Taxonomy', `${index.taxonomyVersion}; ${domainGroups.size} represented domain groups`],
@@ -331,11 +324,10 @@ async function initialize(root: HTMLElement): Promise<void> {
     if (!select?.value) return;
     currentInput = inputFor(index, select.value);
     if (status) status.textContent = 'Building a stable blind candidate pool…';
-    baselineResult = (await v2Worker.match(currentInput)) as MatchResultV2;
-    v1Result = v1Worker ? ((await v1Worker.match(currentInput)) as MatchResult) : undefined;
-    if (includeSemantic) semanticResult = (await v2Worker.match(currentInput, true)) as MatchResultV2;
+    baselineResult = (await worker.match(currentInput)) as MatchResult;
+    if (includeSemantic) semanticResult = (await worker.match(currentInput, true)) as MatchResult;
     else semanticResult = undefined;
-    pool = buildPool(index, select.value, baselineResult, v1Result, semanticResult);
+    pool = buildPool(index, select.value, baselineResult, semanticResult);
     if (status) status.textContent = `${pool.length} candidates ready in a stable blind order. Ratings are held in memory only.`;
     renderCandidate();
   }
@@ -345,7 +337,7 @@ async function initialize(root: HTMLElement): Promise<void> {
     if (!aiButton) return;
     aiButton.disabled = true;
     try {
-      await v2Worker.loadSemantic((value) => {
+      await worker.loadSemantic((value) => {
         if (status) status.textContent = `Loading local AI candidate source… ${Math.round(value * 100)}%`;
       });
       await start(true);
@@ -353,7 +345,7 @@ async function initialize(root: HTMLElement): Promise<void> {
     } catch {
       aiButton.disabled = false;
       aiButton.textContent = 'Retry local AI candidates';
-      if (status) status.textContent = 'Local AI was unavailable. The V1 and V2 baseline review pool is unchanged.';
+      if (status) status.textContent = 'Local AI was unavailable. The baseline review pool is unchanged.';
     }
   });
   exportButton?.addEventListener('click', () => {

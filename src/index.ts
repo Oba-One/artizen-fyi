@@ -1,5 +1,5 @@
 import { Artizen, type FundPage, type ProjectPage } from './artizen';
-import type { MatchIndexV2 } from './artizen/types';
+import type { MatchIndex } from './artizen/types';
 import faviconIco from './favicon.ico';
 import faviconSvg from './favicon.svg';
 import appleTouchIcon from './apple-touch-icon.png';
@@ -32,30 +32,8 @@ function html(body: string, status = 200): Response {
   });
 }
 
-async function matchingIndexResponse(artizen: Artizen, request: Request): Promise<Response> {
-  const index = await artizen.matchIndex();
-  if (!index) {
-    return new Response(JSON.stringify({ error: 'matching_index_unavailable' }), {
-      status: 503,
-      headers: {
-        'content-type': 'application/json; charset=utf-8',
-        'cache-control': 'no-store',
-        'retry-after': '300',
-      },
-    });
-  }
-  const etag = `"${index.indexVersion}"`;
-  const headers = {
-    'content-type': 'application/json; charset=utf-8',
-    'cache-control': 'public, max-age=300, stale-while-revalidate=86400',
-    etag,
-  };
-  if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers });
-  return new Response(JSON.stringify(index), { headers });
-}
-
 function matchingUnavailable(): Response {
-  return new Response(JSON.stringify({ error: 'matching_v2_index_unavailable' }), {
+  return new Response(JSON.stringify({ error: 'matching_index_unavailable' }), {
     status: 503,
     headers: {
       'content-type': 'application/json; charset=utf-8',
@@ -66,8 +44,8 @@ function matchingUnavailable(): Response {
 }
 
 /** Fixture catalogs exist for local QA only; serving them publicly would look like real advice. */
-async function servableMatchIndexV2(artizen: Artizen, url: URL): Promise<MatchIndexV2 | null> {
-  const index = await artizen.matchIndexV2();
+async function servableMatchIndex(artizen: Artizen, url: URL): Promise<MatchIndex | null> {
+  const index = await artizen.matchIndex();
   const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
   return index && !(index.source.kind === 'fixture' && !local) ? index : null;
 }
@@ -88,8 +66,8 @@ function matchingJson(request: Request, indexVersion: string, variant: string, b
   return new Response(JSON.stringify(body()), { headers });
 }
 
-async function matchingIndexV2Response(artizen: Artizen, request: Request, url: URL): Promise<Response> {
-  const index = await servableMatchIndexV2(artizen, url);
+async function matchingIndexResponse(artizen: Artizen, request: Request, url: URL): Promise<Response> {
+  const index = await servableMatchIndex(artizen, url);
   if (!index) return matchingUnavailable();
   const etag = `"${index.indexVersion}"`;
   const headers = {
@@ -110,7 +88,7 @@ async function matchingIndexV2Response(artizen: Artizen, request: Request, url: 
  * project page fetches its own record alone.
  */
 async function matchingCoreResponse(artizen: Artizen, request: Request, url: URL): Promise<Response> {
-  const index = await servableMatchIndexV2(artizen, url);
+  const index = await servableMatchIndex(artizen, url);
   if (!index) return matchingUnavailable();
   return matchingJson(request, index.indexVersion, 'core', () => ({
     ...index,
@@ -120,7 +98,7 @@ async function matchingCoreResponse(artizen: Artizen, request: Request, url: URL
 }
 
 async function matchingProjectsResponse(artizen: Artizen, request: Request, url: URL): Promise<Response> {
-  const index = await servableMatchIndexV2(artizen, url);
+  const index = await servableMatchIndex(artizen, url);
   if (!index) return matchingUnavailable();
   return matchingJson(request, index.indexVersion, 'projects', () => ({
     indexVersion: index.indexVersion,
@@ -129,7 +107,7 @@ async function matchingProjectsResponse(artizen: Artizen, request: Request, url:
 }
 
 async function matchingProjectResponse(artizen: Artizen, request: Request, url: URL, slug: string): Promise<Response> {
-  const index = await servableMatchIndexV2(artizen, url);
+  const index = await servableMatchIndex(artizen, url);
   if (!index) return matchingUnavailable();
   const project = index.projects.find((candidate) => candidate.slug === slug || candidate.id === slug);
   if (!project) {
@@ -233,18 +211,14 @@ export default {
     }
 
     if (request.method === 'GET' && path === '/match/index.json') {
-      return matchingIndexResponse(artizen, request);
+      return matchingIndexResponse(artizen, request, url);
     }
 
-    if (request.method === 'GET' && path === '/match/index.v2.json') {
-      return matchingIndexV2Response(artizen, request, url);
-    }
-
-    if (request.method === 'GET' && path === '/match/core.v3.json') {
+    if (request.method === 'GET' && path === '/match/core.json') {
       return matchingCoreResponse(artizen, request, url);
     }
 
-    if (request.method === 'GET' && path === '/match/projects.v3.json') {
+    if (request.method === 'GET' && path === '/match/projects.json') {
       return matchingProjectsResponse(artizen, request, url);
     }
 
