@@ -1070,7 +1070,10 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 /* Lavender, so "you have already been here" reads as its own category rather than another shade
    of the green the fit bands own. */
 .artizen-known-relationship { color: var(--ink); background: var(--lavender); }
-.artizen-status-active { color: var(--ink); background: var(--success); }
+/* Curating is the normal state, so it states itself and stops there - Artizen's neutral outline
+   badge. That leaves the greens to mean one thing on a card, which is how well the fund fits.
+   Not curating keeps the warning fill, because it is the exception worth interrupting for. */
+.artizen-status-active { color: var(--ink); background: var(--panel); border: 1px solid var(--line); }
 .artizen-status-inactive { color: var(--ink); background: var(--warn); }
 .artizen-status-available { color: var(--green-ink); background: var(--panel); border: 1px solid var(--line); }
 .artizen-match-reasons {

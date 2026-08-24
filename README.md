@@ -61,6 +61,8 @@ A full run crawls every season and can take several minutes. Watch the Wrangler 
 
 Colours come from the [Artizen style guide](https://play.artizen.fund/style-guide/) and the tokens in `src/styles.css` carry the palette's own names: Night, Slate, Barracuda, Moon, Stone, Algae, Moss, Reef, UI Success, UI Warning, Lavender. Buttons follow the guide's three roles - Primary is Slate darkening to Night, Secondary is a Slate outline filling with Moon, and both are pill-shaped at weight 500. Bootstrap's `btn-dark` and `btn-outline-dark` are retargeted onto those roles once, rather than being overridden per call site.
 
+Green means one thing on a fund card: how well the fund fits. Only the fit band is filled with green - a deep green for a strong fit, UI Success for a good one, Moon for worth a look, a dashed outline for limited evidence. Everything else on the card steps back from it: curating is Artizen's neutral outline badge because it is the normal state, Lavender marks a fund the project has already engaged with, and UI Warning is spent on the one exception worth interrupting for, a fund that is not curating.
+
 One value is not in the palette. `--green-ink: #06773F` exists because Algae is 2.1:1 on white and Moss is 3.0:1, both under the 4.5:1 that text needs - the style guide's own Featured button and Active badge fail this. Green **text** darkens to `--green-ink` and only ever to that; fills keep Algae and Moss, where there is nothing to read. For the same reason a pressed filter is Slate rather than Algae: it is Artizen's Primary treatment, which is what a pressed control is, and it puts the label at 16:1 instead of 2.1:1.
 
 ## Fund matching
