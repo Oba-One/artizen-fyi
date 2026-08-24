@@ -1,6 +1,18 @@
 import type { Bubble } from './bubble';
 import { legacySeasonProjectRows } from './legacy';
-import type { BoostHolder, BoostsPage, Drive, FundRow, Leaderboard, PodiumRow, ProjectRow, Row, Season } from './types';
+import type {
+  BonusChart,
+  BonusShareRow,
+  BoostHolder,
+  BoostsPage,
+  Drive,
+  FundRow,
+  Leaderboard,
+  PodiumRow,
+  ProjectRow,
+  Row,
+  Season,
+} from './types';
 import {
   LEAD_CREATOR,
   bonusShare,
@@ -10,6 +22,7 @@ import {
   driveHasBonusPot,
   field,
   hidden,
+  ids,
   localFundPath,
   localProjectPath,
   mapSome,
@@ -205,7 +218,7 @@ async function attachDrivePodiums(client: Bubble, drives: Drive[]): Promise<Reco
     ),
     Promise.all(
       drives.map(async (drive) => {
-        if (!driveHasBonusPot(drive) || drive.active) return { project: [] as Row[], fund: [] as Row[] };
+        if (!driveHasBonusPot(drive)) return { project: [] as Row[], fund: [] as Row[] };
         const [project, fund] = await Promise.all([
           client.driveBonusParticipants(drive.id, 'project'),
           client.driveBonusParticipants(drive.id, 'fund'),
@@ -222,21 +235,38 @@ async function attachDrivePodiums(client: Bubble, drives: Drive[]): Promise<Reco
   const catalogs = {
     project: await client.indexed(
       'project',
-      records.map((row) => row['project']),
+      ids([...records, ...bonusParts.flatMap((p) => p.project)].map((row) => row['project'])),
     ),
     fund: await client.indexed(
       'fund',
-      records.map((row) => row['fund']),
+      ids([...records, ...bonusParts.flatMap((p) => p.fund)].map((row) => row['fund'])),
     ),
   };
   drives.forEach((drive, i) => {
     const salesRank = driveHasBonusPot(drive);
     drive.podium = podiumRows(pages[i * 2], 'project', catalogs.project, salesRank, num(drive.bonus_projects), weights[i].project);
     drive.fund_podium = podiumRows(pages[i * 2 + 1], 'fund', catalogs.fund, salesRank, num(drive.bonus_funds), weights[i].fund);
+    const projectShares = bonusShareRows(
+      bonusParts[i].project,
+      'project',
+      catalogs.project,
+      num(drive.bonus_projects),
+      weights[i].project,
+    );
+    const fundShares = bonusShareRows(
+      bonusParts[i].fund,
+      'fund',
+      catalogs.fund,
+      num(drive.bonus_funds),
+      weights[i].fund,
+    );
+    drive.bonus_chart = bonusChart('project', num(drive.bonus_projects), weights[i].project, projectShares)
+      ?? bonusChart('fund', num(drive.bonus_funds), weights[i].fund, fundShares);
   });
 
   const bonuses: Record<string, number> = {};
   drives.forEach((drive, i) => {
+    if (drive.active) return;
     const weightSum = weights[i].project;
     const pot = num(drive.bonus_projects);
     if (!(weightSum > 0) || !(pot > 0)) return;
@@ -264,6 +294,43 @@ function topBoostParticipants(
       { key: 'boost', constraint_type: 'equals', value: boostId },
       { key: kind, constraint_type: 'is_not_empty' },
     ],
+  });
+}
+
+function bonusChart(
+  kind: 'project' | 'fund',
+  pot: number,
+  weightSum: number,
+  shares: BonusShareRow[],
+): BonusChart | undefined {
+  if (shares.length === 0 || !(pot > 0) || !(weightSum > 0)) return undefined;
+  return { kind, pot, weight_sum: weightSum, shares };
+}
+
+function bonusShareRows(
+  rows: Row[],
+  kind: 'project' | 'fund',
+  records: Record<string, Row>,
+  pot: number,
+  weightSum: number,
+): BonusShareRow[] {
+  if (!(weightSum > 0) || !(pot > 0)) return [];
+  const nameField = kind === 'fund' ? 'name' : 'Name';
+  return mapSome(rows, (row) => {
+    if (kind === 'fund' && row['project']) return undefined;
+    const id = row[kind];
+    if (!id) return undefined;
+    const record = byId(records, id);
+    if (hidden(record)) return undefined;
+    const points = num(row['boost points received']);
+    if (!(points > 0)) return undefined;
+    const slug = text(record?.['Slug'] || record?.['slugg']) || id;
+    return {
+      name: text(record?.[nameField]) || kind[0].toUpperCase() + kind.slice(1),
+      url: kind === 'fund' ? localFundPath(slug) : localProjectPath(slug),
+      points,
+      bonus: bonusShare(points, weightSum, pot),
+    };
   });
 }
 

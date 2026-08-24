@@ -115,7 +115,7 @@ export function hidden(row?: Row | null): boolean {
   return Boolean(row?.['Hide'] || row?.['unPublished']);
 }
 
-const BONUS_POWER = 0.2;
+export const BONUS_POWER = 0.2;
 
 export function bonusWeight(points: number): number {
   return points > 0 ? points ** BONUS_POWER : 0;

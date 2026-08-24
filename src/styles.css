@@ -537,6 +537,14 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   color: var(--ink);
   font-weight: 500;
 }
+.artizen-bonus-chart {
+  position: relative;
+  height: 22rem;
+}
+.artizen-bonus-chart canvas { display: block; }
+@media (max-width: 767px) {
+  .artizen-bonus-chart { height: 18rem; }
+}
 .artizen-hero-card {
   display: grid;
   grid-template-columns: 11rem minmax(0, 1fr);
