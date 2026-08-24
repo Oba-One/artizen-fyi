@@ -37,6 +37,7 @@ import {
 } from './util';
 
 const TOP_BOOST_HOLDERS = 100;
+const BONUS_CHART_POINTS = 10;
 const BOOST_BUCKETS: Array<{ label: string; min: number; max: number }> = [
   { label: '0', min: 0, max: 0 },
   { label: '1–99', min: 1, max: 99 },
@@ -231,30 +232,35 @@ async function attachDrivePodiums(client: Bubble, drives: Drive[]): Promise<Reco
     project: bonusWeightSum(parts.project),
     fund: bonusWeightSum(parts.fund),
   }));
+  const chartParts = bonusParts.map((parts) => ({
+    project: sortByDesc([...parts.project], (row) => num(row['boost points received'])).slice(0, BONUS_CHART_POINTS),
+    fund: sortByDesc([...parts.fund], (row) => num(row['boost points received'])).slice(0, BONUS_CHART_POINTS),
+  }));
   const records = pages.flat();
-  const catalogs = {
-    project: await client.indexed(
+  const [projectCatalog, fundCatalog] = await Promise.all([
+    client.indexed(
       'project',
-      ids([...records, ...bonusParts.flatMap((p) => p.project)].map((row) => row['project'])),
+      ids([...records, ...chartParts.flatMap((p) => p.project)].map((row) => row['project'])),
     ),
-    fund: await client.indexed(
+    client.indexed(
       'fund',
-      ids([...records, ...bonusParts.flatMap((p) => p.fund)].map((row) => row['fund'])),
+      ids([...records, ...chartParts.flatMap((p) => p.fund)].map((row) => row['fund'])),
     ),
-  };
+  ]);
+  const catalogs = { project: projectCatalog, fund: fundCatalog };
   drives.forEach((drive, i) => {
     const salesRank = driveHasBonusPot(drive);
     drive.podium = podiumRows(pages[i * 2], 'project', catalogs.project, salesRank, num(drive.bonus_projects), weights[i].project);
     drive.fund_podium = podiumRows(pages[i * 2 + 1], 'fund', catalogs.fund, salesRank, num(drive.bonus_funds), weights[i].fund);
     const projectShares = bonusShareRows(
-      bonusParts[i].project,
+      chartParts[i].project,
       'project',
       catalogs.project,
       num(drive.bonus_projects),
       weights[i].project,
     );
     const fundShares = bonusShareRows(
-      bonusParts[i].fund,
+      chartParts[i].fund,
       'fund',
       catalogs.fund,
       num(drive.bonus_funds),

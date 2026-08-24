@@ -50,7 +50,7 @@ function bonusChartPanel(drives: Drive[]): { html: string; script: string } | un
   };
   const html = panel(`
     <h2 class="artizen-panel-title">Bonus vs boosts</h2>
-    <p class="text-muted small mb-3">${escapeHtml(drive.name)} · ${kind} share a <strong>${usd(chart.pot)}</strong> pot on a fifth-root curve (<code>boosts<sup>${BONUS_POWER}</sup></code>). Hover a ${noun} for its take.</p>
+    <p class="text-muted small mb-3">${escapeHtml(drive.name)} · ${kind} share a <strong>${usd(chart.pot)}</strong> pot on a fifth-root curve (<code>boosts<sup>${BONUS_POWER}</sup></code>). Showing the top 10 by boosts; hover a ${noun} for its take.</p>
     <div class="artizen-bonus-chart"><canvas id="artizen-bonus-chart" aria-label="Bonus versus boosts"></canvas></div>
   `);
   const script = `
@@ -107,7 +107,7 @@ function bonusChartPanel(drives: Drive[]): { html: string; script: string } | un
           order: 2
         },
         {
-          label: data.kind === 'funds' ? 'Funds' : 'Projects',
+          label: data.kind === 'funds' ? 'Top 10 funds' : 'Top 10 projects',
           data: data.points,
           pointRadius: 4,
           pointHoverRadius: 6,
