@@ -116,6 +116,8 @@ The second command writes `match-fund-vectors-v2.bin` and 64 project shards, `ma
 
 The project vectors are sharded because a page scores one project. A single 3 MB file meant a project page downloaded three thousand times what it read; the browser now fetches the one shard, about 50 KB, that holds the project it is matching. `vectorBucket` in `src/matching/semantic-text.ts` decides which, and the builder and the browser must agree on it exactly.
 
+`onnxruntime-web` is pinned to an exact version in both `dependencies` and `overrides`, and the pin is load-bearing rather than tidiness. Its largest wasm binary is at **99.6% of Cloudflare's 25 MiB per-asset limit**, so an upstream release is roughly as likely to block a deploy as to improve anything. `overrides` keeps a transitive bump from installing a second copy under `@huggingface/transformers`, which would otherwise ship wasm from one version to a runtime bundled from another, and `build:client` asserts the installed version still matches the pin. It also warns on any asset above 90% of the limit, so the margin is visible on every build rather than only when it runs out.
+
 `npm run deploy` runs `prepare:semantic` first. The vector catalogs are separate because they are built from a specific index. Regenerate them whenever `src/matching/taxonomy.ts` changes, since the vector version is derived from the taxonomy version. `npm run build:client` warns when either asset is missing.
 
 Asset URLs and the vector version live in `src/matching/semantic-config.ts` and are read from the browser bundle rather than from the index, so changing them takes effect on the next deploy instead of waiting for the hourly cron to rewrite the catalog.

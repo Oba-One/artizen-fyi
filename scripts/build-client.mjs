@@ -27,6 +27,16 @@ await build({
 // Every ort-wasm-simd-threaded variant is copied on purpose. ONNX Runtime picks the binary at
 // runtime from the backend and the browser's capabilities, so pruning "unused" variants trades
 // ~37 MB of deploy size for a 404 on exactly the path this feature depends on.
+// The wasm shipped here has to come from the version the bundle will load. They are the same
+// package today only because transformers happens to ask for the identical build; a bump that
+// changes its mind would leave a nested copy under transformers while this still copies from the
+// top level, shipping wasm from one version to a runtime from another. `overrides` in package.json
+// prevents that, and this asserts the prevention actually held.
+const ortPin = JSON.parse(await readFile('package.json', 'utf8')).dependencies['onnxruntime-web'];
+const ortInstalled = JSON.parse(await readFile('node_modules/onnxruntime-web/package.json', 'utf8')).version;
+if (ortInstalled !== ortPin) {
+  throw new Error(`onnxruntime-web is pinned to ${ortPin} but ${ortInstalled} is installed`);
+}
 const ortSource = 'node_modules/onnxruntime-web/dist';
 const ortTarget = 'public/assets/ort';
 await mkdir(ortTarget, { recursive: true });
@@ -71,10 +81,20 @@ async function filesBelow(directory) {
   }
   return files;
 }
+// Warn before it is a wall, not after. The largest ONNX Runtime binary sits above 99% of the cap,
+// so the difference between "fine" and "the deploy is blocked" is one upstream release; a build
+// that only speaks up at 100% gives no chance to plan for it.
+const assetWarnRatio = 0.9;
 for (const path of await filesBelow('public/assets')) {
   const bytes = (await stat(path)).size;
+  const name = relative('public/assets', path);
   if (bytes > maxStaticFileBytes) {
-    throw new Error(`${relative('public/assets', path)} exceeds Cloudflare's 25 MiB static-asset limit`);
+    throw new Error(`${name} exceeds Cloudflare's 25 MiB static-asset limit (${bytes} bytes)`);
+  }
+  if (bytes > maxStaticFileBytes * assetWarnRatio) {
+    const used = ((bytes / maxStaticFileBytes) * 100).toFixed(1);
+    const spare = maxStaticFileBytes - bytes;
+    console.warn(`NOTE: ${name} is at ${used}% of Cloudflare's 25 MiB asset limit (${spare} bytes spare).`);
   }
 }
 

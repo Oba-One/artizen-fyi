@@ -36,6 +36,9 @@
     "@huggingface/transformers": "4.2.0",
     "onnxruntime-web": "1.26.0-dev.20260416-b7804b056c"
   },
+  "overrides": {
+    "onnxruntime-web": "1.26.0-dev.20260416-b7804b056c"
+  },
   "engines": {
     "node": ">=22"
   }
