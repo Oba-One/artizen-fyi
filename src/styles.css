@@ -692,6 +692,9 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-items: baseline;
   gap: 0.15rem 0.6rem;
 }
+/* The note is usually empty and the undo action usually hidden, so the row would otherwise sit in
+   the layout as a bare flex gap under the status. */
+.artizen-ai-note-row:not(:has(> *:not([hidden]):not(:empty))) { display: none; }
 .artizen-ai-note {
   margin: -0.35rem 0 0;
   font-size: 0.82rem;

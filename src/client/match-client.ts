@@ -649,7 +649,7 @@ type SemanticControl = {
 
 function infoParagraphs(source: MatchOutcome['semanticSource']): string[] {
   const shared = [
-    'Every fund is scored on how closely its own published wording matches your project — the words it uses, the focus areas it names, and the ideas that make it distinctive.',
+    'Every fund is scored on how closely its own published wording matches your project: the words it uses, the focus areas it names, and the ideas that make it distinctive.',
     'Nothing about your history counts. Whether a fund has backed you before, whether it is curating, and how much money it holds are shown on the card but never change the ranking.',
   ];
   if (source === 'precomputed') {
@@ -661,7 +661,7 @@ function infoParagraphs(source: MatchOutcome['semanticSource']): string[] {
   }
   return [
     ...shared,
-    'Turning on local AI adds a second reading that compares meaning rather than words, so a fund can match your project even when the two describe the same idea differently. It downloads a small model and runs entirely on your device — your description never leaves this browser.',
+    'Turning on local AI adds a second reading that compares meaning rather than words, so a fund can match your project even when the two describe the same idea differently. It downloads a small model and runs entirely on your device. Your description never leaves this browser.',
   ];
 }
 
@@ -1245,7 +1245,6 @@ function installSemanticControl(
   };
   button.title = `Runs a ${download} on this device. Nothing leaves the browser.`;
   setLabel(idleLabel, true);
-  let precomputedShown = false;
   let modelReady = false;
   let lastSource: MatchOutcome['semanticSource'];
   let lastDowngrade: MatchOutcome['semanticDowngrade'];
@@ -1258,19 +1257,19 @@ function installSemanticControl(
   const applySource = (): void => {
     const precomputed = lastSource === 'precomputed';
     const edited = !lastSource && lastDowngrade === 'edited';
-    precomputedShown = precomputed;
     button.hidden = precomputed;
     if (progress) progress.hidden = progress.hidden || precomputed;
     if (undo) undo.hidden = !edited || !undoHandler;
-    controls.hidden = precomputed ? false : !modelReady;
+    // Nothing to offer when the comparison is already prepared: the button would download 50 MB to
+    // reproduce the answer on screen. The whole block goes rather than leaving an empty frame, and
+    // the info panel is where anyone curious about how the matching works is already looking.
+    controls.hidden = precomputed || !modelReady;
     if (!status) return;
-    if (precomputed) {
-      status.textContent = 'Semantic matching applied from the public catalog — no model download needed.';
-    } else if (edited) {
+    if (edited) {
       status.textContent = modelReady
         ? 'Your edits mean the prepared comparison no longer applies. Turn on local AI to compare meaning again.'
         : 'Your edits mean the prepared comparison no longer applies, so these results compare words rather than meaning.';
-    } else if (status.textContent.startsWith('Semantic matching applied') || status.textContent.startsWith('Your edits')) {
+    } else if (status.textContent.startsWith('Your edits')) {
       status.textContent = '';
     }
   };
