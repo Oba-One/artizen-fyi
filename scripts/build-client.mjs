@@ -1,6 +1,6 @@
 import { gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
-import { copyFile, mkdir, readFile, readdir, stat, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, join, relative } from 'node:path';
 import { build } from 'esbuild';
 
@@ -24,9 +24,6 @@ await build({
   logLevel: 'info',
 });
 
-// Every ort-wasm-simd-threaded variant is copied on purpose. ONNX Runtime picks the binary at
-// runtime from the backend and the browser's capabilities, so pruning "unused" variants trades
-// ~37 MB of deploy size for a 404 on exactly the path this feature depends on.
 // The wasm shipped here has to come from the version the bundle will load. They are the same
 // package today only because transformers happens to ask for the identical build; a bump that
 // changes its mind would leave a nested copy under transformers while this still copies from the
@@ -37,13 +34,46 @@ const ortInstalled = JSON.parse(await readFile('node_modules/onnxruntime-web/pac
 if (ortInstalled !== ortPin) {
   throw new Error(`onnxruntime-web is pinned to ${ortPin} but ${ortInstalled} is installed`);
 }
+
+/**
+ * Copy the ONNX Runtime binaries the built bundle can actually ask for, and only those.
+ *
+ * Each ORT entry point hardcodes one wasm variant rather than choosing at runtime, so which of the
+ * four gets fetched is decided by which entry point transformers imports - not by the browser. The
+ * bundle it imports names `asyncify`, which is how WebGPU is served in this version too; `jsep` and
+ * `jspi` are 40 MB that no code path here can reach.
+ *
+ * Reading the names out of the bundle rather than listing them keeps that true through an upgrade:
+ * if transformers switches entry points, the copy list follows it in the same build.
+ */
 const ortSource = 'node_modules/onnxruntime-web/dist';
 const ortTarget = 'public/assets/ort';
 await mkdir(ortTarget, { recursive: true });
-for (const filename of await readdir(ortSource)) {
-  if (!/^ort-wasm-simd-threaded.*\.(mjs|wasm)$/.test(filename)) continue;
-  await copyFile(join(ortSource, filename), join(ortTarget, basename(filename)));
+const bundleText = (
+  await Promise.all(
+    (await readdir('public/assets'))
+      .filter((name) => /\.js$/.test(name))
+      .map((name) => readFile(join('public/assets', name), 'utf8')),
+  )
+).join('');
+const wanted = new Set([...bundleText.matchAll(/ort-wasm-simd-threaded[a-z.]*\.wasm/g)].map((match) => match[0]));
+if (wanted.size === 0) {
+  throw new Error('no ONNX Runtime wasm filenames found in the built bundles; the copy list would ship nothing');
 }
+const available = await readdir(ortSource);
+for (const wasm of wanted) {
+  // Each wasm needs its loader beside it, and ORT derives that name by extension alone.
+  for (const filename of [wasm, wasm.replace(/\.wasm$/, '.mjs')]) {
+    if (!available.includes(filename)) throw new Error(`the bundle asks for ${filename}, which onnxruntime-web does not ship`);
+    await copyFile(join(ortSource, filename), join(ortTarget, basename(filename)));
+  }
+}
+// Variants a previous build copied but this one does not need would otherwise linger and deploy.
+for (const filename of await readdir(ortTarget)) {
+  const wasm = filename.replace(/\.mjs$/, '.wasm');
+  if (!wanted.has(wasm)) await rm(join(ortTarget, filename));
+}
+console.log(`ONNX Runtime: shipping ${[...wanted].join(', ')}`);
 
 // Bundles must revalidate on every load. The pinned model and runtime are content-addressed by
 // revision and SHA and run to tens of megabytes, so re-downloading them hourly is pure waste.
