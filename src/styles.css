@@ -878,6 +878,15 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   font-size: 0.88rem;
 }
 
+/* Cards arrive rather than appear. `--card-index` is set only on a fresh set of results, so a
+   filter toggle settles in place instead of replaying the sequence. */
+@keyframes artizen-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
 /* Subgrid lets every card's title, description, meter, badges, and action line up with its
    siblings, and collapse together when a row needs less room. */
 .artizen-match-results {
@@ -897,6 +906,9 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border: 1px solid var(--line);
   border-radius: 1rem;
   background: var(--panel);
+  animation: artizen-card-in 240ms ease-out backwards;
+  /* Capped so the twelfth card is not still waiting a third of a second after the first. */
+  animation-delay: calc(min(var(--card-index, 0), 8) * 28ms);
 }
 .artizen-match-card-inactive {
   border-style: dashed;
@@ -1309,6 +1321,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 @media (prefers-reduced-motion: reduce) {
   .artizen-fund-dialog { animation: none; }
+  .artizen-match-card { animation: none; }
 }
 .artizen-review-page { max-width: 64rem; margin: 0 auto; }
 .artizen-review-page section + section { margin-top: 1.5rem; }

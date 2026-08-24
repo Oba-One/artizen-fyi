@@ -35,10 +35,10 @@ export function renderMatch(): string {
           <section data-source-panel="existing" aria-labelledby="existing-project-title">
             <h2 class="visually-hidden" id="existing-project-title">Select a project</h2>
             <div class="artizen-project-picker">
-              <label class="visually-hidden" for="match-project">Search projects</label>
+              <label class="visually-hidden" for="match-project">Search projects by name</label>
               <div class="artizen-project-field">
                 <i class="bi bi-search artizen-project-icon" aria-hidden="true"></i>
-                <input class="form-control" id="match-project" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="match-project-options" aria-describedby="match-project-help" autocomplete="off" placeholder="Search projects by name, tag, or description" data-project-input required>
+                <input class="form-control" id="match-project" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="match-project-options" aria-describedby="match-project-help" autocomplete="off" placeholder="Search by project name" data-project-input required>
                 <button class="artizen-project-clear" type="button" data-project-clear aria-label="Clear project search" hidden>&times;</button>
               </div>
               <ul class="artizen-project-options" id="match-project-options" role="listbox" data-project-options hidden></ul>

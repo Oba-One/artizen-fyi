@@ -849,6 +849,8 @@ function installResults(
   let projectKey = '';
   let shortlist = new Set<string>();
   let previousOrder: string[] | undefined;
+  /** Set by a new result set, cleared by the render that consumes it. */
+  let stagger = false;
   const movement = new Map<string, 'up' | 'new'>();
 
   const pressed = (toggle: HTMLButtonElement | null) => toggle?.getAttribute('aria-pressed') === 'true';
@@ -998,17 +1000,20 @@ function installResults(
     const shown = catalogOpen
       ? ranked.slice(0, catalogLimit)
       : sortShown(ranked.slice(0, INITIAL_RESULTS));
-    for (const recommendation of shown) {
+    shown.forEach((recommendation, position) => {
       const fund = fundsById.get(recommendation.fundId);
-      if (!fund) continue;
-      results.append(
-        recommendationCard(fund, recommendation, index, fundDialog.open, {
-          shortlisted: shortlist.has(recommendation.fundId),
-          onShortlist: () => toggleShortlist(recommendation.fundId),
-          movement: movement.get(recommendation.fundId),
-        }),
-      );
-    }
+      if (!fund) return;
+      const card = recommendationCard(fund, recommendation, index, fundDialog.open, {
+        shortlisted: shortlist.has(recommendation.fundId),
+        onShortlist: () => toggleShortlist(recommendation.fundId),
+        movement: movement.get(recommendation.fundId),
+      });
+      // A new list arrives in sequence; narrowing an existing one just settles, because replaying
+      // the stagger on every keystroke in the fund search would be a shimmer, not a signal.
+      if (stagger) card.style.setProperty('--card-index', String(position));
+      results.append(card);
+    });
+    stagger = false;
     // `filtered` is exactly what opening the catalog would render, so promise that number and
     // not the unfiltered total.
     const remaining = ranked.length - shown.length;
@@ -1151,6 +1156,7 @@ function installResults(
     },
     show(result, options) {
       markMovement(result, options?.compare === true);
+      stagger = true;
       recommendations = result.recommendations;
       catalogOpen = false;
       catalogLimit = INITIAL_RESULTS * 2;
@@ -1260,10 +1266,11 @@ function installSemanticControl(
     button.hidden = precomputed;
     if (progress) progress.hidden = progress.hidden || precomputed;
     if (undo) undo.hidden = !edited || !undoHandler;
-    // Nothing to offer when the comparison is already prepared: the button would download 50 MB to
-    // reproduce the answer on screen. The whole block goes rather than leaving an empty frame, and
-    // the info panel is where anyone curious about how the matching works is already looking.
-    controls.hidden = precomputed || !modelReady;
+    // Three reasons there is nothing to offer, and in all of them the control goes rather than
+    // sitting there refusing to work: the model is not served, the comparison is already prepared
+    // (the button would download 50 MB to reproduce the answer on screen), or nothing has been
+    // matched yet so there are no results to improve.
+    controls.hidden = precomputed || !modelReady || !input;
     if (!status) return;
     if (edited) {
       status.textContent = modelReady
@@ -1279,6 +1286,7 @@ function installSemanticControl(
     applySource();
   });
   button.addEventListener('click', async () => {
+    if (!input) return;
     if (loading) {
       cancelled = true;
       engine.cancelSemantic();
@@ -1286,10 +1294,6 @@ function installSemanticControl(
       setLabel(idleLabel, true);
       if (progress) progress.hidden = true;
       if (status) status.textContent = 'Local AI loading cancelled. Baseline recommendations are unchanged.';
-      return;
-    }
-    if (!input) {
-      if (status) status.textContent = 'Match a project first, then improve those results locally.';
       return;
     }
     loading = true;
@@ -1327,13 +1331,18 @@ function installSemanticControl(
   });
   return {
     setInput(value) {
+      const first = !input;
       input = value;
       // A new project or description has not been through the model, so the control must stop
       // claiming it has - otherwise it reads "Local AI applied" over baseline results.
-      if (loading || !button.disabled) return;
+      if (loading || !button.disabled) {
+        if (first) applySource();
+        return;
+      }
       button.disabled = false;
       setLabel(idleLabel, true);
       if (status) status.textContent = '';
+      applySource();
     },
     state: () => (button.disabled ? 'applied' : controls.hidden || button.hidden ? 'unavailable' : 'available'),
     enable: () => button.click(),
@@ -1494,7 +1503,12 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
   const submit = find<HTMLButtonElement>(root, '[type="submit"]');
   const existingPickerRoot = find(root, '[data-tag-picker="existing"]');
   const describePickerRoot = find(root, '[data-tag-picker="describe"]');
-  const existingTags = existingPickerRoot ? new TagPicker(existingPickerRoot, null, () => renderTagPrompt()) : undefined;
+  const existingTags = existingPickerRoot
+    ? new TagPicker(existingPickerRoot, null, () => {
+        renderTagPrompt();
+        refreshSubmitLabel();
+      })
+    : undefined;
   const describeTags = describePickerRoot ? new TagPicker(describePickerRoot) : undefined;
   const semanticRef: { control?: SemanticControl } = {};
   const view = installResults(root, engine.index, semanticRef);
@@ -1612,6 +1626,7 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
       if (existingDescription) existingDescription.value = '';
       existingTags?.set([]);
       renderTagPrompt();
+      refreshSubmitLabel();
       return;
     }
     const name = document.createElement('strong');
@@ -1635,6 +1650,7 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
     if (existingDescription) existingDescription.value = project.description;
     existingTags?.set(project.tags);
     renderTagPrompt();
+    refreshSubmitLabel();
   }
 
   function closeProjectOptions(): void {
@@ -1668,6 +1684,27 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
   }
 
   /**
+   * Selecting a project already matches it, so the button's only remaining job is applying a
+   * refinement. It says so only when there is one: "Update matches" over an untouched project read
+   * as though something were pending, and picking a different project left the old label standing.
+   */
+  function refreshSubmitLabel(): void {
+    if (!submit) return;
+    const project = source === 'existing' ? chosenProject : undefined;
+    if (!project) {
+      submit.textContent = submitLabel;
+      return;
+    }
+    // Compared through `existingInput`, so "refined" means exactly what the submit would send -
+    // an emptied description falls back to the stored one there, and counts as untouched here.
+    const pending = existingInput(project);
+    const refined =
+      pending.description !== project.description ||
+      pending.tags.join('\u0000') !== project.tags.join('\u0000');
+    submit.textContent = refined ? 'Update matches' : submitLabel;
+  }
+
+  /**
    * Matching a catalog project waits on the vector catalog; matching freeform text does not. Two
    * requests in flight can therefore finish out of order - pick a project, switch to Describe,
    * submit, and the abandoned project's results land on top of the ones asked for second. The
@@ -1684,8 +1721,6 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
       semantic.setSource(outcome.semanticSource, outcome.semanticDowngrade);
       setInfoSource(outcome.semanticSource);
       view.show(outcome.result);
-      // The button stops being the way to get results and becomes the way to redo them.
-      if (submit) submit.textContent = 'Update matches';
       if (reveal) revealResults();
     } catch {
       if (token === matchToken) setStatus(root, 'The matching engine could not finish. Reload the page and try again.');
@@ -1798,6 +1833,7 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
     if (projectInput) projectInput.required = source === 'existing';
     if (source !== 'existing') projectInput?.setCustomValidity('');
     if (description) description.required = source === 'describe';
+    refreshSubmitLabel();
   }
 
   // Restoring the stored description and tags puts the input back on the prepared comparison,
@@ -1808,6 +1844,7 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
     if (existingDescription) existingDescription.value = project.description;
     existingTags?.set(project.tags);
     renderTagPrompt();
+    refreshSubmitLabel();
     void runMatch(matchInputForProject(project));
   });
 
@@ -1861,6 +1898,7 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
       if (committed) chooseProject(committed);
     }, 120);
   });
+  existingDescription?.addEventListener('input', () => refreshSubmitLabel());
   projectClear?.addEventListener('pointerdown', (event) => event.preventDefault());
   projectClear?.addEventListener('click', () => clearProject());
 
@@ -1896,7 +1934,6 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
   showProject(undefined);
   syncMode('existing');
   setStatus(root, readyMessage(engine.index));
-  if (submit) submit.textContent = submitLabel;
   const requestedSlug = new URL(location.href).searchParams.get('project');
   if (requestedSlug && projectInput) {
     void ensureProjects().then(() => {
