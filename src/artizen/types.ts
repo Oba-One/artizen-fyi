@@ -408,8 +408,12 @@ export type SemanticCatalogManifest = {
   modelPath: string;
   wasmPath: string;
   vectorsUrl: string;
-  /** Embeddings for every catalog project, so selecting one needs no model at all. */
-  projectVectorsUrl: string;
+  /**
+   * Embeddings for every catalog project, so selecting one needs no model at all. Sharded, because
+   * a page scores one project: the URL is `${projectVectorPrefix}${bucket}.bin`.
+   */
+  projectVectorPrefix: string;
+  projectVectorBuckets: number;
   vectorVersion: string;
 };
 

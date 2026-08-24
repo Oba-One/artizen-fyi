@@ -112,8 +112,9 @@ if (!semanticModelReady) {
 
 try {
   const funds = await stat('public/assets/match-fund-vectors-v2.bin');
-  const projects = await stat('public/assets/match-project-vectors-v2.bin');
-  console.log(`Vector catalogs ready: ${funds.size} bytes funds / ${projects.size} bytes projects`);
+  // Shard zero stands in for all of them: they are written in one pass, so if it is there they are.
+  const shard = await stat('public/assets/match-project-vectors-v2-0.bin');
+  console.log(`Vector catalogs ready: ${funds.size} bytes funds / ${shard.size} bytes per project shard`);
 } catch (error) {
   if (error?.code !== 'ENOENT') throw error;
   console.warn(

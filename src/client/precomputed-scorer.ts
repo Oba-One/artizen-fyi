@@ -1,8 +1,8 @@
 /// <reference lib="webworker" />
 
-import type { MatchIndexV2, ProjectMatchInput } from '../artizen/types';
+import type { MatchIndexV2, ProjectMatchInput, ProjectProfileV2 } from '../artizen/types';
 import { semanticManifest } from '../matching/semantic-config';
-import { matchInputVectorText, projectVectorText, vectorFingerprint } from '../matching/semantic-text';
+import { matchInputVectorText, projectVectorText, vectorBucket, vectorFingerprint } from '../matching/semantic-text';
 import { parseVectorCatalog, scoreAgainstFunds } from './vector-catalog';
 
 /**
@@ -30,38 +30,61 @@ export type PrecomputedOutcome = {
  */
 export class PrecomputedSemanticScorer {
   private funds: Map<string, Float32Array> | undefined;
-  private projects: Map<string, Float32Array> | undefined;
+  /**
+   * One entry per shard the page has actually needed. Keyed by shard rather than by project so two
+   * projects that land in the same file share a fetch, and memoised as the promise so two matches
+   * racing for the same shard do not both download it.
+   */
+  private readonly shards = new Map<number, Promise<Map<string, Float32Array> | undefined>>();
 
   constructor(private readonly index: MatchIndexV2) {}
 
+  /**
+   * Only the fund vectors, which every comparison needs. Project vectors are fetched a shard at a
+   * time once there is a project to score - a project page used to pull all 3 MB of them to read
+   * one project's kilobyte.
+   */
   async load(): Promise<boolean> {
     const manifest = semanticManifest(this.index);
     if (!manifest) return false;
-    const fingerprints = new Map(
-      this.index.projects.map((project) => [project.id, vectorFingerprint(projectVectorText(project))]),
-    );
-    const fundFingerprints = new Map(
-      this.index.funds.map((fund) => [fund.id, vectorFingerprint(fund.profileText)]),
-    );
-    const [funds, projects] = await Promise.all([
-      this.fetchCatalog(manifest, manifest.vectorsUrl, fundFingerprints),
-      this.fetchCatalog(manifest, manifest.projectVectorsUrl, fingerprints),
-    ]);
-    this.funds = funds;
-    this.projects = projects;
-    return Boolean(funds?.size && projects?.size);
+    const fingerprints = new Map(this.index.funds.map((fund) => [fund.id, vectorFingerprint(fund.profileText)]));
+    this.funds = await this.fetchCatalog(manifest, manifest.vectorsUrl, fingerprints);
+    return Boolean(this.funds?.size);
   }
 
   /** Scores against funds when this input is an unedited catalog project, and nothing otherwise. */
-  score(input: ProjectMatchInput): PrecomputedOutcome {
-    if (!this.funds || !this.projects || !input.projectId) return {};
-    const vector = this.projects.get(input.projectId);
-    if (!vector) return {};
+  async score(input: ProjectMatchInput): Promise<PrecomputedOutcome> {
+    const manifest = semanticManifest(this.index);
+    if (!this.funds || !manifest || !input.projectId) return {};
     const project = this.index.projects.find((candidate) => candidate.id === input.projectId);
     if (!project) return {};
-    // A refined description or an edited tag list no longer matches the text that was embedded.
+    // Checked before the shard is fetched, not after: an edited project is never going to match a
+    // stored vector, so there is nothing to download.
     if (matchInputVectorText(input) !== projectVectorText(project)) return { downgrade: 'edited' };
+    const vectors = await this.shard(manifest, project);
+    const vector = vectors?.get(project.id);
+    if (!vector) return {};
     return { scores: scoreAgainstFunds(vector, this.funds, this.index.funds.map((fund) => fund.id)) };
+  }
+
+  private shard(
+    manifest: { vectorVersion: string; dimensions: number; projectVectorPrefix: string; projectVectorBuckets: number },
+    project: ProjectProfileV2,
+  ): Promise<Map<string, Float32Array> | undefined> {
+    const bucket = vectorBucket(project.id, manifest.projectVectorBuckets);
+    let pending = this.shards.get(bucket);
+    if (!pending) {
+      // Every known project that lands in this shard, so the parsed result serves all of them. The
+      // page either knows the whole catalog (the picker) or exactly the one project it is about.
+      const expected = new Map(
+        this.index.projects
+          .filter((candidate) => vectorBucket(candidate.id, manifest.projectVectorBuckets) === bucket)
+          .map((candidate) => [candidate.id, vectorFingerprint(projectVectorText(candidate))]),
+      );
+      pending = this.fetchCatalog(manifest, `${manifest.projectVectorPrefix}${bucket}.bin`, expected);
+      this.shards.set(bucket, pending);
+    }
+    return pending;
   }
 
   private async fetchCatalog(

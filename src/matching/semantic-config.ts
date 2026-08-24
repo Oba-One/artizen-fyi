@@ -14,7 +14,11 @@ export const SEMANTIC_CATALOG: SemanticCatalogManifest = {
   modelPath: '/assets/models/',
   wasmPath: '/assets/ort/',
   vectorsUrl: '/assets/match-fund-vectors-v2.bin',
-  projectVectorsUrl: '/assets/match-project-vectors-v2.bin',
+  // 64 shards puts roughly 46 of the catalog's 2,912 projects in each, about 50 KB - small enough
+  // that a project page fetches a fiftieth of what one 3 MB file cost it, and few enough that
+  // browsing several projects still costs less than the whole catalog did.
+  projectVectorPrefix: '/assets/match-project-vectors-v2-',
+  projectVectorBuckets: 64,
   vectorVersion: `${SEMANTIC_MODEL_REVISION.slice(0, 12)}-${MATCH_TAXONOMY_VERSION}-256`,
 };
 

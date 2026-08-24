@@ -65,6 +65,8 @@ The catalog is served in three pieces, because no page needs all of it. `/match/
 
 Each project carries its own fund history as compact `[fundId, kind]` pairs rather than the catalog shipping one flat relationship table. A browser matching one project reads sixteen rows of nine thousand, so the table was roughly half the payload and almost entirely other people's projects.
 
+Selecting a catalog project needs no model download at all: both sides were embedded when the catalog was built, so the browser fetches the fund vectors (262 KB) plus one project shard (about 50 KB) and takes a dot product. The on-device model is still required for a freeform description, and for a catalog project whose description or tags have been edited, since neither is text that was embedded in advance.
+
 Project and fund thumbnails are the one exception worth naming: their URLs travel inside the public catalog, but the browser loads the images themselves from Artizen's media host. That host therefore sees which cards were rendered. Nothing about the project description, the tags, or the ranking leaves the browser.
 
 The V2 ranker uses only official fund language, reviewed project-agnostic facets, and distinctive core concepts. Historical relationships, availability, and activity are display context only and never affect rank or score. The primary list holds twelve funds - a count that divides evenly across one, two, three, and four columns, so the grid never ends on a part-filled row. Every strong or good match comes first, then the closest exploratory ones to make up the number, each carrying the badge that says which it is. The full catalog remains available separately. Results describe thematic fit, not eligibility, open applications, geography, or deadlines.
@@ -100,7 +102,9 @@ npm run prepare:semantic                                          # pinned model
 npm run build:semantic-vectors -- path/to/match-index.v2.json     # or a URL to a deployed catalog
 ```
 
-The second command writes both catalogs — `match-fund-vectors-v2.bin` and `match-project-vectors-v2.bin`. Regenerate them whenever the matching index is rebuilt; records whose fingerprint no longer matches are simply ignored, so a stale file degrades rather than misleads.
+The second command writes `match-fund-vectors-v2.bin` and 64 project shards, `match-project-vectors-v2-N.bin`. Regenerate them whenever the matching index is rebuilt; records whose fingerprint no longer matches are simply ignored, so a stale file degrades rather than misleads.
+
+The project vectors are sharded because a page scores one project. A single 3 MB file meant a project page downloaded three thousand times what it read; the browser now fetches the one shard, about 50 KB, that holds the project it is matching. `vectorBucket` in `src/matching/semantic-text.ts` decides which, and the builder and the browser must agree on it exactly.
 
 `npm run deploy` runs `prepare:semantic` first. The vector catalogs are separate because they are built from a specific index. Regenerate them whenever `src/matching/taxonomy.ts` changes, since the vector version is derived from the taxonomy version. `npm run build:client` warns when either asset is missing.
 

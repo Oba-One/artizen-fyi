@@ -5,9 +5,11 @@ import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { env, pipeline } from '@huggingface/transformers';
 
-// Emits two catalogs of precomputed embeddings:
-//   match-fund-vectors-v2.bin     - so on-device scoring only has to embed the project text
-//   match-project-vectors-v2.bin  - so an existing catalog project needs no model at all
+// Emits the precomputed embedding catalogs:
+//   match-fund-vectors-v2.bin       - so on-device scoring only has to embed the project text
+//   match-project-vectors-v2-N.bin  - so an existing catalog project needs no model at all
+// The project vectors are sharded because a page scores one project: a single file meant a project
+// page downloaded 3 MB to read one kilobyte of it.
 const inputPath = process.argv[2];
 const outputDir = process.argv[3] || 'public/assets';
 if (!inputPath) {
@@ -40,6 +42,7 @@ if (!inputPath) {
     stdin: {
       contents: `export { projectVectorText, vectorFingerprint } from ${JSON.stringify(join(process.cwd(), 'src/matching/semantic-text.ts'))};
                  export { SEMANTIC_CATALOG } from ${JSON.stringify(join(process.cwd(), 'src/matching/semantic-config.ts'))};
+                 export { vectorBucket } from ${JSON.stringify(join(process.cwd(), 'src/matching/semantic-text.ts'))};
                  export { serializeVectorCatalog } from ${JSON.stringify(join(process.cwd(), 'src/client/vector-catalog.ts'))};`,
       resolveDir: process.cwd(),
       sourcefile: 'vectors-entry.ts',
@@ -51,7 +54,8 @@ if (!inputPath) {
     target: 'node22',
     logLevel: 'silent',
   });
-  const { projectVectorText, vectorFingerprint, serializeVectorCatalog, SEMANTIC_CATALOG } = await import(pathToFileURL(shim).href);
+  const { projectVectorText, vectorFingerprint, vectorBucket, serializeVectorCatalog, SEMANTIC_CATALOG } =
+    await import(pathToFileURL(shim).href);
   // Version and dimensions come from the same constant the browser reads, never from the index -
   // otherwise a config change here and a catalog rebuild have to land in lockstep.
   const manifest = SEMANTIC_CATALOG;
@@ -94,7 +98,7 @@ if (!inputPath) {
     return vectors;
   }
 
-  async function writeCatalog(filename, items, textOf, vectors) {
+  async function writeCatalog(filename, items, textOf, vectors, quiet = false) {
     const entries = items.map((item, itemIndex) => ({
       id: item.id,
       fingerprint: vectorFingerprint(textOf(item)),
@@ -103,7 +107,8 @@ if (!inputPath) {
     const buffer = serializeVectorCatalog(manifest.vectorVersion, dimensions, entries);
     const path = join(outputDir, filename);
     await writeFile(path, Buffer.from(buffer));
-    console.log(`${filename}: ${entries.length} vectors, ${buffer.byteLength} bytes`);
+    if (!quiet) console.log(`${filename}: ${entries.length} vectors, ${buffer.byteLength} bytes`);
+    return buffer.byteLength;
   }
 
   const fundText = (fund) => fund.profileText;
@@ -113,7 +118,29 @@ if (!inputPath) {
   await extractor.dispose();
 
   await writeCatalog('match-fund-vectors-v2.bin', index.funds, fundText, fundVectors);
-  await writeCatalog('match-project-vectors-v2.bin', index.projects, projectText, projectVectors);
+
+  const buckets = SEMANTIC_CATALOG.projectVectorBuckets;
+  const sharded = Array.from({ length: buckets }, () => []);
+  index.projects.forEach((project, position) => {
+    sharded[vectorBucket(project.id, buckets)].push({ project, vector: projectVectors[position] });
+  });
+  let shardBytes = 0;
+  for (let bucket = 0; bucket < buckets; bucket += 1) {
+    // Empty shards are written too: a project id that hashes into one should read an empty catalog
+    // and fall back, not take a 404 as a broken deployment.
+    const rows = sharded[bucket];
+    shardBytes += await writeCatalog(
+      `match-project-vectors-v2-${bucket}.bin`,
+      rows.map((row) => row.project),
+      projectText,
+      rows.map((row) => row.vector),
+      true,
+    );
+  }
+  console.log(
+    `match-project-vectors-v2-*.bin: ${index.projects.length} vectors across ${buckets} shards, ` +
+      `${shardBytes} bytes total, ${Math.round(shardBytes / buckets)} bytes median fetch`,
+  );
   } finally {
     await rm(temp, { recursive: true, force: true });
   }
