@@ -1,32 +1,35 @@
 :root {
   --ink: #101212;
+  --slate: #202222;
   --muted: #8690A0;
   --paper: #F1F3EE;
   --panel: #ffffff;
-  --line: #E2E5E7;
+  --line: #D9DBE0;
   --green: #1ACC6C;
   --green-deep: #06AA59;
+  /* Not a brand colour. Algae is 2.1:1 on white and Moss 3.0:1, both under the 4.5:1 that text
+     needs, so green text darkens to this and only ever to this. Fills keep Algae and Moss. */
   --green-ink: #06773F;
-  --warn: #F6C453;
-  --warn-ink: #5A4106;
-  --warn-line: #E4B84A;
-  --warn-paper: #FDF6E6;
+  --reef: #B3F487;
+  --success: #2DD685;
+  --warn: #D6C52D;
+  --lavender: #C2B6DC;
   --shadow: 0 8px 18px rgba(16, 18, 18, 0.08);
   --radius: 1.15rem;
   --shell: 90rem;
   --artizen-nav-height: calc(1.4rem + 2.4rem + 1.85rem + 1px);
   --bs-primary: var(--green);
   --bs-primary-rgb: 26, 204, 108;
-  --bs-link-color: var(--green-deep);
-  --bs-link-hover-color: #058a48;
-  --bs-link-color-rgb: 6, 170, 89;
-  --bs-link-hover-color-rgb: 5, 138, 72;
+  --bs-link-color: var(--green-ink);
+  --bs-link-hover-color: var(--ink);
+  --bs-link-color-rgb: 6, 119, 63;
+  --bs-link-hover-color-rgb: 16, 18, 18;
   --bs-pagination-color: var(--ink);
   --bs-pagination-hover-color: var(--ink);
   --bs-pagination-focus-color: var(--ink);
   --bs-pagination-active-color: #fff;
-  --bs-pagination-active-bg: var(--green);
-  --bs-pagination-active-border-color: var(--green);
+  --bs-pagination-active-bg: var(--green-ink);
+  --bs-pagination-active-border-color: var(--green-ink);
   --bs-pagination-disabled-color: var(--ink);
   --bs-pagination-disabled-bg: var(--paper);
   --bs-pagination-disabled-border-color: var(--line);
@@ -39,6 +42,38 @@
   --bs-border-color: var(--line);
   --bs-secondary-rgb: 134, 144, 160;
 }
+/* Bootstrap's dark buttons stand in for Artizen's Primary and Secondary, so they are retargeted
+   here rather than overridden at each call site: Slate that darkens to Night, and an outline that
+   fills with Moon. Both pill-shaped and weight 500, which is what every button in the style guide
+   is. */
+.btn-dark {
+  --bs-btn-bg: var(--slate);
+  --bs-btn-border-color: var(--slate);
+  --bs-btn-hover-bg: var(--ink);
+  --bs-btn-hover-border-color: var(--ink);
+  --bs-btn-active-bg: var(--ink);
+  --bs-btn-active-border-color: var(--ink);
+  --bs-btn-disabled-bg: var(--line);
+  --bs-btn-disabled-border-color: var(--line);
+  --bs-btn-disabled-color: var(--muted);
+  border-radius: 999px;
+  font-weight: 500;
+}
+.btn-outline-dark {
+  --bs-btn-color: var(--ink);
+  --bs-btn-border-color: var(--slate);
+  --bs-btn-hover-bg: var(--paper);
+  --bs-btn-hover-color: var(--ink);
+  --bs-btn-hover-border-color: var(--slate);
+  --bs-btn-active-bg: var(--paper);
+  --bs-btn-active-color: var(--ink);
+  --bs-btn-active-border-color: var(--slate);
+  --bs-btn-disabled-color: var(--muted);
+  --bs-btn-disabled-border-color: var(--line);
+  border-radius: 999px;
+  font-weight: 500;
+}
+
 html { font-size: 16.5px; }
 body {
   min-height: 100vh;
@@ -55,8 +90,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 h1 { font-size: 2.15rem; }
 h2 { font-size: 1.45rem; }
-a { color: var(--green-deep); text-underline-offset: 0.15em; }
-a:hover { color: #058a48; }
+a { color: var(--green-ink); text-underline-offset: 0.15em; }
+a:hover { color: var(--ink); }
 a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .text-muted { color: var(--muted) !important; }
 .lead, .artizen-subtitle { font-family: var(--bs-subtitle-font-family); font-weight: 400; }
@@ -73,13 +108,15 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border-radius: 999px;
   padding: 0.35em 0.7em;
 }
+/* Same two rules the fit badges follow: a green that can carry white text, and Lavender rather
+   than an off-palette blue for the other category. */
 .artizen-kind-project {
-  background: var(--green);
+  background: var(--green-ink);
   color: #fff;
 }
 .artizen-kind-fund {
-  background: #4C6EF5;
-  color: #fff;
+  background: var(--lavender);
+  color: var(--ink);
 }
 .card {
   background: var(--panel);
@@ -137,8 +174,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .page-item.active .page-link,
 .pagination .active > .page-link,
 .dt-container .dt-paging .page-item.current .page-link {
-  background: var(--green) !important;
-  border-color: var(--green) !important;
+  background: var(--green-ink) !important;
+  border-color: var(--green-ink) !important;
   color: #fff !important;
 }
 .page-item.disabled .page-link,
@@ -243,8 +280,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-match-intro h1 { margin: 0.65rem 0 0.4rem; }
 .artizen-match-eyebrow {
   color: var(--ink);
-  background: #b8f2d2;
-  border: 1px solid rgba(6, 170, 89, 0.22);
+  background: var(--reef);
 }
 .artizen-match-page form {
   display: grid;
@@ -442,10 +478,10 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   gap: 0.5rem 0.75rem;
   margin-top: 0.6rem;
   padding: 0.7rem 0.85rem;
-  border: 1px solid var(--warn-line);
+  border: 1px solid var(--warn);
   border-radius: 0.8rem;
-  background: var(--warn-paper);
-  color: var(--warn-ink);
+  background: var(--paper);
+  color: var(--ink);
   font-size: 0.9rem;
   text-wrap: pretty;
 }
@@ -455,19 +491,20 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-tag-prompt-action {
   flex: none;
   padding: 0.32rem 0.8rem;
-  border: 1px solid var(--warn-line);
+  border: 1px solid var(--slate);
   border-radius: 999px;
   background: var(--panel);
-  color: var(--warn-ink);
+  color: var(--ink);
   font-size: 0.85rem;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
 }
-.artizen-tag-prompt-action:hover { border-color: var(--warn-ink); }
+.artizen-tag-prompt-action:hover { background: var(--paper); }
 .artizen-match-refine { margin-top: 0.75rem; }
 .artizen-match-refine summary {
   cursor: pointer;
-  color: var(--green-deep);
+  color: var(--green-ink);
   font-size: 0.88rem;
   list-style-position: inside;
 }
@@ -520,7 +557,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   padding: 0.2rem 0;
   border: 0;
   background: none;
-  color: var(--green-deep);
+  color: var(--green-ink);
   font-size: 0.85rem;
   cursor: pointer;
   text-decoration: underline;
@@ -665,17 +702,18 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-items: center;
   gap: 0.4rem;
   padding: 0.4rem 0.85rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--slate);
   border-radius: 999px;
   background: var(--panel);
   color: var(--ink);
   font-size: 0.88rem;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
 }
-.artizen-ai-button:hover:not(:disabled) { border-color: var(--green); }
+.artizen-ai-button:hover:not(:disabled) { background: var(--paper); }
 .artizen-ai-button:disabled { cursor: default; color: var(--muted); }
-.artizen-ai-button .bi { color: var(--green-deep); }
+.artizen-ai-button .bi { color: var(--green-ink); }
 .artizen-ai-size {
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
@@ -706,7 +744,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   padding: 0;
   border: 0;
   background: none;
-  color: var(--green-deep);
+  color: var(--green-ink);
   font-size: 0.82rem;
   cursor: pointer;
   text-decoration: underline;
@@ -769,18 +807,26 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   flex: 0 0 auto;
   min-width: 0;
   padding: 0.42rem 0.7rem;
-  border: 1px solid var(--line);
+  border: 1px solid var(--slate);
   border-radius: 999px;
   background: var(--panel);
   color: var(--ink);
   cursor: pointer;
   font-size: 0.88rem;
+  font-weight: 500;
   white-space: nowrap;
 }
+/* A pressed filter is Artizen's Primary button: Slate, white, darkening to Night. Algae here
+   would put the label at 2.1:1, which is the one thing the style guide gets wrong. */
+.artizen-match-toggle:hover:not([aria-pressed="true"]) { background: var(--paper); }
 .artizen-match-toggle[aria-pressed="true"] {
   color: #fff;
-  background: var(--green-ink);
-  border-color: var(--green-ink);
+  background: var(--slate);
+  border-color: var(--slate);
+}
+.artizen-match-toggle[aria-pressed="true"]:hover {
+  background: var(--ink);
+  border-color: var(--ink);
 }
 .artizen-match-toggle[aria-pressed="true"] .artizen-match-count { color: rgba(255, 255, 255, 0.92); }
 .artizen-match-count {
@@ -792,6 +838,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   flex-wrap: nowrap;
   gap: 0.35rem;
 }
+/* A lighter border than the status toggles above them: both are Artizen Secondary pills, but two
+   dozen Slate outlines in one scrolling lane would out-shout the three filters that matter most. */
 .artizen-facet-chip {
   display: inline-flex;
   align-items: center;
@@ -802,14 +850,19 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   background: var(--panel);
   color: var(--ink);
   font-size: 0.85rem;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
 }
-.artizen-facet-chip:hover { border-color: var(--green); }
+.artizen-facet-chip:hover { background: var(--paper); }
 .artizen-facet-chip[aria-pressed="true"] {
   color: #fff;
-  background: var(--green-ink);
-  border-color: var(--green-ink);
+  background: var(--slate);
+  border-color: var(--slate);
+}
+.artizen-facet-chip[aria-pressed="true"]:hover {
+  background: var(--ink);
+  border-color: var(--ink);
 }
 .artizen-facet-chip-count { opacity: 0.65; font-size: 0.78rem; }
 .artizen-facet-chip[aria-pressed="true"] .artizen-facet-chip-count { opacity: 0.8; }
@@ -817,7 +870,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border: 0;
   background: none;
   padding: 0.25rem 0.3rem;
-  color: var(--green-deep);
+  color: var(--green-ink);
   font-size: 0.82rem;
   white-space: nowrap;
   cursor: pointer;
@@ -912,8 +965,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-match-card-inactive {
   border-style: dashed;
-  border-color: var(--warn-line);
-  background: var(--warn-paper);
+  border-color: var(--warn);
+  background: var(--paper);
 }
 .artizen-match-card-head {
   display: flex;
@@ -993,7 +1046,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-fit-fill-strong { background: var(--green-deep); }
 .artizen-fit-fill-good { background: var(--green); }
-.artizen-fit-fill-exploratory { background: #b8f2d2; }
+.artizen-fit-fill-exploratory { background: var(--reef); }
 .artizen-fit-fill-limited { background: var(--line); }
 .artizen-match-fit-value {
   min-width: 1.9rem;
@@ -1008,14 +1061,18 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-content: start;
   gap: 0.35rem;
 }
-.artizen-fit-strong { color: #fff; background: var(--green-deep); }
-.artizen-fit-good { color: var(--ink); background: #b8f2d2; }
+/* The readable green, not Moss: this one carries 12px text, where Moss would be 3.0:1. The meter
+   fill below keeps Moss, because a bar has nothing to read. */
+.artizen-fit-strong { color: #fff; background: var(--green-ink); }
+.artizen-fit-good { color: var(--ink); background: var(--success); }
 .artizen-fit-exploratory { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 .artizen-fit-limited { color: var(--muted); background: transparent; border: 1px dashed var(--line); }
-.artizen-known-relationship { color: #fff; background: #4c6ef5; }
-.artizen-status-active { color: var(--ink); background: #b8f2d2; }
-.artizen-status-inactive { color: var(--warn-ink); background: var(--warn); }
-.artizen-status-available { color: var(--green-deep); background: var(--panel); border: 1px solid var(--line); }
+/* Lavender, so "you have already been here" reads as its own category rather than another shade
+   of the green the fit bands own. */
+.artizen-known-relationship { color: var(--ink); background: var(--lavender); }
+.artizen-status-active { color: var(--ink); background: var(--success); }
+.artizen-status-inactive { color: var(--ink); background: var(--warn); }
+.artizen-status-available { color: var(--green-ink); background: var(--panel); border: 1px solid var(--line); }
 .artizen-match-reasons {
   margin: 0;
   padding-left: 1.15rem;
@@ -1035,7 +1092,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   padding: 0.5rem 0 0;
   border: 0;
   background: none;
-  color: var(--green-deep);
+  color: var(--green-ink);
   font-size: 0.88rem;
   cursor: pointer;
   text-decoration: underline;
@@ -1052,7 +1109,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   cursor: pointer;
 }
 .artizen-match-card-star:hover,
-.artizen-match-card-star[aria-pressed="true"] { color: var(--green-deep); }
+.artizen-match-card-star[aria-pressed="true"] { color: var(--green-ink); }
 /* Outlined rather than filled: movement is a footnote on the card, not a third status. */
 .artizen-match-moved {
   color: var(--green-ink);
@@ -1073,7 +1130,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   padding: 0;
   border: 0;
   background: none;
-  color: var(--green-deep);
+  color: var(--green-ink);
   font-size: 0.88rem;
   cursor: pointer;
   text-decoration: underline;
@@ -1158,8 +1215,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   text-align: start;
   cursor: pointer;
 }
-.artizen-fund-dialog-ai:hover { background: #f2fdf7; }
-.artizen-fund-dialog-ai .bi { color: var(--green-deep); }
+.artizen-fund-dialog-ai:hover { background: var(--paper); }
+.artizen-fund-dialog-ai .bi { color: var(--green-ink); }
 .artizen-fund-dialog-ai-hint {
   display: block;
   margin-top: 0.35rem !important;
@@ -1384,7 +1441,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   line-height: 1;
   cursor: pointer;
 }
-.artizen-nav-toggle:hover { color: var(--green-deep); }
+.artizen-nav-toggle:hover { color: var(--green-ink); }
 .artizen-nav-toggle .bi { display: block; line-height: 1; }
 @media (max-width: 639px) {
   .artizen-nav-inner {
@@ -1596,7 +1653,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 
 .artizen-badge-sm { font-size: 0.7rem; font-weight: 600; vertical-align: middle; position: relative; top: -0.12em; }
-.artizen-rank { font-size: 0.7rem; font-weight: 400; white-space: nowrap; color: #000; }
+.artizen-rank { font-size: 0.7rem; font-weight: 400; white-space: nowrap; color: var(--ink); }
 .artizen-drive-thumb { width: 100%; height: 140px; object-fit: cover; background: #202222; }
 .artizen-podium {
   font-size: 0.75rem;
@@ -1884,7 +1941,7 @@ table.dataTable.table-sm > thead > tr th.dt-type-date .dt-column-order {
   height: 1.75rem;
   border-radius: 999px;
   object-fit: cover;
-  background: #ECEDEF;
+  background: var(--line);
   flex: 0 0 auto;
 }
 .artizen-holder-avatar-empty { border: 1px solid var(--line); }
