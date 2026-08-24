@@ -6,15 +6,16 @@ export type Funded = ProjectRow & {
   v2: number;
   vmp: number;
   multiple_v?: number;
-  multiple_ex?: number;
-  multiple?: number;
+  multiple_m?: number;
+  multiple_p?: number;
+  multiple_b?: number;
 };
 
-export function usd(value?: number | null, blankZero = false): string {
+export function usd(value?: number | null): string {
   if (value == null || Number.isNaN(Number(value))) return '';
   const n = Number(value);
-  if (blankZero && n === 0) return '';
   const precision = Math.abs(n) >= 100 ? 0 : 2;
+  if (Math.abs(n) < 0.5 / 10 ** precision) return '';
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: 'USD',
@@ -81,15 +82,18 @@ export function funding(row: ProjectRow): Funded {
     v2,
     vmp,
     multiple_v: sales !== 0 ? v2 / sales : undefined,
-    multiple_ex: sales !== 0 ? (v2 + match) / sales : undefined,
-    multiple: sales !== 0 ? (v2 + match + prize + bonus) / sales : undefined,
+    multiple_m: sales !== 0 ? match / sales : undefined,
+    multiple_p: sales !== 0 ? prize / sales : undefined,
+    multiple_b: sales !== 0 ? bonus / sales : undefined,
     raised: row.raised == null ? sales + vmp : Number(row.raised) || 0,
   };
 }
 
 function multipleLabel(multiple?: number): string {
   if (multiple == null || multiple === 0) return '';
-  return `${multiple.toFixed(1)}x`;
+  const text = multiple.toFixed(1);
+  if (text === '0.0' || text === '-0.0') return '';
+  return `${text}x`;
 }
 
 export type MoneyFormat = 'usd' | 'x';
@@ -102,25 +106,23 @@ type MoneyCol = {
 
 const MONEY_COLS: readonly MoneyCol[] = [
   { field: 'sales', label: 'Sales', as: 'usd' },
-  { field: 'venus', label: 'Venus', as: 'usd' },
-  { field: 'sv', label: 'S+V', as: 'usd' },
+  { field: 'venus', label: 'Venus sales', as: 'usd' },
+  { field: 'sv', label: 'S+VS', as: 'usd' },
   { field: 'match', label: 'Match', as: 'usd' },
-  { field: 'svm', label: 'S+V+M', as: 'usd' },
+  { field: 'svm', label: 'S+VS+M', as: 'usd' },
   { field: 'sprint', label: 'Venus extras', as: 'usd' },
   { field: 'prize', label: 'Prize', as: 'usd' },
   { field: 'bonus', label: 'Bonus', as: 'usd' },
-  { field: 'vmp', label: 'V2+M+P', as: 'usd' },
-  { field: 'multiple_v', label: 'V2/S', as: 'x' },
-  { field: 'multiple_ex', label: '(V2+M)/S', as: 'x' },
-  { field: 'multiple', label: '(V2+M+P)/S', as: 'x' },
+  { field: 'multiple_v', label: 'V/S', as: 'x' },
+  { field: 'multiple_m', label: 'M/S', as: 'x' },
+  { field: 'multiple_p', label: 'P/S', as: 'x' },
+  { field: 'multiple_b', label: 'B/S', as: 'x' },
   { field: 'raised', label: 'Raised', as: 'usd' },
 ];
 
 export function moneyColumns(includeBonus = false): MoneyCol[] {
   return MONEY_COLS.flatMap((col) => {
-    if (col.field === 'bonus') return includeBonus ? [col] : [];
-    if (col.field === 'vmp') return [{ ...col, label: includeBonus ? 'V2+M+P+B' : 'V2+M+P' }];
-    if (col.field === 'multiple') return [{ ...col, label: includeBonus ? '(V2+M+P+B)/S' : '(V2+M+P)/S' }];
+    if (col.field === 'bonus' || col.field === 'multiple_b') return includeBonus ? [col] : [];
     return [col];
   });
 }
@@ -159,13 +161,13 @@ function projectedLabel(label: string, title = 'Projected prize — not yet earn
 }
 
 export function prizeLabel(value?: number | null, projected = false): string {
-  const label = usd(value, true);
+  const label = usd(value);
   return projected ? projectedLabel(label) : label;
 }
 
 function moneyLabel(row: Funded, col: MoneyCol): string {
   if (col.as === 'x') return multipleLabel(row[col.field] as number | undefined);
-  return usd(row[col.field] as number, true);
+  return usd(row[col.field] as number);
 }
 
 export function moneyHeaders(className = 'text-end', cols: readonly MoneyCol[] = moneyColumns()): string {
@@ -177,21 +179,19 @@ export function moneyCells(row: MoneyRow, tag = 'td', cols: readonly MoneyCol[] 
   return cols.map((col) => endCell(moneyLabel(f, col), tag)).join('');
 }
 
-export function rankPct(rank: number | undefined, total: number): number | undefined {
-  if (!rank || total <= 0) return undefined;
-  return Math.max(Math.ceil((rank / total) * 100), 1);
-}
-
 export function heatRanks<T extends Record<string, unknown>>(
   rows: T[],
   fields: (keyof T)[],
-): Record<string, { ranks: number[]; maxPct: number }> {
-  const heat: Record<string, { ranks: number[]; maxPct: number }> = {};
-  const total = rows.length;
+  eligible?: (row: T, index: number) => boolean,
+): Record<string, { ranks: (number | undefined)[]; maxRank: number }> {
+  const heat: Record<string, { ranks: (number | undefined)[]; maxRank: number }> = {};
+  const inPlay = rows.map((row, i) => !eligible || eligible(row, i));
   for (const field of fields) {
-    const pairs = rows.map((row, i) => [i, Number(row[field]) || 0] as const);
+    const pairs = rows
+      .map((row, i) => [i, Number(row[field]) || 0] as const)
+      .filter(([i]) => inPlay[i]);
     pairs.sort((a, b) => b[1] - a[1]);
-    const ranks: number[] = new Array(rows.length);
+    const ranks: (number | undefined)[] = new Array(rows.length);
     let lastVal: number | null = null;
     let lastRank = 0;
     let maxNonZeroRank = 0;
@@ -205,18 +205,18 @@ export function heatRanks<T extends Record<string, unknown>>(
     });
     heat[String(field)] = {
       ranks,
-      maxPct: rankPct(maxNonZeroRank, total) ?? 100,
+      maxRank: maxNonZeroRank || 1,
     };
   }
   return heat;
 }
 
-export function rankStyle(pct?: number, maxPct = 100, minPct = 1): string {
-  if (pct == null) return 'background-color: #1ACC6C';
-  const lo = Math.max(minPct, 1);
-  const hi = Math.max(maxPct, pct, lo);
-  if (pct <= lo || hi <= lo) return 'background-color: #1ACC6C';
-  const t = Math.min((Math.log(pct) - Math.log(lo)) / (Math.log(hi) - Math.log(lo)), 1);
+export function rankStyle(rank?: number, maxRank = 100, minRank = 1): string {
+  if (rank == null) return 'background-color: #1ACC6C';
+  const lo = Math.max(minRank, 1);
+  const hi = Math.max(maxRank, rank, lo);
+  if (rank <= lo || hi <= lo) return 'background-color: #1ACC6C';
+  const t = Math.min((Math.log(rank) - Math.log(lo)) / (Math.log(hi) - Math.log(lo)), 1);
   const r = Math.round(26 + (255 - 26) * t);
   const g = Math.round(204 + (255 - 204) * t);
   const b = Math.round(108 + (255 - 108) * t);
@@ -226,17 +226,16 @@ export function rankStyle(pct?: number, maxPct = 100, minPct = 1): string {
 export function heatTd(
   row: Record<string, unknown>,
   field: string,
-  ranks: number[],
+  ranks: (number | undefined)[],
   index: number,
-  total: number,
   as: 'usd' | 'x',
-  maxPct = 100,
+  maxRank = 100,
 ): string {
   const value = Number(row[field]) || 0;
-  const pct = rankPct(ranks[index], total);
-  const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value, true);
-  const note = label && pct != null ? `<br><small class="artizen-rank">${pct}%</small>` : '';
-  const heat = label ? rankStyle(pct, maxPct, rankPct(1, total) ?? 1) : 'background-color: #fff';
+  const rank = ranks[index];
+  const label = as === 'x' ? multipleLabel(row[field] as number | undefined) : usd(value);
+  const note = label && rank != null ? `<br><small class="artizen-rank">${rank}</small>` : '';
+  const heat = label && rank != null ? rankStyle(rank, maxRank) : 'background-color: #fff';
   return `<td class="text-end artizen-heat" data-order="${value}" style="${heat}">${label}${note}</td>`;
 }
 

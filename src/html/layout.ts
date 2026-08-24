@@ -153,6 +153,7 @@ export function layout(opts: {
   boards?: boolean;
   boosts?: boolean;
   matching?: boolean;
+  strategies?: boolean;
 }): string {
   const desc = escapeHtml(opts.description || 'Fund and project leaderboards from Artizen');
   const image = escapeHtml(opts.image || 'https://artizen.fyi/og.png');
@@ -207,7 +208,7 @@ export function layout(opts: {
   <style>${styles}</style>
 </head>
 <body>
-  ${nav(opts.query, opts.season, opts.boards, opts.boosts, opts.matching)}
+  ${nav(opts.query, opts.season, opts.boards, opts.boosts, opts.matching, opts.strategies)}
   <div class="artizen-shell">
     ${opts.body}
   </div>
@@ -217,14 +218,23 @@ export function layout(opts: {
 </html>`;
 }
 
-function nav(query?: string, season?: string | null, boards?: boolean, boosts?: boolean, matching?: boolean): string {
+function nav(
+  query?: string,
+  season?: string | null,
+  boards?: boolean,
+  boosts?: boolean,
+  matching?: boolean,
+  strategies?: boolean,
+): string {
   const seasonField = season
     ? `<input type="hidden" name="season" value="${escapeHtml(season)}">`
     : '';
   const boardsHref = season ? `/projects?season=${encodeURIComponent(season)}` : '/projects';
+  const strategiesHref = season ? `/strategies?season=${encodeURIComponent(season)}` : '/strategies';
   const boardsClass = boards ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
   const boostsClass = boosts ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
   const matchingClass = matching ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
+  const strategiesClass = strategies ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
   return `
 <header class="artizen-nav">
   <div class="artizen-nav-inner">
@@ -232,6 +242,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
       <div class="d-none d-md-flex gap-2">
         <a class="${boardsClass}" href="${boardsHref}">Seasons</a>
         <a class="${boostsClass}" href="/boosts">Boosts</a>
+        <a class="${strategiesClass}" href="${strategiesHref}">Strategies</a>
         <a class="${matchingClass}" href="/match">Find funds</a>
       </div>
       <button type="button" class="artizen-nav-toggle d-md-none" data-bs-toggle="offcanvas" data-bs-target="#artizen-nav-offcanvas" aria-controls="artizen-nav-offcanvas" aria-label="Menu">
@@ -261,6 +272,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
     <nav class="artizen-offcanvas-nav">
       <a class="${boards ? 'active' : ''}" href="${boardsHref}"${boards ? ' aria-current="page"' : ''}>Seasons</a>
       <a class="${boosts ? 'active' : ''}" href="/boosts"${boosts ? ' aria-current="page"' : ''}>Boosts</a>
+      <a class="${strategies ? 'active' : ''}" href="${strategiesHref}"${strategies ? ' aria-current="page"' : ''}>Strategies</a>
       <a class="${matching ? 'active' : ''}" href="/match"${matching ? ' aria-current="page"' : ''}>Find funds</a>
     </nav>
   </div>
@@ -469,12 +481,13 @@ export function datatable(
   tableId: string,
   order: Array<[number, string]>,
   numeric: number[],
-  opts?: { pageLength?: number; paging?: boolean; info?: boolean; noun?: string },
+  opts?: { pageLength?: number; paging?: boolean; info?: boolean; noun?: string; topFilter?: number },
 ): string {
   const pageLength = opts?.pageLength ?? 25;
   const paging = opts?.paging ?? true;
   const info = opts?.info ?? true;
   const noun = opts?.noun ?? 'entries';
+  const topFilter = opts?.topFilter ?? 0;
   const language = {
     search: '_INPUT_',
     searchPlaceholder: `Search ${noun}`,
@@ -489,7 +502,24 @@ export function datatable(
       var table = document.getElementById('${tableId}');
       if (!table) return;
       var ph = table.previousElementSibling;
-      new DataTable(table, {
+      var rowCount = table.tBodies[0] ? table.tBodies[0].rows.length : 0;
+      var topFilter = ${topFilter};
+      var showTop = topFilter && rowCount > topFilter;
+      var toggle = null;
+      var input = null;
+      if (showTop) {
+        toggle = document.createElement('label');
+        toggle.className = 'artizen-dt-toggle';
+        input = document.createElement('input');
+        input.type = 'checkbox';
+        input.className = 'visually-hidden';
+        input.checked = true;
+        var cap = document.createElement('span');
+        cap.textContent = 'Top ' + topFilter;
+        toggle.appendChild(input);
+        toggle.appendChild(cap);
+      }
+      var dt = new DataTable(table, {
         paging: ${paging},
         pageLength: ${pageLength},
         lengthChange: false,
@@ -499,7 +529,7 @@ export function datatable(
         order: ${JSON.stringify(order)},
         columnDefs: [{ type: 'num', targets: ${JSON.stringify(numeric)} }],
         layout: {
-          topStart: null,
+          topStart: toggle,
           topEnd: 'search',
           bottomStart: ${info ? "'info'" : 'null'},
           bottomEnd: ${paging ? "'paging'" : 'null'}
@@ -520,8 +550,22 @@ export function datatable(
         searchBox.insertBefore(icon, searchInput);
         searchInput.setAttribute('aria-label', ${JSON.stringify(`Search ${noun}`)});
       }
-      container.parentNode.insertBefore(wrap, container);
-      wrap.appendChild(container);
+      table.parentNode.insertBefore(wrap, table);
+      wrap.appendChild(table);
+      if (showTop && input) {
+        dt.search.fixed('top', function(_str, _data, index) {
+          if (!input.checked) return true;
+          var tr = dt.row(index).node();
+          return tr && tr.getAttribute('data-top') === '1';
+        });
+        input.addEventListener('change', function() { dt.draw(); });
+        if (searchInput) {
+          searchInput.addEventListener('input', function() {
+            if (searchInput.value && input.checked) input.checked = false;
+          }, true);
+        }
+        dt.draw();
+      }
     });
   </script>`;
 }

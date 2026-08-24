@@ -6,5 +6,6 @@ export { renderFunds } from './funds';
 export { renderMatch } from './match';
 export { renderMatchReview } from './match-review';
 export { renderDetailPlaceholder, renderNotFound } from './layout';
+export { renderPlay } from './play';
 export { renderProject } from './project';
 export { renderProjects } from './projects';

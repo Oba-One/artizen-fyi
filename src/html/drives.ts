@@ -104,7 +104,7 @@ function podiumTable(
             <td class="text-end text-nowrap">${usd(row.sales_match)}</td>
             <td class="artizen-podium-op">→</td>
             ${prize}
-            ${showBonus ? `<td class="text-end text-nowrap">${usd(row.bonus, true)}</td>` : ''}
+            ${showBonus ? `<td class="text-end text-nowrap">${usd(row.bonus)}</td>` : ''}
           </tr>`;
       }
       return `<tr>

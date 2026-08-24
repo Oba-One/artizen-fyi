@@ -8,6 +8,7 @@ import {
   bump,
   byId,
   driveHasBonusPot,
+  field,
   hidden,
   localFundPath,
   localProjectPath,
@@ -198,7 +199,7 @@ async function attachDrivePodiums(client: Bubble, drives: Drive[]): Promise<Reco
   const [pages, bonusParts] = await Promise.all([
     Promise.all(
       drives.flatMap((drive) => {
-        const rankField = driveHasBonusPot(drive) ? 'sales + match (both)' : 'boost score';
+        const rankField = driveHasBonusPot(drive) ? 'sales + match' : 'boost score';
         return [topBoostParticipants(client, drive.id, 'project', rankField), topBoostParticipants(client, drive.id, 'fund', rankField)];
       }),
     ),
@@ -255,7 +256,7 @@ function topBoostParticipants(
   sortField: string,
 ): Promise<Row[]> {
   return client.getResults('boostparticipant', {
-    limit: sortField === 'sales + match (both)' ? 8 : 3,
+    limit: sortField === 'sales + match' ? 8 : 3,
     cursor: 0,
     sort_field: sortField,
     descending: true,
@@ -274,20 +275,19 @@ function podiumRows(
   pot = 0,
   weightSum = 0,
 ): PodiumRow[] {
-  const field = kind;
   const nameField = kind === 'fund' ? 'name' : 'Name';
   const mapped = mapSome(rows, (row) => {
     if (kind === 'fund' && row['project']) return undefined;
 
-    const id = row[field];
+    const id = row[kind];
     if (!id) return undefined;
 
     const record = byId(records, id);
     const slug = text(record?.['Slug'] || record?.['slugg']) || id;
     const points = num(row['boost points received']);
-    const salesMatch = num(row['sales + match (both)']);
+    const salesMatch = num(field(row, 'sales + match', 'sales + match (both)'));
     return {
-      name: text(record?.[nameField]) || field[0].toUpperCase() + field.slice(1),
+      name: text(record?.[nameField]) || kind[0].toUpperCase() + kind.slice(1),
       url: kind === 'fund' ? localFundPath(slug) : localProjectPath(slug),
       sales_match: salesMatch,
       points,

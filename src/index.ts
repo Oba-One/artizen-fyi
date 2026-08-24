@@ -13,6 +13,7 @@ import {
   renderMatch,
   renderMatchReview,
   renderNotFound,
+  renderPlay,
   renderProject,
   renderProjects,
   renderSearch,
@@ -254,6 +255,10 @@ export default {
 
     if (request.method === 'GET' && path === '/boosts') {
       return html(renderBoosts(await artizen.boosts()));
+    }
+
+    if (request.method === 'GET' && path === '/strategies') {
+      return html(renderPlay(await artizen.leaderboard(season), season));
     }
 
     if (request.method === 'GET' && path in BOARDS) {

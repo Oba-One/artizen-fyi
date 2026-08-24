@@ -21,6 +21,7 @@ import {
   byId,
   communitySales,
   driveContext,
+  field,
   driveHasBonusPot,
   firstMedia,
   groupBy,
@@ -91,8 +92,8 @@ export async function buildProject(client: Bubble, slug: string): Promise<Projec
     const boostKey = String(part['boost']);
     const venus = num(venusByBoost[boostKey]);
     const sprint = num(sprintByBoost[boostKey]);
-    const sales = communitySales(part['fund drive sales (both)'], venus);
-    const match = num(part['match boost unlocked (both)']);
+    const sales = communitySales(field(part, 'fund drive sales', 'fund drive sales (both)'), venus);
+    const match = num(field(part, 'match boost unlocked', 'match boost unlocked (both)'));
     const prize = num(part['prize earned usd']);
     stats[id][boostKey] = {
       sales,

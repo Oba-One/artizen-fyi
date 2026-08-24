@@ -158,6 +158,51 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border-color: transparent;
 }
 .dt-container .dt-search input::placeholder { color: var(--muted); }
+.dt-container > .row:first-child {
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+.dt-container > .row:first-child > .dt-layout-start {
+  width: auto;
+  flex: 0 0 auto;
+}
+.dt-container > .row:first-child > .dt-layout-end {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+@media (min-width: 768px) {
+  .dt-container > .row:first-child { justify-content: space-between; }
+  .dt-container .dt-search { margin-left: auto; }
+}
+.artizen-dt-toggle {
+  display: inline-flex;
+  align-items: center;
+  margin: 0;
+  cursor: pointer;
+}
+.artizen-dt-toggle span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.4rem 0.95rem;
+  color: var(--ink);
+  background: var(--panel);
+  white-space: nowrap;
+  font-size: 0.92rem;
+}
+.artizen-dt-toggle input:checked + span {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+.artizen-dt-toggle input:focus-visible + span {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
 .page-link, .dt-container .dt-paging .dt-paging-button .page-link {
   color: var(--ink);
   border-radius: 999px;
@@ -1841,7 +1886,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-panel .dt-container { margin-top: 0.15rem; }
 @media (max-width: 767px) {
   .artizen-dt-ph-search,
-  .dt-container .dt-search { width: 100%; }
+  .dt-container .dt-search { width: min(22rem, 100%); }
   div.dt-container div.dt-search,
   div.dt-container div.dt-info,
   div.dt-container div.dt-paging {
@@ -1963,3 +2008,105 @@ table.dataTable.table-sm > thead > tr th.dt-type-date .dt-column-order {
   background: var(--green);
   border-radius: inherit;
 }
+
+.artizen-archetypes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+@media (min-width: 900px) {
+  .artizen-archetypes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.artizen-archetype {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 1.2rem 1.35rem 1.4rem;
+}
+.artizen-archetype h2 {
+  margin: 0.15rem 0 0.45rem;
+  font-size: 1.55rem;
+}
+.artizen-archetype h3 {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 1rem;
+}
+.artizen-archetype .lead { margin-bottom: 0.75rem; }
+.artizen-archetype p { margin: 0 0 0.7rem; }
+.artizen-archetype ul {
+  margin: 0 0 1.75rem;
+  padding-left: 1.15rem;
+}
+.artizen-archetype li + li { margin-top: 0.4rem; }
+.artizen-archetype-kicker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.artizen-archetype-kicker span {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2em 0.6em;
+  font-family: var(--bs-heading-font-family);
+  font-size: 0.78rem;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #fff;
+  background: var(--ink);
+}
+.artizen-archetype-sparkler .artizen-archetype-kicker span { background: var(--green-deep); }
+.artizen-archetype-multiplier .artizen-archetype-kicker span { background: #4C6EF5; }
+.artizen-archetype-example {
+  margin-top: auto;
+  min-width: 0;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.92rem;
+}
+.artizen-archetype-example p {
+  margin: 0 0 0.45rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.artizen-archetype-example ol {
+  margin: 0;
+  padding-left: 1.2rem;
+  min-width: 0;
+}
+.artizen-archetype-example li { min-width: 0; }
+.artizen-archetype-example li + li { margin-top: 0.55rem; }
+.artizen-archetype-example-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.artizen-archetype-example-row a {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.artizen-archetype-example-row strong { flex: 0 0 auto; }
+.artizen-archetype-example .text-muted {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.artizen-archetype-example strong { font-weight: 600; }

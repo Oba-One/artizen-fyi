@@ -11,7 +11,7 @@ artizen.fyi is a Worker plus KV. No D1, R2, Queues, Durable Objects, or Pages.
 - **Worker** — HTML routes, static browser assets, Bubble API crawler, hourly cron
 - **KV** — JSON cache (`artizen/leaderboard/…`, `artizen/project/…`, `artizen/fund/…`, `artizen/boosts/…`, `artizen/matching/v1`, `artizen/matching/v2`)
 
-It runs on Workers Paid so a season rebuild has enough CPU (free is 10 ms) and the hourly cron can run up to 15 minutes. Cron refreshes every season and remaining boosts, then drops project/fund pages so they rebuild on next visit. On artizen.fyi, GET `/projects`, `/funds`, `/drives`, and `/boosts` only read KV — they never crawl Bubble.
+It runs on Workers Paid so a season rebuild has enough CPU (free is 10 ms) and the hourly cron can run up to 15 minutes. Cron refreshes every season and remaining boosts, then drops project/fund pages so they rebuild on next visit. On artizen.fyi, GET `/projects`, `/funds`, `/drives`, `/strategies`, and `/boosts` only read KV — they never crawl Bubble.
 
 artizen.fyi is the apex; `www` 301s there.
 
@@ -144,6 +144,7 @@ The local-only `/match/review` route supports blind 0–3 judgments, deliberate 
 | --- | --- |
 | `/` | redirect to `/projects` (keeps `?season=`) |
 | `/projects`, `/funds`, `/drives` | season leaderboards (`?season=` optional) |
+| `/strategies` | three strategies, read from V/S, M/S, and P/S (`?season=` optional) |
 | `/boosts` | remaining boosts + top 100 holders |
 | `/search` | project/fund search (`?q=`) |
 | `/match` | private, client-side fund matching |
