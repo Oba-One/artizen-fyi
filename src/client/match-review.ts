@@ -25,11 +25,9 @@ type Rating = {
   note?: string;
   baseline?: FundRecommendation;
   semantic?: FundRecommendation;
-  v1?: FundRecommendation;
 };
 type CandidateEvidence = {
   fund: FundProfile;
-  v1?: { rank: number; recommendation: FundRecommendation };
   baseline: { rank: number; recommendation: FundRecommendation };
   semantic?: { rank: number; recommendation: FundRecommendation };
 };
@@ -130,15 +128,12 @@ function buildPool(
   index: MatchIndex,
   projectId: string,
   baseline: MatchResult,
-  v1?: MatchResult,
   semantic?: MatchResult,
 ): CandidateEvidence[] {
   const baselineRanks = ranked(baseline.recommendations);
-  const v1Ranks = v1 ? ranked(v1.recommendations) : new Map();
   const semanticRanks = semantic ? ranked(semantic.recommendations) : new Map();
   const ids = new Set<string>();
   baseline.recommendations.slice(0, POOL_TOP).forEach((row) => ids.add(row.fundId));
-  v1?.recommendations.slice(0, POOL_TOP).forEach((row) => ids.add(row.fundId));
   semantic?.recommendations.slice(0, POOL_TOP).forEach((row) => ids.add(row.fundId));
   const project = index.projects.find((candidate) => candidate.id === projectId)!;
   index.funds
@@ -157,7 +152,7 @@ function buildPool(
       const fund = funds.get(fundId);
       const baselineRow = baselineRanks.get(fundId);
       if (!fund || !baselineRow) return [];
-      return [{ fund, baseline: baselineRow, v1: v1Ranks.get(fundId), semantic: semanticRanks.get(fundId) }];
+      return [{ fund, baseline: baselineRow, semantic: semanticRanks.get(fundId) }];
     })
     .sort(
       (a, b) =>
@@ -286,7 +281,6 @@ async function initialize(root: HTMLElement): Promise<void> {
           note: note.value.trim() || undefined,
           baseline: candidate.baseline.recommendation,
           semantic: candidate.semantic?.recommendation,
-          v1: candidate.v1?.recommendation,
         });
         const reveal = document.createElement('div');
         reveal.className = 'artizen-review-reveal';
@@ -294,9 +288,8 @@ async function initialize(root: HTMLElement): Promise<void> {
         heading.textContent = 'Ranking evidence revealed';
         const lines = document.createElement('ul');
         [
-          algorithmLine('V1', candidate.v1),
-          algorithmLine('V2 baseline', candidate.baseline),
-          algorithmLine('V2 local AI', candidate.semantic),
+          algorithmLine('Baseline', candidate.baseline),
+          algorithmLine('Local AI', candidate.semantic),
           `Facets: ${candidate.fund.facets.join(', ') || 'none'}`,
           `Focus facets: ${candidate.fund.focusFacets.join(', ') || 'none'}`,
           `Core concepts: ${candidate.fund.coreConcepts.join(', ') || 'none'}`,
