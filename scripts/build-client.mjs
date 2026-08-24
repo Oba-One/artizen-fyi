@@ -24,6 +24,9 @@ await build({
   logLevel: 'info',
 });
 
+// Every ort-wasm-simd-threaded variant is copied on purpose. ONNX Runtime picks the binary at
+// runtime from the backend and the browser's capabilities, so pruning "unused" variants trades
+// ~37 MB of deploy size for a 404 on exactly the path this feature depends on.
 const ortSource = 'node_modules/onnxruntime-web/dist';
 const ortTarget = 'public/assets/ort';
 await mkdir(ortTarget, { recursive: true });
@@ -32,9 +35,23 @@ for (const filename of await readdir(ortSource)) {
   await copyFile(join(ortSource, filename), join(ortTarget, basename(filename)));
 }
 
+// Bundles must revalidate on every load. The pinned model and runtime are content-addressed by
+// revision and SHA and run to tens of megabytes, so re-downloading them hourly is pure waste.
 await writeFile(
   'public/_headers',
-  '/assets/*\n  Cache-Control: public, max-age=0, must-revalidate\n  X-Content-Type-Options: nosniff\n',
+  [
+    '/assets/*',
+    '  X-Content-Type-Options: nosniff',
+    '/assets/*.js',
+    '  Cache-Control: public, max-age=0, must-revalidate',
+    '/assets/*.bin',
+    '  Cache-Control: public, no-cache',
+    '/assets/ort/*',
+    '  Cache-Control: public, max-age=31536000, immutable',
+    '/assets/models/*',
+    '  Cache-Control: public, max-age=31536000, immutable',
+    '',
+  ].join('\n'),
 );
 
 const browserBundles = await Promise.all([
@@ -61,18 +78,52 @@ for (const path of await filesBelow('public/assets')) {
   }
 }
 
-const semanticManifestPath = 'public/assets/models/mixedbread-ai/mxbai-embed-xsmall-v1/asset-manifest.json';
+const semanticModelDir = 'public/assets/models/mixedbread-ai/mxbai-embed-xsmall-v1';
+const semanticManifestPath = join(semanticModelDir, 'asset-manifest.json');
+let semanticModelReady = false;
 try {
   const manifest = JSON.parse(await readFile(semanticManifestPath, 'utf8'));
   for (const asset of manifest.files) {
-    const path = join('public/assets/models/mixedbread-ai/mxbai-embed-xsmall-v1', asset.filename);
+    const path = join(semanticModelDir, asset.filename);
     const contents = await readFile(path);
     const hash = createHash('sha256').update(contents).digest('hex');
     if (contents.byteLength !== asset.bytes || hash !== asset.sha256) {
       throw new Error(`Pinned semantic asset integrity check failed: ${asset.filename}`);
     }
   }
+  semanticModelReady = true;
 } catch (error) {
   if (error?.code !== 'ENOENT') throw error;
+}
+
+// public/ is gitignored, so a fresh clone and a plain deploy both ship without these. Saying so
+// here is the difference between a known gap and an "Improve with local AI" button that 404s.
+if (!semanticModelReady) {
+  console.warn(
+    [
+      '',
+      'WARNING: on-device AI is disabled - the pinned model is missing from public/assets/models.',
+      '  Fix with: npm run prepare:semantic',
+      '  Without it the "Improve with local AI" control stays hidden for every visitor.',
+      '',
+    ].join('\n'),
+  );
+}
+
+try {
+  const funds = await stat('public/assets/match-fund-vectors-v2.bin');
+  const projects = await stat('public/assets/match-project-vectors-v2.bin');
+  console.log(`Vector catalogs ready: ${funds.size} bytes funds / ${projects.size} bytes projects`);
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error;
+  console.warn(
+    [
+      '',
+      'WARNING: precomputed vector catalogs are missing from public/assets.',
+      '  Fix with: npm run build:semantic-vectors -- <match-index.v2.json | url>',
+      '  Without them, choosing a catalog project falls back to keyword matching for every visitor.',
+      '',
+    ].join('\n'),
+  );
 }
 console.log(`Matching browser bundles: ${gzipBytes} bytes gzip`);

@@ -1,4 +1,4 @@
-import type { ProjectMatchInput, ProjectProfile } from '../artizen/types';
+import type { ProjectMatchInput, ProjectProfile, ProjectProfileV2 } from '../artizen/types';
 
 function normalize(value: string): string {
   return value
@@ -34,30 +34,43 @@ export function findExactProject(projects: ProjectProfile[], query: string): Pro
   );
 }
 
+/**
+ * How many funds a project has already engaged with. Used only to order the default browse list,
+ * where an alphabetical catalog opens on punctuation-led placeholder names - ":: DeBolso ::",
+ * "?an!c NFTs", ".", "..." - none of which tell a visitor what the tool does. Absent on v1
+ * profiles, which simply fall back to alphabetical.
+ */
+function engagement(project: ProjectProfile): number {
+  return (project as ProjectProfileV2).history?.length || 0;
+}
+
 export function searchProjects(projects: ProjectProfile[], query: string, limit = 8): ProjectProfile[] {
   const needle = normalize(query);
   const tokens = needle.split(' ').filter(Boolean);
+  if (!needle) {
+    return [...projects]
+      .sort((a, b) => engagement(b) - engagement(a) || a.name.localeCompare(b.name))
+      .slice(0, limit);
+  }
   return projects
     .flatMap((project) => {
       const name = normalize(project.name);
       const slug = normalize(project.slug);
       const tags = normalize(project.tags.join(' '));
       const haystack = normalize(`${project.name} ${project.slug} ${project.tags.join(' ')} ${project.description}`);
-      if (tokens.length && !tokens.every((token) => haystack.includes(token))) return [];
+      if (!tokens.every((token) => haystack.includes(token))) return [];
       const score =
-        !needle
-          ? 0
-          : name === needle
-            ? 100
-            : slug === needle
-              ? 90
-              : name.startsWith(needle)
-                ? 70
-                : name.includes(needle)
-                  ? 50
-                  : tags.includes(needle)
-                    ? 30
-                    : 10;
+        name === needle
+          ? 100
+          : slug === needle
+            ? 90
+            : name.startsWith(needle)
+              ? 70
+              : name.includes(needle)
+                ? 50
+                : tags.includes(needle)
+                  ? 30
+                  : 10;
       return [{ project, score }];
     })
     .sort((a, b) => b.score - a.score || a.project.name.localeCompare(b.project.name))

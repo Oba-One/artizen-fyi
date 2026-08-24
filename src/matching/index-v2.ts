@@ -6,11 +6,12 @@ import type {
   MatchIndexV2,
   MatchRelationshipKind,
   ProjectFundRelationship,
+  ProjectHistory,
   ProjectProfileV2,
   Row,
   ScoringConfigV2,
 } from '../artizen/types';
-import { hidden, int, mapSome, maybeNum, num, text } from '../artizen/util';
+import { firstMedia, hidden, int, mapSome, maybeNum, mediaUrl, num, text } from '../artizen/util';
 import { FUND_PROFILE_OVERRIDES } from './overrides';
 import { SEMANTIC_CATALOG } from './semantic-config';
 import {
@@ -24,7 +25,7 @@ import {
 export const MATCH_INDEX_V2_KEY = 'artizen/matching/v2';
 
 export const DEFAULT_SCORING_V2: ScoringConfigV2 = {
-  version: 'baseline-2026-08-23.1',
+  version: 'baseline-2026-08-23.3',
   lexicalWeight: 0.4,
   facetWeight: 0.4,
   coreCoverageWeight: 0.2,
@@ -32,8 +33,8 @@ export const DEFAULT_SCORING_V2: ScoringConfigV2 = {
   semanticFacetWeight: 0.25,
   semanticCoreCoverageWeight: 0.15,
   semanticLexicalWeight: 0.05,
-  strongThreshold: 0.55,
-  goodThreshold: 0.34,
+  strongThreshold: 0.44,
+  goodThreshold: 0.38,
   exploratoryThreshold: 0.1,
   unsupportedFocusPenalty: 0.35,
 };
@@ -62,6 +63,28 @@ function relationshipKind(row: Row): MatchRelationshipKind | undefined {
 
 function relationshipRank(kind: MatchRelationshipKind): number {
   return kind === 'funded' ? 3 : kind === 'curated' ? 2 : 1;
+}
+
+/**
+ * Folds the relationship table into each project as compact `[fundId, kind]` pairs.
+ *
+ * The flat table repeats the project id, the season, and a creation date on every row, and the
+ * browser only ever needs the rows for the one project being matched. Carrying the pairs per
+ * project lets the split payloads ship one project's history instead of the whole table, which is
+ * roughly 1.5 MB of the catalog.
+ */
+function attachHistory(projects: ProjectProfileV2[], relationships: ProjectFundRelationship[]): void {
+  const byProject = new Map<string, ProjectHistory>();
+  for (const relationship of relationships) {
+    const rows = byProject.get(relationship.projectId) || [];
+    rows.push([relationship.fundId, relationship.kind]);
+    byProject.set(relationship.projectId, rows);
+  }
+  for (const project of projects) {
+    const rows = byProject.get(project.id);
+    if (rows?.length) project.history = rows;
+    else delete project.history;
+  }
 }
 
 async function digest(value: unknown): Promise<string> {
@@ -159,6 +182,7 @@ export async function upgradeMatchIndexV1(
     });
   }
   deriveCoreConcepts(funds);
+  attachHistory(projects, input.relationships);
   const source: MatchIndexSource = {
     kind: sourceKind,
     projects: projects.length,
@@ -197,13 +221,37 @@ function rejectUnexpectedDrop(previous: MatchIndexV2 | null | undefined, next: M
 }
 
 export async function buildMatchIndexV2(client: Bubble, options: BuildOptions = {}): Promise<MatchIndexV2> {
-  const [projectRows, fundRows, extendedRows, submissionRows, tagRows] = await Promise.all([
+  const [projectRows, fundRows, extendedRows, submissionRows, tagRows, artifactRows] = await Promise.all([
     client.list('project', { concurrency: 6 }),
     client.list('fund', { concurrency: 6 }),
     client.list('fundextendedinfo', { concurrency: 6 }),
     client.list('projectsubmission', { concurrency: 6 }),
     client.list('impacttag', { concurrency: 6 }),
+    // Cosmetic data on the biggest table crawled here. `listEach` throws when the row count
+    // shifts mid-pagination, and that must not cost the catalog its hourly rebuild.
+    client.list('artifact', { concurrency: 6 }).catch((error) => {
+      console.warn(`[Artizen] artifact crawl failed, project images fall back to legacy fields: ${error}`);
+      return [] as Row[];
+    }),
   ]);
+
+  // Artifact art is the project image people actually recognise. The two legacy fields on the
+  // project row cover only a quarter of the catalog, so without this most cards fall back to a
+  // blank tile. Keep the newest season's artwork per project.
+  const artifactImages = new Map<string, { season: number; created: string; image: string }>();
+  for (const row of artifactRows) {
+    if (hidden(row)) continue;
+    const projectId = text(row['Project']);
+    if (!projectId) continue;
+    const image = firstMedia(row['image - crop'], row['image - compressed'], row['image - original']);
+    if (!image) continue;
+    const season = row['season number'] == null ? -1 : int(row['season number']);
+    const created = text(row['Created Date']) || '';
+    const held = artifactImages.get(projectId);
+    if (!held || season > held.season || (season === held.season && created > held.created)) {
+      artifactImages.set(projectId, { season, created, image });
+    }
+  }
 
   const tagsById = new Map(
     tagRows.flatMap((row) => {
@@ -228,6 +276,9 @@ export async function buildMatchIndexV2(client: Bubble, options: BuildOptions = 
       description,
       tags,
       facets: extractFacetIds(name, description, tags.join(' ')),
+      image:
+        artifactImages.get(id)?.image ||
+        firstMedia(row['(old) Artifact Image -crop'], row['Profile image lead creator']),
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
 
@@ -273,6 +324,7 @@ export async function buildMatchIndexV2(client: Bubble, options: BuildOptions = 
       facets,
       focusFacets,
       coreConcepts: [],
+      image: mediaUrl(row['cover image']),
     });
   }
   funds.sort((a, b) => a.name.localeCompare(b.name));
@@ -303,6 +355,7 @@ export async function buildMatchIndexV2(client: Bubble, options: BuildOptions = 
   const relationships = [...relationshipByPair.values()].sort(
     (a, b) => a.projectId.localeCompare(b.projectId) || a.fundId.localeCompare(b.fundId),
   );
+  attachHistory(projects, relationships);
 
   const source: MatchIndexSource = {
     kind: options.sourceKind || 'artizen-api',
@@ -355,6 +408,11 @@ export function validateMatchIndexV2(index: MatchIndexV2): void {
   for (const relationship of index.relationships) {
     if (!projectIds.has(relationship.projectId) || !fundIds.has(relationship.fundId)) {
       throw new Error('matching v2 relationship references a missing record');
+    }
+  }
+  for (const project of index.projects) {
+    for (const [fundId] of project.history || []) {
+      if (!fundIds.has(fundId)) throw new Error('matching v2 project history references a missing fund');
     }
   }
   const baselineWeight = index.scoring.lexicalWeight + index.scoring.facetWeight + index.scoring.coreCoverageWeight;

@@ -16,10 +16,15 @@
     "evaluate:matching:v2": "node scripts/evaluate-matching-v2.mjs",
     "inspect:matching:v2": "node scripts/inspect-match-v2.mjs",
     "benchmark:matching:v2": "node scripts/benchmark-match-v2.mjs",
+    "calibrate:matching:v2": "node scripts/calibrate-match-v2.mjs",
+    "calibrate:semantic:v2": "node scripts/calibrate-semantic-v2.mjs",
+    "facet:gaps": "node scripts/facet-gaps.mjs",
+    "compare:match-modes": "node scripts/compare-match-modes.mjs",
     "qa:match": "node scripts/serve-match-qa.mjs",
     "check": "npm run typecheck && npm test && npm run build:client",
     "kv:create": "wrangler kv namespace create CACHE",
-    "types": "wrangler types"
+    "types": "wrangler types",
+    "predeploy": "npm run prepare:semantic"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
@@ -28,6 +33,10 @@
     "wrangler": "^4.28.0"
   },
   "dependencies": {
-    "@huggingface/transformers": "4.2.0"
+    "@huggingface/transformers": "4.2.0",
+    "onnxruntime-web": "1.26.0-dev.20260416-b7804b056c"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

@@ -10,7 +10,17 @@ function index(kind: 'artizen-api' | 'fixture'): MatchIndexV2 {
     source: { kind, projects: 1, funds: 1, relationships: 0 },
     taxonomyVersion: 'test',
     facets: [],
-    projects: [{ id: 'project', slug: 'project', name: 'Project', description: 'Project description', tags: [], facets: [] }],
+    projects: [
+      {
+        id: 'project',
+        slug: 'project',
+        name: 'Project',
+        description: 'Project description',
+        tags: [],
+        facets: [],
+        history: [['fund', 'curated']],
+      },
+    ],
     funds: [
       {
         id: 'fund',
@@ -76,6 +86,65 @@ describe('matching v2 routes', () => {
     expect((await worker.fetch(new Request('http://localhost/match/index.v2.json'), env)).status).toBe(200);
     expect((await worker.fetch(new Request('http://localhost/match/review'), env)).status).toBe(200);
     expect((await worker.fetch(new Request('https://artizen.fyi/match/review'), env)).status).toBe(404);
+  });
+
+  it('keeps the split payloads to what each page needs', async () => {
+    const env = environment(index('artizen-api'));
+    const core = await worker.fetch(new Request('https://artizen.fyi/match/core.v3.json'), env);
+    expect(core.status).toBe(200);
+    const coreBody = (await core.json()) as MatchIndexV2;
+    expect(coreBody.funds).toHaveLength(1);
+    expect(coreBody.projects).toEqual([]);
+    expect(coreBody.relationships).toEqual([]);
+
+    const projects = await worker.fetch(new Request('https://artizen.fyi/match/projects.v3.json'), env);
+    const projectsBody = (await projects.json()) as { projects: MatchIndexV2['projects'] };
+    expect(projectsBody.projects).toHaveLength(1);
+    expect(projectsBody.projects[0].history).toEqual([['fund', 'curated']]);
+
+    const one = await worker.fetch(new Request('https://artizen.fyi/match/project/project.json'), env);
+    const oneBody = (await one.json()) as { projects: MatchIndexV2['projects'] };
+    expect(oneBody.projects.map((project) => project.id)).toEqual(['project']);
+
+    const missing = await worker.fetch(new Request('https://artizen.fyi/match/project/nope.json'), env);
+    expect(missing.status).toBe(404);
+  });
+
+  it('gives each split payload its own validator so one cannot satisfy another', async () => {
+    const env = environment(index('artizen-api'));
+    const core = await worker.fetch(new Request('https://artizen.fyi/match/core.v3.json'), env);
+    const etag = core.headers.get('etag');
+    expect(etag).toBe('"artizen-api-index-core"');
+    const projects = await worker.fetch(new Request('https://artizen.fyi/match/projects.v3.json'), env);
+    expect(projects.headers.get('etag')).toBe('"artizen-api-index-projects"');
+    const revalidated = await worker.fetch(
+      new Request('https://artizen.fyi/match/core.v3.json', { headers: { 'if-none-match': etag as string } }),
+      env,
+    );
+    expect(revalidated.status).toBe(304);
+  });
+
+  it('keeps catalog text out of the response headers', async () => {
+    // Slugs come from Bubble, so one can hold anything. A percent-encoded newline reaching the
+    // ETag makes the Headers constructor throw and the route 500s.
+    const hostile = index('artizen-api');
+    hostile.projects[0].slug = 'a"b\r\nX-Injected: 1';
+    const env = environment(hostile);
+    const response = await worker.fetch(
+      new Request(`https://artizen.fyi/match/project/${encodeURIComponent(hostile.projects[0].slug)}.json`),
+      env,
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get('etag')).toBe('"artizen-api-index-project"');
+    expect(response.headers.get('x-injected')).toBeNull();
+  });
+
+  it('withholds fixture catalogs from the split payloads too', async () => {
+    const env = environment(index('fixture'));
+    for (const path of ['/match/core.v3.json', '/match/projects.v3.json', '/match/project/project.json']) {
+      expect((await worker.fetch(new Request(`https://artizen.fyi${path}`), env)).status).toBe(503);
+      expect((await worker.fetch(new Request(`http://localhost${path}`), env)).status).toBe(200);
+    }
   });
 
   it('serves real indexes with a stable ETag', async () => {

@@ -23,6 +23,26 @@ const expectedModel = {
 };
 const maxStaticFileBytes = 25 * 1024 * 1024;
 
+async function alreadyPinned() {
+  try {
+    const manifest = JSON.parse(await readFile(join(target, 'asset-manifest.json'), 'utf8'));
+    if (manifest.revision !== revision) return false;
+    for (const asset of manifest.files) {
+      const bytes = await readFile(join(target, asset.filename));
+      if (bytes.byteLength !== asset.bytes) return false;
+      if (createHash('sha256').update(bytes).digest('hex') !== asset.sha256) return false;
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+if (await alreadyPinned()) {
+  console.log('Pinned local model already present and intact; skipping download.');
+  process.exit(0);
+}
+
 for (const filename of files) {
   const output = join(target, filename);
   await mkdir(dirname(output), { recursive: true });

@@ -353,8 +353,19 @@ export type MatchFacet = {
   category: MatchFacetCategory;
 };
 
+/**
+ * A project's fund history, as compact tuples rather than full relationship rows.
+ *
+ * Only the fund and the kind are read at match time; season and creation date exist to dedupe at
+ * build time. Carrying the pair per project instead of a flat table of every project's rows is
+ * what lets the browser download one project's history rather than all 9,000.
+ */
+export type ProjectHistory = Array<[fundId: string, kind: MatchRelationshipKind]>;
+
 export type ProjectProfileV2 = ProjectProfile & {
   facets: string[];
+  image?: string;
+  history?: ProjectHistory;
 };
 
 export type FundProfileV2 = Omit<FundProfile, 'derivedThemes'> & {
@@ -363,6 +374,7 @@ export type FundProfileV2 = Omit<FundProfile, 'derivedThemes'> & {
   facets: string[];
   focusFacets: string[];
   coreConcepts: string[];
+  image?: string;
 };
 
 export type ScoreBreakdown = {
@@ -396,6 +408,8 @@ export type SemanticCatalogManifest = {
   modelPath: string;
   wasmPath: string;
   vectorsUrl: string;
+  /** Embeddings for every catalog project, so selecting one needs no model at all. */
+  projectVectorsUrl: string;
   vectorVersion: string;
 };
 

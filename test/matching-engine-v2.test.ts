@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { FundProfileV2, MatchIndexV2, ProjectMatchInput } from '../src/artizen/types';
+import type { FundProfileV2, MatchIndexV2, ProjectHistory, ProjectMatchInput } from '../src/artizen/types';
 import { matchFundsV2, prepareMatchIndexV2 } from '../src/matching/engine-v2';
 import { DEFAULT_SCORING_V2 } from '../src/matching/index-v2';
 import { MATCH_FACETS, MATCH_TAXONOMY_VERSION, extractFacetIds } from '../src/matching/taxonomy';
@@ -121,6 +121,43 @@ describe('matching engine v2', () => {
     expect(known.recommendations.map((row) => [row.fundId, row.score, row.fit])).toEqual(anonymous);
     expect(known.recommendations.find((row) => row.fundId === 'desci')?.knownRelationship).toBe('curated');
     expect(known.recommendations.find((row) => row.fundId === 'desci')?.reasons.some((reason) => reason.kind === 'relationship')).toBe(false);
+  });
+
+  it('reads relationships from per-project history, which is all the split payloads carry', () => {
+    const index = fixture();
+    const split: MatchIndexV2 = {
+      ...index,
+      projects: index.projects.map((project) =>
+        project.id === 'green-goods'
+          ? { ...project, history: [['desci', 'curated'], ['ocean', 'submitted']] as ProjectHistory }
+          : project,
+      ),
+      relationships: [],
+    };
+    const input = { projectId: 'green-goods', title: 'Green Goods', description: index.projects[0].description, tags: index.projects[0].tags };
+    const result = matchFundsV2(prepareMatchIndexV2(split), input);
+    expect(result.recommendations.find((row) => row.fundId === 'desci')?.knownRelationship).toBe('curated');
+    expect(result.recommendations.find((row) => row.fundId === 'ocean')?.knownRelationship).toBe('submitted');
+    // Identical scores either way: history is display context, never an input to the ranking.
+    expect(result.recommendations.map((row) => [row.fundId, row.score])).toEqual(
+      matchFundsV2(prepareMatchIndexV2(index), input).recommendations.map((row) => [row.fundId, row.score]),
+    );
+  });
+
+  it('falls back to the relationship table per project, not for the index as a whole', () => {
+    const index = fixture();
+    // One project migrated to a history, the rest still only in the table. Deciding the source
+    // globally would strip every badge from the projects that had not migrated.
+    const migrated = { ...index.projects[0], history: [['desci', 'curated']] as ProjectHistory };
+    const legacy = { ...index.projects[0], id: 'legacy', slug: 'legacy', name: 'Legacy Project' };
+    const mixed: MatchIndexV2 = {
+      ...index,
+      projects: [migrated, legacy],
+      relationships: [{ projectId: 'legacy', fundId: 'ocean', kind: 'funded' }],
+    };
+    const prepared = prepareMatchIndexV2(mixed);
+    expect(prepared.relationshipsByProject.get(migrated.id)?.map((row) => row.fundId)).toEqual(['desci']);
+    expect(prepared.relationshipsByProject.get('legacy')?.map((row) => row.kind)).toEqual(['funded']);
   });
 
   it('does not call DeSci or Ocean a good Green Goods fit without focus evidence', () => {

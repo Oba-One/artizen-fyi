@@ -1,4 +1,4 @@
-import { escapeHtml, layout, panel } from './layout';
+import { escapeHtml, layout, matchResultsRegion, panel } from './layout';
 
 function tagPicker(prefix: string, capped = true): string {
   return `<div class="artizen-match-tags" data-tag-picker="${escapeHtml(prefix)}">
@@ -33,16 +33,21 @@ export function renderMatch(): string {
           </fieldset>
 
           <section data-source-panel="existing" aria-labelledby="existing-project-title">
-            <h2 id="existing-project-title">Select a project</h2>
+            <h2 class="visually-hidden" id="existing-project-title">Select a project</h2>
             <div class="artizen-project-picker">
-              <label for="match-project">Project</label>
-              <input class="form-control" id="match-project" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="match-project-options" aria-describedby="match-project-help" autocomplete="off" placeholder="Search projects by name, tag, or description" data-project-input required>
+              <label class="visually-hidden" for="match-project">Search projects</label>
+              <div class="artizen-project-field">
+                <i class="bi bi-search artizen-project-icon" aria-hidden="true"></i>
+                <input class="form-control" id="match-project" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="match-project-options" aria-describedby="match-project-help" autocomplete="off" placeholder="Search projects by name, tag, or description" data-project-input required>
+                <button class="artizen-project-clear" type="button" data-project-clear aria-label="Clear project search" hidden>&times;</button>
+              </div>
               <ul class="artizen-project-options" id="match-project-options" role="listbox" data-project-options hidden></ul>
             </div>
             <p class="form-text" id="match-project-help">Start typing, then choose a project or press Enter on the highlighted result.</p>
             <p class="visually-hidden" role="status" aria-live="polite" data-project-search-status></p>
-            <div class="artizen-match-project-preview" data-project-preview hidden></div>
-            <details class="artizen-match-refine">
+            <div class="artizen-match-project-preview" data-project-preview></div>
+            <div class="artizen-tag-prompt" data-tag-prompt hidden></div>
+            <details class="artizen-match-refine" data-match-refine>
               <summary>Refine this project for this match</summary>
               <label for="match-existing-description">Project description</label>
               <textarea class="form-control" id="match-existing-description" maxlength="1000" rows="4" data-existing-description></textarea>
@@ -51,7 +56,7 @@ export function renderMatch(): string {
           </section>
 
           <section data-source-panel="describe" aria-labelledby="describe-project-title" hidden>
-            <h2 id="describe-project-title">Describe a project</h2>
+            <h2 class="visually-hidden" id="describe-project-title">Describe a project</h2>
             <label for="match-title">Project title <span class="text-muted">(optional)</span></label>
             <input class="form-control" id="match-title" type="text" maxlength="120" autocomplete="off" data-project-title>
             <label for="match-description">Project description</label>
@@ -70,17 +75,7 @@ export function renderMatch(): string {
               <p class="text-muted mb-0">Ranked by thematic fit using each fund’s official language, not eligibility or past relationships.</p>
             </div>
           </div>
-          <p class="artizen-match-status" data-match-status role="status" aria-live="polite">The public matching catalog is loading…</p>
-          <div class="artizen-match-controls" data-match-controls hidden>
-            <label><input type="checkbox" data-open-only> Open now</label>
-          </div>
-          <div class="artizen-match-results" data-match-results></div>
-          <button class="btn btn-outline-dark artizen-match-more" type="button" data-match-more hidden>Show more funds</button>
-          <div class="artizen-semantic-controls" data-semantic-controls hidden>
-            <button class="btn btn-outline-dark" type="button" data-semantic-button>Improve with local AI</button>
-            <progress max="1" value="0" data-semantic-progress hidden></progress>
-            <span class="text-muted" data-semantic-status></span>
-          </div>
+${matchResultsRegion('The public matching catalog is loading…')}
         </section>
 
         <p class="artizen-match-note">Alignment is not a guarantee of eligibility, an open application, or a current deadline. Check each fund’s requirements on Artizen.</p>

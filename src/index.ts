@@ -1,4 +1,5 @@
 import { Artizen, type FundPage, type ProjectPage } from './artizen';
+import type { MatchIndexV2 } from './artizen/types';
 import faviconIco from './favicon.ico';
 import faviconSvg from './favicon.svg';
 import appleTouchIcon from './apple-touch-icon.png';
@@ -52,19 +53,43 @@ async function matchingIndexResponse(artizen: Artizen, request: Request): Promis
   return new Response(JSON.stringify(index), { headers });
 }
 
-async function matchingIndexV2Response(artizen: Artizen, request: Request, url: URL): Promise<Response> {
+function matchingUnavailable(): Response {
+  return new Response(JSON.stringify({ error: 'matching_v2_index_unavailable' }), {
+    status: 503,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'cache-control': 'no-store',
+      'retry-after': '300',
+    },
+  });
+}
+
+/** Fixture catalogs exist for local QA only; serving them publicly would look like real advice. */
+async function servableMatchIndexV2(artizen: Artizen, url: URL): Promise<MatchIndexV2 | null> {
   const index = await artizen.matchIndexV2();
   const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
-  if (!index || (index.source.kind === 'fixture' && !local)) {
-    return new Response(JSON.stringify({ error: 'matching_v2_index_unavailable' }), {
-      status: 503,
-      headers: {
-        'content-type': 'application/json; charset=utf-8',
-        'cache-control': 'no-store',
-        'retry-after': '300',
-      },
-    });
-  }
+  return index && !(index.source.kind === 'fixture' && !local) ? index : null;
+}
+
+/**
+ * `variant` keeps the three matching payloads from sharing an ETag. They are all derived from one
+ * index version, so without it a 304 for the core document would satisfy a request for the
+ * projects document from any cache that keys only on the validator.
+ */
+function matchingJson(request: Request, indexVersion: string, variant: string, body: () => unknown): Response {
+  const etag = `"${indexVersion}-${variant}"`;
+  const headers = {
+    'content-type': 'application/json; charset=utf-8',
+    'cache-control': 'public, max-age=300, stale-while-revalidate=86400',
+    etag,
+  };
+  if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers });
+  return new Response(JSON.stringify(body()), { headers });
+}
+
+async function matchingIndexV2Response(artizen: Artizen, request: Request, url: URL): Promise<Response> {
+  const index = await servableMatchIndexV2(artizen, url);
+  if (!index) return matchingUnavailable();
   const etag = `"${index.indexVersion}"`;
   const headers = {
     'content-type': 'application/json; charset=utf-8',
@@ -73,6 +98,52 @@ async function matchingIndexV2Response(artizen: Artizen, request: Request, url: 
   };
   if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers });
   return new Response(JSON.stringify(index), { headers });
+}
+
+/**
+ * The catalog split into what each page actually needs.
+ *
+ * The combined document is 3 MB, and roughly half of it is relationship rows for other people's
+ * projects - a browser matching one project reads sixteen of nine thousand. Funds, facets, and
+ * scoring are all a first paint needs; the project list is fetched when the picker opens, and a
+ * project page fetches its own record alone.
+ */
+async function matchingCoreResponse(artizen: Artizen, request: Request, url: URL): Promise<Response> {
+  const index = await servableMatchIndexV2(artizen, url);
+  if (!index) return matchingUnavailable();
+  return matchingJson(request, index.indexVersion, 'core', () => ({
+    ...index,
+    projects: [],
+    relationships: [],
+  }));
+}
+
+async function matchingProjectsResponse(artizen: Artizen, request: Request, url: URL): Promise<Response> {
+  const index = await servableMatchIndexV2(artizen, url);
+  if (!index) return matchingUnavailable();
+  return matchingJson(request, index.indexVersion, 'projects', () => ({
+    indexVersion: index.indexVersion,
+    projects: index.projects,
+  }));
+}
+
+async function matchingProjectResponse(artizen: Artizen, request: Request, url: URL, slug: string): Promise<Response> {
+  const index = await servableMatchIndexV2(artizen, url);
+  if (!index) return matchingUnavailable();
+  const project = index.projects.find((candidate) => candidate.slug === slug || candidate.id === slug);
+  if (!project) {
+    return new Response(JSON.stringify({ error: 'matching_project_not_found' }), {
+      status: 404,
+      headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'public, max-age=300' },
+    });
+  }
+  // The variant is a fixed word, not the slug: slugs are catalog text, and one carrying a quote or
+  // a percent-encoded newline would either malform the ETag or make the Headers constructor throw.
+  // Two projects sharing a validator is harmless anyway - caches key on the URL, which differs.
+  return matchingJson(request, index.indexVersion, 'project', () => ({
+    indexVersion: index.indexVersion,
+    projects: [project],
+  }));
 }
 
 function detail<T>(data: T | null, render: (data: T) => string): Response {
@@ -166,6 +237,19 @@ export default {
 
     if (request.method === 'GET' && path === '/match/index.v2.json') {
       return matchingIndexV2Response(artizen, request, url);
+    }
+
+    if (request.method === 'GET' && path === '/match/core.v3.json') {
+      return matchingCoreResponse(artizen, request, url);
+    }
+
+    if (request.method === 'GET' && path === '/match/projects.v3.json') {
+      return matchingProjectsResponse(artizen, request, url);
+    }
+
+    const matchProject = path.match(/^\/match\/project\/(.+)\.json$/);
+    if (request.method === 'GET' && matchProject) {
+      return matchingProjectResponse(artizen, request, url, decodeURIComponent(matchProject[1]));
     }
 
     if (request.method === 'GET' && path === '/boosts') {

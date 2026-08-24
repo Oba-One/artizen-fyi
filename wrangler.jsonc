@@ -7,7 +7,7 @@
   "dev": { "host": "localhost" },
   "build": {
     "command": "npm run build:client",
-    "watch_dir": ["src/client", "src/matching", "src/artizen/types.ts"]
+    "watch_dir": ["src"]
   },
   "assets": {
     "directory": "./public",

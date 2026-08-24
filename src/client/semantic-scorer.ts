@@ -1,80 +1,16 @@
-/// <reference lib="webworker" />
-
 import type { MatchIndexV2, ProjectMatchInput, SemanticScorer } from '../artizen/types';
+import { semanticManifest } from '../matching/semantic-config';
+import { matchInputVectorText, vectorFingerprint } from '../matching/semantic-text';
+import { cosine, parseVectorCatalog, scoreAgainstFunds, serializeVectorCatalog, truncateAndNormalize } from './vector-catalog';
 
 type EmbeddingTensor = { data: ArrayLike<number>; dims: number[] };
 type FeatureExtractor = {
   (texts: string | string[], options: { pooling: 'mean'; normalize: boolean }): Promise<EmbeddingTensor>;
   dispose(): Promise<void>;
 };
-type VectorRecord = { fundId: string; profileHash: string };
-type VectorHeader = { vectorVersion: string; dimensions: number; records: VectorRecord[] };
 
 function projectText(input: ProjectMatchInput): string {
-  return [input.title, input.description, ...input.tags].filter(Boolean).join('. ');
-}
-
-function truncateAndNormalize(values: ArrayLike<number>, offset: number, dimensions: number): Float32Array {
-  const result = new Float32Array(dimensions);
-  let norm = 0;
-  for (let index = 0; index < dimensions; index += 1) {
-    const value = Number(values[offset + index] || 0);
-    result[index] = value;
-    norm += value * value;
-  }
-  if (norm > 0) {
-    const scale = 1 / Math.sqrt(norm);
-    for (let index = 0; index < result.length; index += 1) result[index] *= scale;
-  }
-  return result;
-}
-
-function cosine(left: Float32Array, right: Float32Array): number {
-  let score = 0;
-  for (let index = 0; index < left.length; index += 1) score += left[index] * right[index];
-  return Math.max(0, Math.min(1, score));
-}
-
-function parseVectorCatalog(buffer: ArrayBuffer, index: MatchIndexV2): Map<string, Float32Array> {
-  const bytes = new Uint8Array(buffer);
-  if (new TextDecoder().decode(bytes.subarray(0, 4)) !== 'AMV2') throw new Error('Invalid semantic vector catalog');
-  const view = new DataView(buffer);
-  const jsonLength = view.getUint32(4, true);
-  const dataOffset = view.getUint32(8, true);
-  const header = JSON.parse(new TextDecoder().decode(bytes.subarray(12, 12 + jsonLength))) as VectorHeader;
-  if (header.vectorVersion !== index.semantic?.vectorVersion || header.dimensions !== index.semantic.dimensions) {
-    throw new Error('Stale semantic vector catalog');
-  }
-  const expectedHashes = new Map(index.funds.map((fund) => [fund.id, fund.profileHash]));
-  const values = new Float32Array(buffer, dataOffset);
-  const vectors = new Map<string, Float32Array>();
-  header.records.forEach((record, recordIndex) => {
-    if (expectedHashes.get(record.fundId) !== record.profileHash) return;
-    const start = recordIndex * header.dimensions;
-    vectors.set(record.fundId, values.slice(start, start + header.dimensions));
-  });
-  return vectors;
-}
-
-function serializeVectorCatalog(index: MatchIndexV2, vectors: Map<string, Float32Array>): ArrayBuffer {
-  const manifest = index.semantic;
-  if (!manifest) throw new Error('Semantic matching is not configured');
-  const records = index.funds
-    .filter((fund) => vectors.has(fund.id))
-    .map((fund) => ({ fundId: fund.id, profileHash: fund.profileHash }));
-  const header: VectorHeader = { vectorVersion: manifest.vectorVersion, dimensions: manifest.dimensions, records };
-  const json = new TextEncoder().encode(JSON.stringify(header));
-  const dataOffset = 12 + Math.ceil(json.byteLength / 4) * 4;
-  const buffer = new ArrayBuffer(dataOffset + records.length * manifest.dimensions * 4);
-  const bytes = new Uint8Array(buffer);
-  bytes.set(new TextEncoder().encode('AMV2'), 0);
-  const view = new DataView(buffer);
-  view.setUint32(4, json.byteLength, true);
-  view.setUint32(8, dataOffset, true);
-  bytes.set(json, 12);
-  const values = new Float32Array(buffer, dataOffset);
-  records.forEach((record, recordIndex) => values.set(vectors.get(record.fundId)!, recordIndex * manifest.dimensions));
-  return buffer;
+  return matchInputVectorText(input);
 }
 
 async function webGpuAvailable(): Promise<boolean> {
@@ -94,7 +30,7 @@ export class LocalSemanticScorer implements SemanticScorer {
   constructor(private readonly index: MatchIndexV2) {}
 
   async load(onProgress: (progress: number) => void): Promise<void> {
-    const manifest = this.index.semantic;
+    const manifest = semanticManifest(this.index);
     if (!manifest) throw new Error('Semantic matching is not configured');
     const transformers = await import('@huggingface/transformers');
     transformers.env.allowRemoteModels = false;
@@ -105,7 +41,10 @@ export class LocalSemanticScorer implements SemanticScorer {
     const onnx = transformers.env.backends.onnx as { wasm?: { wasmPaths?: string; numThreads?: number } };
     onnx.wasm ||= {};
     onnx.wasm.wasmPaths = manifest.wasmPath;
-    onnx.wasm.numThreads = Math.max(1, Math.min(2, navigator.hardwareConcurrency || 1));
+    // Threaded ORT needs SharedArrayBuffer, which needs cross-origin isolation. This site loads
+    // Bootstrap, Bootstrap Icons, DataTables, and its fonts from third-party CDNs, so COOP/COEP is
+    // not on the table. Asking for threads here only produced a silent, slower fallback.
+    onnx.wasm.numThreads = 1;
 
     const progressCallback = (event: unknown) => {
       const row = event as { progress?: number };
@@ -136,14 +75,11 @@ export class LocalSemanticScorer implements SemanticScorer {
   }
 
   async score(input: ProjectMatchInput, fundIds: string[]): Promise<Map<string, number>> {
-    if (!this.extractor || !this.index.semantic) throw new Error('Local semantic model is not loaded');
+    const manifest = semanticManifest(this.index);
+    if (!this.extractor || !manifest) throw new Error('Local semantic model is not loaded');
     const output = await this.extractor(projectText(input), { pooling: 'mean', normalize: true });
-    const query = truncateAndNormalize(output.data, 0, this.index.semantic.dimensions);
-    const scores = new Map<string, number>();
-    for (const fundId of fundIds) {
-      const vector = this.vectors.get(fundId);
-      if (vector) scores.set(fundId, cosine(query, vector));
-    }
+    const query = truncateAndNormalize(output.data, 0, manifest.dimensions);
+    const scores = scoreAgainstFunds(query, this.vectors, fundIds);
     query.fill(0);
     return scores;
   }
@@ -154,21 +90,41 @@ export class LocalSemanticScorer implements SemanticScorer {
     this.vectors.clear();
   }
 
+  private fundFingerprints(): Map<string, string> {
+    return new Map(this.index.funds.map((fund) => [fund.id, vectorFingerprint(fund.profileText)]));
+  }
+
+  private serializeFunds(vectors: Map<string, Float32Array>): ArrayBuffer {
+    const manifest = semanticManifest(this.index)!;
+    return serializeVectorCatalog(
+      manifest.vectorVersion,
+      manifest.dimensions,
+      this.index.funds
+        .filter((fund) => vectors.has(fund.id))
+        .map((fund) => ({ id: fund.id, fingerprint: vectorFingerprint(fund.profileText), vector: vectors.get(fund.id)! })),
+    );
+  }
+
   private async loadFundVectors(onProgress: (progress: number) => void): Promise<Map<string, Float32Array>> {
-    const manifest = this.index.semantic!;
+    const manifest = semanticManifest(this.index)!;
     const cacheRequest = new Request(`/assets/.computed-${manifest.vectorVersion}.bin`);
     let vectors = new Map<string, Float32Array>();
     try {
-      const cache = await caches.open('artizen-semantic-fund-vectors-v1');
+      const cache = await caches.open('artizen-semantic-fund-vectors-v2');
       const cached = await cache.match(cacheRequest);
-      if (cached) vectors = parseVectorCatalog(await cached.arrayBuffer(), this.index);
+      if (cached) vectors = parseVectorCatalog(await cached.arrayBuffer(), manifest, this.fundFingerprints());
     } catch {
       // Cache access is optional. The public vector catalog remains the next source.
     }
-    if (vectors.size === 0) {
+    if (vectors.size < this.index.funds.length) {
       try {
-        const response = await fetch(manifest.vectorsUrl, { cache: 'force-cache' });
-        if (response.ok) vectors = parseVectorCatalog(await response.arrayBuffer(), this.index);
+        const response = await fetch(manifest.vectorsUrl, { cache: 'no-cache' });
+        if (response.ok) {
+          const published = parseVectorCatalog(await response.arrayBuffer(), manifest, this.fundFingerprints());
+          for (const [fundId, vector] of published) {
+            if (!vectors.has(fundId)) vectors.set(fundId, vector);
+          }
+        }
       } catch {
         // Missing precomputed vectors are calculated locally below.
       }
@@ -188,8 +144,8 @@ export class LocalSemanticScorer implements SemanticScorer {
     }
     if (missing.length) {
       try {
-        const cache = await caches.open('artizen-semantic-fund-vectors-v1');
-        await cache.put(cacheRequest, new Response(serializeVectorCatalog(this.index, vectors)));
+        const cache = await caches.open('artizen-semantic-fund-vectors-v2');
+        await cache.put(cacheRequest, new Response(this.serializeFunds(vectors)));
       } catch {
         // Storage failure must not prevent this in-memory scoring session.
       }

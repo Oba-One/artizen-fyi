@@ -285,6 +285,101 @@ const FOOTER = `
 `;
 
 
+/**
+ * The part of the fund-matching UI that /match and the project detail panel share.
+ * Both pages used to carry their own copy of this markup and had already drifted;
+ * keeping it in one place is what stops the local-AI control, the filters, and the
+ * results grid from diverging again.
+ */
+export function matchResultsRegion(status: string): string {
+  return `
+      <div class="artizen-results-bar">
+        <div class="artizen-results-summary">
+          <p class="artizen-match-status" data-match-status role="status" aria-live="polite">${escapeHtml(status)}</p>
+          <button class="artizen-info-button" type="button" data-match-info aria-label="How these matches are made">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="artizen-results-actions">
+          <div class="artizen-semantic-controls" data-semantic-controls hidden>
+            <button class="artizen-ai-button" type="button" data-semantic-button>
+              <i class="bi bi-stars" aria-hidden="true"></i>
+              <span class="artizen-ai-label" data-semantic-label>Improve with local AI</span>
+              <span class="artizen-ai-size" data-semantic-size></span>
+            </button>
+            <progress max="1" value="0" data-semantic-progress hidden></progress>
+          </div>
+        </div>
+        <div class="artizen-ai-note-row">
+          <p class="artizen-ai-note text-muted" role="status" aria-live="polite" data-semantic-status></p>
+          <button class="artizen-ai-undo" type="button" data-semantic-undo hidden>Undo edits</button>
+        </div>
+      </div>
+      <div class="artizen-match-controls" data-match-controls hidden>
+        <div class="artizen-filter-block">
+          <h3 class="artizen-filter-title" id="match-status-filters">Fund status</h3>
+          <div class="artizen-filter-group" role="group" aria-labelledby="match-status-filters">
+            <button class="artizen-match-toggle" type="button" data-filter-active aria-pressed="true">
+              Active curation <span class="artizen-match-count" data-count-active></span>
+            </button>
+            <button class="artizen-match-toggle" type="button" data-filter-available aria-pressed="false">
+              Funds available <span class="artizen-match-count" data-count-available></span>
+            </button>
+            <button class="artizen-match-toggle" type="button" data-filter-new aria-pressed="false" title="Hide funds this project has already applied to, been curated in, or been funded by">
+              New to me <span class="artizen-match-count" data-count-new></span>
+            </button>
+          </div>
+        </div>
+        <div class="artizen-filter-block" data-project-focus hidden>
+          <h3 class="artizen-filter-title" id="match-project-focus">Your focus</h3>
+          <div class="artizen-facet-scroller">
+            <div class="artizen-project-focus-chips" data-project-focus-chips role="list" aria-labelledby="match-project-focus"></div>
+          </div>
+        </div>
+        <div class="artizen-filter-block" data-facet-filters hidden>
+          <div class="artizen-filter-heading">
+            <h3 class="artizen-filter-title" id="match-focus-filters">Focus areas</h3>
+            <button class="artizen-match-facet-clear" type="button" data-facet-clear hidden>Clear</button>
+          </div>
+          <div class="artizen-facet-scroller">
+            <div class="artizen-match-facet-chips" data-facet-chips role="group" aria-labelledby="match-focus-filters"></div>
+          </div>
+        </div>
+        <div class="artizen-filter-block">
+          <h3 class="artizen-filter-title" id="match-list-tools">Find and sort</h3>
+          <div class="artizen-tools-row" role="group" aria-labelledby="match-list-tools">
+            <div class="artizen-fund-search">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <label class="visually-hidden" for="match-fund-search">Search these funds by name</label>
+              <input class="form-control" id="match-fund-search" type="search" autocomplete="off" placeholder="Search these funds" data-fund-search>
+            </div>
+            <label class="visually-hidden" for="match-sort">Sort funds</label>
+            <select class="form-select artizen-sort-select" id="match-sort" data-match-sort>
+              <option value="fit">Best fit</option>
+              <option value="available">Most available</option>
+              <option value="name">Name</option>
+            </select>
+            <button class="artizen-match-toggle" type="button" data-filter-shortlist aria-pressed="false">
+              Shortlisted <span class="artizen-match-count" data-count-shortlist></span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="artizen-match-results" data-match-results></div>
+      <div class="artizen-match-more-row">
+        <button class="btn btn-outline-dark artizen-match-more" type="button" data-match-more hidden>Show more funds</button>
+        <button class="artizen-match-collapse" type="button" data-match-collapse hidden>Back to recommendations</button>
+      </div>
+      <dialog class="artizen-fund-dialog" closedby="any" data-fund-dialog>
+        <button class="artizen-fund-dialog-close" type="button" data-fund-dialog-close aria-label="Close">&times;</button>
+        <div class="artizen-fund-dialog-body" data-fund-dialog-body></div>
+      </dialog>
+      <dialog class="artizen-info-dialog" closedby="any" data-match-info-dialog aria-label="How these matches are made">
+        <button class="artizen-info-dialog-close" type="button" data-match-info-close aria-label="Close">&times;</button>
+        <div class="artizen-info-dialog-body" data-match-info-body></div>
+      </dialog>`;
+}
+
 export function panel(inner: string, opts?: { className?: string }): string {
   const cls = ['artizen-panel', opts?.className || ''].filter(Boolean).join(' ');
   return `<div class="${cls}">${inner}</div>`;

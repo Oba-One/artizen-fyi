@@ -1,6 +1,6 @@
 import type { ProjectPage, ProjectSibling, ProjectSiblingFund, ProjectSubmission } from '../artizen';
 import { moneyCells, moneyColumns, moneyHeaders, truncate, usd } from '../format';
-import { artizenLinks, driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow } from './layout';
+import { artizenLinks, driveBadges, escapeHtml, heroSplit, layout, matchResultsRegion, namedLink, panel, sumField, treeRow } from './layout';
 
 export function renderProject(project: ProjectPage): string {
   const tags = (project.tags || []).map((tag) => `<span class="badge text-bg-secondary me-1 mb-1">${escapeHtml(tag)}</span>`).join('');
@@ -44,17 +44,7 @@ function projectMatching(project: ProjectPage): string {
         <a href="/match" class="btn btn-outline-dark btn-sm">Try another project</a>
       </div>
       <p class="artizen-match-note">Alignment is not a guarantee of eligibility, an open application, or a current deadline. Check each fund’s requirements on Artizen.</p>
-      <p class="artizen-match-status" data-match-status role="status" aria-live="polite">Preparing recommendations…</p>
-      <div class="artizen-match-controls" data-match-controls hidden>
-        <label><input type="checkbox" data-open-only> Open now</label>
-      </div>
-      <div class="artizen-match-results" data-match-results></div>
-      <button class="btn btn-outline-dark artizen-match-more" type="button" data-match-more hidden>Show more funds</button>
-      <div class="artizen-semantic-controls" data-semantic-controls hidden>
-        <button class="btn btn-outline-dark" type="button" data-semantic-button>Improve with local AI</button>
-        <progress max="1" value="0" data-semantic-progress hidden></progress>
-        <span class="text-muted" data-semantic-status></span>
-      </div>
+${matchResultsRegion('Preparing recommendations…')}
       <noscript><p class="artizen-note">Fund alignment needs JavaScript to run privately in your browser.</p></noscript>
     </section>
   `);

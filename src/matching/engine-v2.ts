@@ -68,9 +68,27 @@ function cosine(left: Terms, right: Terms, idf: Map<string, number>): number {
   return Math.max(0, Math.min(1, dot / Math.sqrt(leftNorm * rightNorm)));
 }
 
-function relationshipMap(relationships: ProjectFundRelationship[]): Map<string, ProjectFundRelationship[]> {
+/**
+ * Per-project history is the canonical source; the flat relationship table is the fallback for
+ * indexes built before histories existed. The split payloads carry only the histories, so a
+ * browser that has fetched one project still gets that project's badges.
+ *
+ * The fallback is decided per project rather than for the index as a whole. A single project
+ * carrying a history would otherwise switch the whole index onto that source and silently strip
+ * the badges from every project that only appears in the table.
+ */
+function relationshipMap(index: MatchIndexV2): Map<string, ProjectFundRelationship[]> {
   const result = new Map<string, ProjectFundRelationship[]>();
-  for (const relationship of relationships) {
+  for (const project of index.projects) {
+    if (!project.history?.length) continue;
+    result.set(
+      project.id,
+      project.history.map(([fundId, kind]) => ({ projectId: project.id, fundId, kind })),
+    );
+  }
+  const fromHistory = new Set(result.keys());
+  for (const relationship of index.relationships || []) {
+    if (fromHistory.has(relationship.projectId)) continue;
     const rows = result.get(relationship.projectId) || [];
     rows.push(relationship);
     result.set(relationship.projectId, rows);
@@ -102,7 +120,7 @@ export function prepareMatchIndexV2(index: MatchIndexV2): PreparedMatchIndexV2 {
     index,
     funds,
     fundsById: new Map(funds.map((candidate) => [candidate.fund.id, candidate])),
-    relationshipsByProject: relationshipMap(index.relationships),
+    relationshipsByProject: relationshipMap(index),
     idf: documentFrequency(funds.map((fund) => fund.terms)),
   };
 }

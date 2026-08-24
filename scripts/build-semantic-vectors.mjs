@@ -1,65 +1,120 @@
-import { readFile, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { build } from 'esbuild';
 import { env, pipeline } from '@huggingface/transformers';
 
+// Emits two catalogs of precomputed embeddings:
+//   match-fund-vectors-v2.bin     - so on-device scoring only has to embed the project text
+//   match-project-vectors-v2.bin  - so an existing catalog project needs no model at all
 const inputPath = process.argv[2];
-const outputPath = process.argv[3] || 'public/assets/match-fund-vectors-v1.bin';
+const outputDir = process.argv[3] || 'public/assets';
 if (!inputPath) {
-  console.error('Usage: npm run build:semantic-vectors -- <match-index-v2.json> [output.bin]');
+  console.error('Usage: npm run build:semantic-vectors -- <match-index-v2.json | url> [output-dir]');
   process.exitCode = 1;
 } else {
-  const index = JSON.parse(await readFile(inputPath, 'utf8'));
-  if (index.schemaVersion !== 2 || !index.semantic || !Array.isArray(index.funds)) {
-    throw new Error('A MatchIndexV2 with a semantic manifest is required');
+  // A URL is accepted so the vectors can be built straight from a deployed catalog, which is the
+  // only place the current index lives once the cron has written it to KV.
+  let index;
+  if (/^https?:\/\//.test(inputPath)) {
+    const response = await fetch(inputPath, { headers: { Accept: 'application/json' } });
+    // Without this the Worker's 503 body parses as JSON and fails later with a misleading
+    // "not a MatchIndexV2", or as HTML with a bare SyntaxError naming no URL.
+    if (!response.ok) throw new Error(`Could not fetch the matching index (${response.status}): ${inputPath}`);
+    index = await response.json();
+  } else {
+    index = JSON.parse(await readFile(inputPath, 'utf8'));
   }
+  if (index.schemaVersion !== 2 || !index.semantic || !Array.isArray(index.funds) || !Array.isArray(index.projects)) {
+    throw new Error('A MatchIndexV2 with a semantic manifest, funds, and projects is required');
+  }
+  await mkdir(outputDir, { recursive: true });
+
+  // The text and fingerprint rules are shared with the browser so a vector is never matched
+  // against text the record no longer has.
+  const temp = await mkdtemp(join(tmpdir(), 'artizen-vectors-'));
+  const shim = join(temp, 'shared.mjs');
+  try {
+  await build({
+    stdin: {
+      contents: `export { projectVectorText, vectorFingerprint } from ${JSON.stringify(join(process.cwd(), 'src/matching/semantic-text.ts'))};
+                 export { SEMANTIC_CATALOG } from ${JSON.stringify(join(process.cwd(), 'src/matching/semantic-config.ts'))};
+                 export { serializeVectorCatalog } from ${JSON.stringify(join(process.cwd(), 'src/client/vector-catalog.ts'))};`,
+      resolveDir: process.cwd(),
+      sourcefile: 'vectors-entry.ts',
+    },
+    outfile: shim,
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node22',
+    logLevel: 'silent',
+  });
+  const { projectVectorText, vectorFingerprint, serializeVectorCatalog, SEMANTIC_CATALOG } = await import(pathToFileURL(shim).href);
+  // Version and dimensions come from the same constant the browser reads, never from the index -
+  // otherwise a config change here and a catalog rebuild have to land in lockstep.
+  const manifest = SEMANTIC_CATALOG;
+
   env.allowRemoteModels = false;
   env.allowLocalModels = true;
   env.localModelPath = `${resolve('public/assets/models')}/`;
   env.useFSCache = false;
-  const extractor = await pipeline('feature-extraction', index.semantic.modelId, {
-    dtype: index.semantic.dtype,
-    revision: index.semantic.modelRevision,
+  const extractor = await pipeline('feature-extraction', manifest.modelId, {
+    dtype: manifest.dtype,
+    revision: manifest.modelRevision,
     local_files_only: true,
     device: 'cpu',
   });
-  const dimensions = index.semantic.dimensions;
-  const vectors = [];
-  for (let start = 0; start < index.funds.length; start += 16) {
-    const batch = index.funds.slice(start, start + 16);
-    const output = await extractor(batch.map((fund) => fund.profileText), { pooling: 'mean', normalize: true });
-    const fullDimensions = output.dims.at(-1);
-    if (!fullDimensions || fullDimensions < dimensions) throw new Error('Model returned an invalid embedding shape');
-    batch.forEach((_fund, batchIndex) => {
-      const vector = new Float32Array(dimensions);
-      let norm = 0;
-      for (let index = 0; index < dimensions; index += 1) {
-        const value = Number(output.data[batchIndex * fullDimensions + index] || 0);
-        vector[index] = value;
-        norm += value * value;
+
+  const dimensions = manifest.dimensions;
+  async function embedAll(label, items, textOf) {
+    const vectors = [];
+    for (let start = 0; start < items.length; start += 16) {
+      const batch = items.slice(start, start + 16);
+      const output = await extractor(batch.map(textOf), { pooling: 'mean', normalize: true });
+      const full = output.dims.at(-1);
+      if (!full || full < dimensions) throw new Error('Model returned an invalid embedding shape');
+      batch.forEach((_item, batchIndex) => {
+        const vector = new Float32Array(dimensions);
+        let norm = 0;
+        for (let i = 0; i < dimensions; i += 1) {
+          const value = Number(output.data[batchIndex * full + i] || 0);
+          vector[i] = value;
+          norm += value * value;
+        }
+        const scale = norm > 0 ? 1 / Math.sqrt(norm) : 1;
+        for (let i = 0; i < vector.length; i += 1) vector[i] *= scale;
+        vectors.push(vector);
+      });
+      if ((start / 16) % 10 === 0 || start + 16 >= items.length) {
+        console.log(`Embedded ${Math.min(start + batch.length, items.length)}/${items.length} ${label}`);
       }
-      const scale = norm > 0 ? 1 / Math.sqrt(norm) : 1;
-      for (let index = 0; index < vector.length; index += 1) vector[index] *= scale;
-      vectors.push(vector);
-    });
-    console.log(`Embedded ${Math.min(start + batch.length, index.funds.length)}/${index.funds.length} funds`);
+    }
+    return vectors;
   }
+
+  async function writeCatalog(filename, items, textOf, vectors) {
+    const entries = items.map((item, itemIndex) => ({
+      id: item.id,
+      fingerprint: vectorFingerprint(textOf(item)),
+      vector: vectors[itemIndex],
+    }));
+    const buffer = serializeVectorCatalog(manifest.vectorVersion, dimensions, entries);
+    const path = join(outputDir, filename);
+    await writeFile(path, Buffer.from(buffer));
+    console.log(`${filename}: ${entries.length} vectors, ${buffer.byteLength} bytes`);
+  }
+
+  const fundText = (fund) => fund.profileText;
+  const projectText = (project) => projectVectorText(project);
+  const fundVectors = await embedAll('funds', index.funds, fundText);
+  const projectVectors = await embedAll('projects', index.projects, projectText);
   await extractor.dispose();
-  const header = {
-    vectorVersion: index.semantic.vectorVersion,
-    dimensions,
-    records: index.funds.map((fund) => ({ fundId: fund.id, profileHash: fund.profileHash })),
-  };
-  const json = new TextEncoder().encode(JSON.stringify(header));
-  const dataOffset = 12 + Math.ceil(json.byteLength / 4) * 4;
-  const buffer = new ArrayBuffer(dataOffset + vectors.length * dimensions * 4);
-  const bytes = new Uint8Array(buffer);
-  bytes.set(new TextEncoder().encode('AMV2'), 0);
-  const view = new DataView(buffer);
-  view.setUint32(4, json.byteLength, true);
-  view.setUint32(8, dataOffset, true);
-  bytes.set(json, 12);
-  const values = new Float32Array(buffer, dataOffset);
-  vectors.forEach((vector, vectorIndex) => values.set(vector, vectorIndex * dimensions));
-  await writeFile(outputPath, bytes);
-  console.log(`Semantic fund vectors: ${bytes.byteLength} bytes at ${outputPath}`);
+
+  await writeCatalog('match-fund-vectors-v2.bin', index.funds, fundText, fundVectors);
+  await writeCatalog('match-project-vectors-v2.bin', index.projects, projectText, projectVectors);
+  } finally {
+    await rm(temp, { recursive: true, force: true });
+  }
 }
