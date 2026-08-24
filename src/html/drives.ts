@@ -50,7 +50,7 @@ function bonusChartPanel(drives: Drive[]): { html: string; script: string } | un
   };
   const html = panel(`
     <h2 class="artizen-panel-title">Bonus vs boosts</h2>
-    <p class="text-muted small mb-3">${escapeHtml(drive.name)} · ${kind} share a <strong>${usd(chart.pot)}</strong> pot on a fifth-root curve (<code>boosts<sup>${BONUS_POWER}</sup></code>). Showing the top 10 by boosts; hover a ${noun} for its take.</p>
+    <p class="text-muted small mb-3">${escapeHtml(drive.name)} · ${kind} share a <strong>${usd(chart.pot)}</strong> pot. Extra boosts still count, but less and less — so the pot spreads wide. Showing the top 10 by boosts; hover a ${noun} for its take.</p>
     <div class="artizen-bonus-chart"><canvas id="artizen-bonus-chart" aria-label="Bonus versus boosts"></canvas></div>
   `);
   const script = `
@@ -95,7 +95,7 @@ function bonusChartPanel(drives: Drive[]): { html: string; script: string } | un
     data: {
       datasets: [
         {
-          label: 'Fifth root',
+          label: 'Bonus curve',
           data: curve,
           showLine: true,
           pointRadius: 0,
@@ -144,7 +144,7 @@ function bonusChartPanel(drives: Drive[]): { html: string; script: string } | un
               return pt && pt.name ? pt.name : '';
             },
             label: function(item) {
-              if (item.datasetIndex === 0) return 'Fifth root  ' + money(item.parsed.y);
+              if (item.datasetIndex === 0) return money(item.parsed.y);
               return compact(item.parsed.x) + ' boosts  ·  ' + money(item.parsed.y);
             }
           }
