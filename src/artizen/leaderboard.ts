@@ -266,8 +266,11 @@ async function attachDrivePodiums(client: Bubble, drives: Drive[]): Promise<Reco
       num(drive.bonus_funds),
       weights[i].fund,
     );
-    drive.bonus_chart = bonusChart('project', num(drive.bonus_projects), weights[i].project, projectShares)
-      ?? bonusChart('fund', num(drive.bonus_funds), weights[i].fund, fundShares);
+    const charts = [
+      bonusChart('project', num(drive.bonus_projects), weights[i].project, projectShares),
+      bonusChart('fund', num(drive.bonus_funds), weights[i].fund, fundShares),
+    ].filter((chart): chart is BonusChart => chart != null);
+    drive.bonus_charts = charts.length ? charts : undefined;
   });
 
   const bonuses: Record<string, number> = {};

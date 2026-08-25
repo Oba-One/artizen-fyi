@@ -82,7 +82,7 @@ export type Drive = {
   fund_third?: number | null;
   podium?: PodiumRow[];
   fund_podium?: PodiumRow[];
-  bonus_chart?: BonusChart;
+  bonus_charts?: BonusChart[];
 };
 
 export type ProjectRow = {
