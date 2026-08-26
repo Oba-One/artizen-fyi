@@ -6,7 +6,7 @@
   "workers_dev": true,
   "dev": { "host": "localhost" },
   "build": {
-    "command": "npm run build:client",
+    "command": "node scripts/prepare-release.mjs",
     "watch_dir": ["src"]
   },
   "assets": {

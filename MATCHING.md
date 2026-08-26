@@ -38,7 +38,7 @@ The semantic sweep exists because semantic scoring uses a different weight profi
 
 Semantic scoring comes from two paths. Choosing a project from the catalog uses **precomputed embeddings**: both sides of the comparison are known when the catalog is built, so the vectors ship as static files and the browser only takes a dot product — about 3.5 MB of vectors, no model, no WebAssembly, no inference. Freeform descriptions do not exist until someone types them, so those still need the model on the device: an optional “Improve with local AI” action lazy-loads the pinned `mixedbread-ai/mxbai-embed-xsmall-v1` INT8 model and scores the complete catalog in the same Worker. That path costs roughly 50 MB on a cold run — 24 MB of weights plus the ONNX runtime — which is why it stays opt-in and the button hides itself when a precomputed answer is already on screen.
 
-Each vector record carries a fingerprint of the exact text it was built from, so it cannot be scored against different wording. Model, catalog, and vector assets are generated in one predeploy sequence and shipped together. The deterministic matcher stays available if loading or inference fails. The control only appears once the browser confirms the pinned weights are actually being served, and it rechecks after a transient network failure.
+Each vector record carries a fingerprint of the exact text it was built from, so it cannot be scored against different wording. Model, catalog, and vector assets are generated in one `prepare-release` sequence and shipped together. The deterministic matcher stays available if loading or inference fails. The control only appears once the browser confirms the pinned weights are actually being served, and it rechecks after a transient network failure.
 
 `public/` is gitignored, so these assets exist only where they have been generated:
 
@@ -48,7 +48,7 @@ npm run build:match-catalog -- path/to/match-index.json           # omit the pat
 npm run build:semantic-vectors -- public/match/index.json
 ```
 
-The final command writes `match-fund-vectors.bin` and 64 project shards, `match-project-vectors-N.bin`. `npm run deploy` runs all three steps in order, so a normal deploy cannot silently omit the catalog, model, or precomputed vectors.
+The final command writes `match-fund-vectors.bin` and 64 project shards, `match-project-vectors-N.bin`. Wrangler’s custom build (`scripts/prepare-release.mjs`) runs all three steps before every `wrangler deploy` and `wrangler versions upload` — including Cloudflare git-push auto-deploys, which clone a tree with no `public/`. `wrangler dev` skips that crawl and only rebuilds the browser bundles.
 
 The project vectors are sharded because a page scores one project. A single 3 MB file meant a project page downloaded three thousand times what it read; the browser now fetches the one shard, about 50 KB, that holds the project it is matching. `vectorBucket` in `src/matching/semantic-text.ts` decides which, and the builder and the browser must agree on it exactly.
 
@@ -56,7 +56,7 @@ The project vectors are sharded because a page scores one project. A single 3 MB
 
 ONNX Runtime ships four `ort-wasm-simd-threaded` builds, but each of its entry points hardcodes one of them rather than choosing at runtime - which one you get is decided by the entry point transformers imports, not by the browser. Ours resolves to `asyncify`, which is also how WebGPU is served in this version, so `jsep` and `jspi` are 40 MB that no code path can reach. `build:client` reads the wasm filenames out of the built bundles and copies only those, so an upgrade that switches entry points moves the copy list with it in the same build; it fails if the bundle names a file ONNX Runtime does not ship, and deletes variants a previous build left behind. Any asset above 90% of Cloudflare's 25 MiB per-file limit is reported on every build.
 
-`npm run deploy` fetches and verifies the pinned model, builds one live Artizen catalog, and generates vectors from that exact catalog before Wrangler uploads any assets. The vector version is derived from the taxonomy version, so taxonomy changes invalidate old vectors automatically. `npm run build:client` warns when local assets are missing.
+A production deploy fetches and verifies the pinned model, builds one live Artizen catalog, and generates vectors from that exact catalog before Wrangler uploads any assets. The vector version is derived from the taxonomy version, so taxonomy changes invalidate old vectors automatically. `npm run build:client` warns when local assets are missing, and fails the deploy if they still are.
 
 Asset URLs and the vector version live in `src/matching/semantic-config.ts` and are read from the browser bundle rather than duplicated across build scripts.
 

@@ -3,6 +3,14 @@ import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, join, relative } from 'node:path';
 import { build } from 'esbuild';
+import { shouldPrepareMatchingRelease } from './matching-release.mjs';
+
+const requireReleaseAssets = shouldPrepareMatchingRelease(process.env);
+
+function reportMissing(message) {
+  if (requireReleaseAssets) throw new Error(message);
+  console.warn(`\nWARNING: ${message}\n`);
+}
 
 await mkdir('public/assets', { recursive: true });
 for (const filename of await readdir('public/assets')) {
@@ -159,16 +167,14 @@ try {
   if (error?.code !== 'ENOENT') throw error;
 }
 
-// public/ is gitignored, so a fresh clone and a plain deploy both ship without these. Saying so
-// here is the difference between a known gap and an "Improve with local AI" button that 404s.
+// public/ is gitignored. A local check can warn; a deploy must refuse to upload without these,
+// because Wrangler replaces the whole asset snapshot and matching goes offline.
 if (!semanticModelReady) {
-  console.warn(
+  reportMissing(
     [
-      '',
-      'WARNING: on-device AI is disabled - the pinned model is missing from public/assets/models.',
+      'the pinned model is missing from public/assets/models.',
       '  Fix with: npm run prepare:semantic',
       '  Without it the "Improve with local AI" control stays hidden for every visitor.',
-      '',
     ].join('\n'),
   );
 }
@@ -180,13 +186,28 @@ try {
   console.log(`Vector catalogs ready: ${funds.size} bytes funds / ${shard.size} bytes per project shard`);
 } catch (error) {
   if (error?.code !== 'ENOENT') throw error;
-  console.warn(
+  reportMissing(
     [
-      '',
-      'WARNING: precomputed vector catalogs are missing from public/assets.',
+      'precomputed vector catalogs are missing from public/assets.',
       '  Fix with: npm run build:semantic-vectors -- <match-index.json | url>',
       '  Without them, choosing a catalog project falls back to keyword matching for every visitor.',
-      '',
+    ].join('\n'),
+  );
+}
+
+try {
+  const core = await stat('public/match/core.json');
+  if (core.size < 1024) {
+    throw new Error(`public/match/core.json is too small to be a matching catalog (${core.size} bytes)`);
+  }
+  console.log(`Matching catalog ready: ${core.size} bytes`);
+} catch (error) {
+  if (error?.code !== 'ENOENT') throw error;
+  reportMissing(
+    [
+      'public/match/core.json is missing. Git pushes deploy without it because public/ is gitignored,',
+      'which takes matching offline on artizen.fyi.',
+      '  A production deploy rebuilds it automatically; locally: npm run build:match-catalog',
     ].join('\n'),
   );
 }

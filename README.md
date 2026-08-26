@@ -13,6 +13,8 @@ artizen.fyi is a Worker plus KV. No D1, R2, Queues, Durable Objects, or Pages.
 
 It runs on Workers Paid so a season rebuild has enough CPU (free is 10 ms) and the hourly cron can run up to 15 minutes. Cron refreshes every season and remaining boosts, then drops project/fund pages so they rebuild on next visit. On artizen.fyi, GET `/projects`, `/funds`, `/drives`, `/strategies`, and `/boosts` only read KV — they never crawl Bubble.
 
+Git-push auto-deploy runs `wrangler deploy`, which rebuilds the matching catalog, vectors, and pinned model before upload (`public/` is gitignored, so a clone does not have them). That crawl takes several minutes. `wrangler dev` does not.
+
 artizen.fyi is the apex; `www` 301s there.
 
 ## Local development
