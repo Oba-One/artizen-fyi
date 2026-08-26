@@ -294,8 +294,8 @@
     "weightsBytes": 24448010,
     "modelPath": "/assets/models/",
     "wasmPath": "/assets/ort/",
-    "vectorsUrl": "/assets/match-fund-vectors-v2.bin",
-    "projectVectorPrefix": "/assets/match-project-vectors-v2-",
+    "vectorsUrl": "/assets/match-fund-vectors.bin",
+    "projectVectorPrefix": "/assets/match-project-vectors-",
     "projectVectorBuckets": 64,
     "vectorVersion": "b0561d9a97e6-2026-08-23.1-256"
   }

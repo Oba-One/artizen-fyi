@@ -26,6 +26,8 @@ async function webGpuAvailable(): Promise<boolean> {
 export class LocalSemanticScorer implements SemanticScorer {
   private extractor: FeatureExtractor | undefined;
   private vectors = new Map<string, Float32Array>();
+  private abortController: AbortController | undefined;
+  private restoreFetch: (() => void) | undefined;
 
   constructor(private readonly index: MatchIndex) {}
 
@@ -33,6 +35,16 @@ export class LocalSemanticScorer implements SemanticScorer {
     const manifest = semanticManifest(this.index);
     if (!manifest) throw new Error('Semantic matching is not configured');
     const transformers = await import('@huggingface/transformers');
+    const controller = new AbortController();
+    this.abortController = controller;
+    const previousFetch = transformers.env.fetch;
+    const abortableFetch: typeof fetch = (input, init = {}) =>
+      globalThis.fetch(input, { ...init, signal: controller.signal });
+    transformers.env.fetch = abortableFetch;
+    this.restoreFetch = () => {
+      if (transformers.env.fetch === abortableFetch) transformers.env.fetch = previousFetch;
+      this.restoreFetch = undefined;
+    };
     transformers.env.allowRemoteModels = false;
     transformers.env.allowLocalModels = true;
     transformers.env.localModelPath = manifest.modelPath;
@@ -56,22 +68,26 @@ export class LocalSemanticScorer implements SemanticScorer {
       local_files_only: true,
       progress_callback: progressCallback,
     } as const;
-    if (await webGpuAvailable()) {
-      try {
-        this.extractor = (await transformers.pipeline('feature-extraction', manifest.modelId, {
-          ...options,
-          device: 'webgpu',
-        })) as unknown as FeatureExtractor;
-      } catch {
-        this.extractor = undefined;
+    try {
+      if (await webGpuAvailable()) {
+        try {
+          this.extractor = (await transformers.pipeline('feature-extraction', manifest.modelId, {
+            ...options,
+            device: 'webgpu',
+          })) as unknown as FeatureExtractor;
+        } catch {
+          this.extractor = undefined;
+        }
       }
+      this.extractor ||= (await transformers.pipeline('feature-extraction', manifest.modelId, {
+        ...options,
+        device: 'wasm',
+      })) as unknown as FeatureExtractor;
+      this.vectors = await this.loadFundVectors(onProgress);
+      onProgress(1);
+    } finally {
+      this.restoreFetch?.();
     }
-    this.extractor ||= (await transformers.pipeline('feature-extraction', manifest.modelId, {
-      ...options,
-      device: 'wasm',
-    })) as unknown as FeatureExtractor;
-    this.vectors = await this.loadFundVectors(onProgress);
-    onProgress(1);
   }
 
   async score(input: ProjectMatchInput, fundIds: string[]): Promise<Map<string, number>> {
@@ -85,6 +101,9 @@ export class LocalSemanticScorer implements SemanticScorer {
   }
 
   dispose(): void {
+    this.abortController?.abort();
+    this.abortController = undefined;
+    this.restoreFetch?.();
     void this.extractor?.dispose();
     this.extractor = undefined;
     this.vectors.clear();
@@ -110,7 +129,7 @@ export class LocalSemanticScorer implements SemanticScorer {
     const cacheRequest = new Request(`/assets/.computed-${manifest.vectorVersion}.bin`);
     let vectors = new Map<string, Float32Array>();
     try {
-      const cache = await caches.open('artizen-semantic-fund-vectors-v2');
+      const cache = await caches.open('artizen-semantic-fund-vectors');
       const cached = await cache.match(cacheRequest);
       if (cached) vectors = parseVectorCatalog(await cached.arrayBuffer(), manifest, this.fundFingerprints());
     } catch {
@@ -118,7 +137,7 @@ export class LocalSemanticScorer implements SemanticScorer {
     }
     if (vectors.size < this.index.funds.length) {
       try {
-        const response = await fetch(manifest.vectorsUrl, { cache: 'no-cache' });
+        const response = await fetch(manifest.vectorsUrl, { cache: 'no-cache', signal: this.abortController?.signal });
         if (response.ok) {
           const published = parseVectorCatalog(await response.arrayBuffer(), manifest, this.fundFingerprints());
           for (const [fundId, vector] of published) {
@@ -144,7 +163,7 @@ export class LocalSemanticScorer implements SemanticScorer {
     }
     if (missing.length) {
       try {
-        const cache = await caches.open('artizen-semantic-fund-vectors-v2');
+        const cache = await caches.open('artizen-semantic-fund-vectors');
         await cache.put(cacheRequest, new Response(this.serializeFunds(vectors)));
       } catch {
         // Storage failure must not prevent this in-memory scoring session.

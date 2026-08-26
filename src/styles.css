@@ -313,6 +313,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   margin: 0;
 }
 
+/* ARTIZEN_MATCHING_CSS_START */
 .artizen-match-page {
   margin: 0 auto;
 }
@@ -1451,6 +1452,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-review-reveal { width: 100%; padding-top: 0.8rem; border-top: 1px solid var(--line); }
 .artizen-review-reveal h3 { font-size: 1.1rem; }
 .artizen-review-reveal li + li { margin-top: 0.35rem; }
+/* ARTIZEN_MATCHING_CSS_END */
 .artizen-nav .artizen-wordmark { font-size: 1.45rem; justify-self: center; }
 .artizen-byline {
   margin: 0;

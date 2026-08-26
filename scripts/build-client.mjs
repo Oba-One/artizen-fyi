@@ -5,13 +5,22 @@ import { basename, join, relative } from 'node:path';
 import { build } from 'esbuild';
 
 await mkdir('public/assets', { recursive: true });
+for (const filename of await readdir('public/assets')) {
+  if (/^match-(fund|project)-vectors-v2(?:-|\.)/.test(filename)) {
+    await rm(join('public/assets', filename), { force: true });
+  }
+}
+
+const qaBuild = process.env.ARTIZEN_MATCH_QA === '1';
+const entryPoints = {
+  'match-client': 'src/client/match-client.ts',
+  'match-worker': 'src/client/match-worker.ts',
+};
+if (qaBuild) entryPoints['match-review'] = 'src/client/match-review.ts';
+else await rm('public/assets/match-review.js', { force: true });
 
 await build({
-  entryPoints: {
-    'match-client': 'src/client/match-client.ts',
-    'match-review': 'src/client/match-review.ts',
-    'match-worker': 'src/client/match-worker.ts',
-  },
+  entryPoints,
   outdir: 'public/assets',
   entryNames: '[name]',
   bundle: true,
@@ -90,6 +99,10 @@ await writeFile(
     '  Cache-Control: public, max-age=31536000, immutable',
     '/assets/models/*',
     '  Cache-Control: public, max-age=31536000, immutable',
+    '/match/*.json',
+    '  Cache-Control: public, max-age=300, stale-while-revalidate=86400',
+    '/match/project/*.json',
+    '  Cache-Control: public, max-age=300, stale-while-revalidate=86400',
     '',
   ].join('\n'),
 );
@@ -161,9 +174,9 @@ if (!semanticModelReady) {
 }
 
 try {
-  const funds = await stat('public/assets/match-fund-vectors-v2.bin');
+  const funds = await stat('public/assets/match-fund-vectors.bin');
   // Shard zero stands in for all of them: they are written in one pass, so if it is there they are.
-  const shard = await stat('public/assets/match-project-vectors-v2-0.bin');
+  const shard = await stat('public/assets/match-project-vectors-0.bin');
   console.log(`Vector catalogs ready: ${funds.size} bytes funds / ${shard.size} bytes per project shard`);
 } catch (error) {
   if (error?.code !== 'ENOENT') throw error;
@@ -171,7 +184,7 @@ try {
     [
       '',
       'WARNING: precomputed vector catalogs are missing from public/assets.',
-      '  Fix with: npm run build:semantic-vectors -- <match-index.v2.json | url>',
+      '  Fix with: npm run build:semantic-vectors -- <match-index.json | url>',
       '  Without them, choosing a catalog project falls back to keyword matching for every visitor.',
       '',
     ].join('\n'),

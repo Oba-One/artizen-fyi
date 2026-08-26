@@ -5,6 +5,7 @@ export function renderMatchReview(): string {
     title: 'Fund matcher review',
     description: 'Blindly review Artizen fund matching quality',
     matching: true,
+    matchStyles: true,
     extra: '<script type="module" src="/assets/match-review.js"></script>',
     body: panel(`
       <main class="artizen-review-page" data-review-root>

@@ -11,7 +11,6 @@ import type {
   ScoringConfig,
 } from '../artizen/types';
 import { firstMedia, hidden, int, mapSome, maybeNum, mediaUrl, num, text } from '../artizen/util';
-import { FUND_PROFILE_OVERRIDES } from './overrides';
 import { SEMANTIC_CATALOG } from './semantic-config';
 import {
   MATCH_FACETS,
@@ -105,11 +104,8 @@ export function deriveCoreConcepts(funds: FundProfile[]): void {
 
   const count = Math.max(1, funds.length);
   for (const fund of funds) {
-    const override = FUND_PROFILE_OVERRIDES[fund.slug] || {};
-    const excluded = new Set(override.excludedCoreConcepts || []);
     const titleCandidates = new Set(conceptCandidates(fund.name, fund.forTitle));
     fund.coreConcepts = (candidatesByFund.get(fund.id) || [])
-      .filter((candidate) => !excluded.has(candidate))
       .map((candidate) => {
         const frequency = documentFrequency.get(candidate) || 1;
         const idf = Math.log(1 + count / frequency);
@@ -142,8 +138,8 @@ export async function buildMatchIndex(client: Bubble, options: BuildOptions = {}
     client.list('fundextendedinfo', { concurrency: 6 }),
     client.list('projectsubmission', { concurrency: 6 }),
     client.list('impacttag', { concurrency: 6 }),
-    // Cosmetic data on the biggest table crawled here. `listEach` throws when the row count
-    // shifts mid-pagination, and that must not cost the catalog its hourly rebuild.
+    // Cosmetic data on the biggest table crawled here. A network or upstream API failure must not
+    // cost the catalog its build; project images can fall back to legacy fields.
     client.list('artifact', { concurrency: 6 }).catch((error) => {
       console.warn(`[Artizen] artifact crawl failed, project images fall back to legacy fields: ${error}`);
       return [] as Row[];
@@ -199,29 +195,24 @@ export async function buildMatchIndex(client: Bubble, options: BuildOptions = {}
 
   const funds: FundProfile[] = [];
   for (const row of fundRows) {
+    if (hidden(row)) continue;
     const id = text(row['_id']);
     const baseName = text(row['name']);
     if (!id || !baseName) continue;
     const slug = text(row['Slug']) || id;
     const ext = extendedById.get(String(row['Extended info'] ?? ''));
-    const override = FUND_PROFILE_OVERRIDES[slug] || {};
     const name = text(ext?.['full title']) || baseName;
     const subtitle = text(ext?.['subtitle']);
     const forTitle = text(ext?.['for title']);
-    const themes = uniqueSorted(override.themes || []);
-    const aliases = uniqueSorted(override.aliases || []);
-    const preferredTerms = uniqueSorted(override.preferredTerms || []);
-    const excludedTerms = uniqueSorted(override.excludedTerms || []);
+    const themes: string[] = [];
+    const aliases: string[] = [];
+    const preferredTerms: string[] = [];
+    const excludedTerms: string[] = [];
     const profileText = [name, subtitle, forTitle, ...themes, ...aliases, ...preferredTerms].filter(Boolean).join('. ');
-    const excludedFacets = new Set(override.excludedFacets || []);
-    const facets = uniqueSorted([
-      ...extractFacetIds(profileText),
-      ...(override.facets || []),
-    ]).filter((facetId) => !excludedFacets.has(facetId));
-    const focusFacets = uniqueSorted([
-      ...extractFundFocusFacetIds(name, forTitle, subtitle),
-      ...(override.focusFacets || []),
-    ]).filter((facetId) => facets.includes(facetId) && !excludedFacets.has(facetId));
+    const facets = uniqueSorted(extractFacetIds(profileText));
+    const focusFacets = uniqueSorted(extractFundFocusFacetIds(name, forTitle, subtitle)).filter((facetId) =>
+      facets.includes(facetId),
+    );
     funds.push({
       id,
       slug,

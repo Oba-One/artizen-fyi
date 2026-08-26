@@ -58,8 +58,12 @@ export class Bubble {
         for (const row of page) fn(row);
       }
     }
+    // Bubble's `remaining` value is a snapshot from page zero. Rows can be inserted or deleted
+    // while the concurrent pages are in flight, so a mismatch is useful telemetry but not proof
+    // that the crawl failed. The matching index has its own previous-catalog drop guard for the
+    // cases where a short crawl would be unsafe to publish.
     if (received !== remaining) {
-      throw new Error(`incomplete ${type} pagination: expected ${remaining} more records, received ${received}`);
+      console.warn(`[Artizen] ${type} pagination shifted: expected ${remaining} more records, received ${received}`);
     }
   }
 

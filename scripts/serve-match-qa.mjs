@@ -1,6 +1,7 @@
 import { createServer } from 'node:http';
-import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 
@@ -13,7 +14,8 @@ if (index.schemaVersion !== 2 || !Array.isArray(index.funds) || index.funds.leng
 }
 const indexText = JSON.stringify(index);
 
-const bundlePath = `/private/tmp/artizen-fyi-match-qa-worker-${process.pid}.mjs`;
+const temp = await mkdtemp(join(tmpdir(), 'artizen-fyi-match-qa-'));
+const bundlePath = join(temp, 'worker.mjs');
 await build({
   entryPoints: ['src/index.ts'],
   outfile: bundlePath,
@@ -87,6 +89,11 @@ const server = createServer(async (incoming, outgoing) => {
     outgoing.end('QA server error');
   }
 });
+
+server.on('close', () => void rm(temp, { recursive: true, force: true }));
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.once(signal, () => server.close(() => process.exit(0)));
+}
 
 server.listen(port, '127.0.0.1', () => {
   console.log(`Artizen match QA ready at http://localhost:${port}/match`);

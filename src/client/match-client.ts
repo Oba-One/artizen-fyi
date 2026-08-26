@@ -153,7 +153,10 @@ class BrowserMatcher {
     if (this.projectList.length) return this.projectList;
     const response = await fetch(url, { cache: 'no-cache', headers: { Accept: 'application/json' } });
     if (!response.ok) throw new Error('The project list is not available yet');
-    const value = (await response.json()) as { projects?: unknown };
+    const value = (await response.json()) as { indexVersion?: unknown; projects?: unknown };
+    if (value.indexVersion !== this.index.indexVersion) {
+      throw new Error('The project list changed while this page was open. Reload and try again.');
+    }
     const projects = Array.isArray(value.projects) ? (value.projects as ProjectProfile[]) : [];
     if (projects.length === 0) throw new Error('The project list is empty');
     this.projectList = projects;
@@ -176,18 +179,11 @@ function validIndex(value: unknown): value is BrowserMatchIndex {
 
 /**
  * Fund-only first. The combined document is 3 MB and a first paint uses roughly 250 KB of it, so
- * the core route is tried first and the older whole-catalog routes only as fallbacks - a browser
- * holding a cached bundle from before the split still works against the routes it knows.
+ * the browser starts from the deployment-coupled core document and fetches projects separately.
  */
-const CATALOG_URLS = ['/match/core.json', '/match/index.json'];
-
 async function createMatcher(): Promise<BrowserMatcher> {
-  let response: Response | undefined;
-  for (const url of CATALOG_URLS) {
-    response = await fetch(url, { cache: 'no-cache', headers: { Accept: 'application/json' } });
-    if (response.status !== 404 && response.status !== 503) break;
-  }
-  if (!response?.ok) throw new Error('The public matching catalog is not available yet');
+  const response = await fetch('/match/core.json', { cache: 'no-cache', headers: { Accept: 'application/json' } });
+  if (!response.ok) throw new Error('The public matching catalog is not available yet');
   const value: unknown = await response.json();
   if (!validIndex(value)) throw new Error('The public matching catalog could not be read');
 
@@ -299,7 +295,7 @@ function fitIndex(score: number, index: BrowserMatchIndex): number {
     [scoring?.exploratoryThreshold ?? 0.1, 30],
     [scoring?.goodThreshold ?? 0.38, 65],
     [strong, 85],
-    [Math.max(strong + 0.05, FIT_CEILING), 100],
+    [Math.max(strong + 0.05, FIT_CEILING), 99],
   ];
   for (let step = 1; step < stops.length; step += 1) {
     const [fromScore, fromIndex] = stops[step - 1];
@@ -308,7 +304,7 @@ function fitIndex(score: number, index: BrowserMatchIndex): number {
     const span = toScore - fromScore;
     return Math.round(span > 0 ? fromIndex + ((score - fromScore) / span) * (toIndex - fromIndex) : toIndex);
   }
-  return 100;
+  return 99;
 }
 
 function facetLabels(index: BrowserMatchIndex): Map<string, string> {
@@ -1277,10 +1273,21 @@ function installSemanticControl(
     }
   };
 
-  void modelAvailable(manifest).then((ready) => {
+  let availabilityCheck = 0;
+  const refreshModelAvailability = async (): Promise<void> => {
+    const check = ++availabilityCheck;
+    const ready = await modelAvailable(manifest);
+    if (check !== availabilityCheck) return;
     modelReady = ready;
     applySource();
-  });
+  };
+  void refreshModelAvailability();
+  // A transient HEAD failure at page load should not hide the feature for the whole session.
+  // Recheck once after the page settles and whenever the browser reports that it is back online.
+  window.setTimeout(() => {
+    if (!modelReady) void refreshModelAvailability();
+  }, 10_000);
+  window.addEventListener('online', () => void refreshModelAvailability());
   button.addEventListener('click', async () => {
     if (!input) return;
     if (loading) {
@@ -1305,6 +1312,8 @@ function installSemanticControl(
         if (progress) progress.value = value;
         if (status) status.textContent = `Loading local AI… ${Math.round(value * 100)}%`;
       });
+      button.disabled = true;
+      setLabel('Applying local AI…', false);
       const outcome = await engine.match(input, true);
       if (outcome.semanticFallback) throw new Error(outcome.semanticFallback);
       if (!('mode' in outcome.result) || outcome.result.mode !== 'semantic') {
@@ -1318,6 +1327,7 @@ function installSemanticControl(
       // cancelSemantic rejects synchronously, so this catch runs after the cancel branch has
       // already restored the idle state - do not overwrite it with a failure message.
       if (cancelled) return;
+      button.disabled = false;
       setLabel('Retry local AI', false);
       if (status) status.textContent = `Local AI could not load: ${errorText(error)}. Baseline recommendations are unchanged.`;
     } finally {
@@ -1460,9 +1470,10 @@ function projectFacets(project: ProjectProfile): string[] {
 async function initializeDetail(root: Element, engine: BrowserMatcher): Promise<void> {
   const id = (root as HTMLElement).dataset.projectId;
   const slug = (root as HTMLElement).dataset.projectSlug || decodeURIComponent(location.pathname.split('/').pop() || '');
+  const projectReference = id || slug;
   // One record, not the whole list: this page already knows which project it is about.
   const projects = await engine
-    .loadProjects(`/match/project/${encodeURIComponent(slug || id || '')}.json`)
+    .loadProjects(`/match/project/${encodeURIComponent(projectReference)}.json`)
     .catch(() => [] as ProjectProfile[]);
   const project = projects.find((candidate) => (id && candidate.id === id) || candidate.slug === slug);
   if (!project) {
@@ -1671,11 +1682,12 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
   }
 
   function existingInput(project: ProjectProfile): ProjectMatchInput {
-    const refinedTags = existingTags?.values() || [];
+    const refinedDescription = existingDescription ? existingDescription.value.trim() : project.description;
+    const refinedTags = existingTags ? existingTags.values() : project.tags;
     return matchInputForProject(
       project,
-      existingDescription?.value.trim() || project.description,
-      refinedTags.length ? refinedTags : project.tags,
+      refinedDescription,
+      refinedTags,
     );
   }
 
@@ -1691,8 +1703,8 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
       submit.textContent = submitLabel;
       return;
     }
-    // Compared through `existingInput`, so "refined" means exactly what the submit would send -
-    // an emptied description falls back to the stored one there, and counts as untouched here.
+    // Compared through `existingInput`, so "refined" means exactly what the submit would send,
+    // including a deliberately emptied description or an empty tag list.
     const pending = existingInput(project);
     const refined =
       pending.description !== project.description ||

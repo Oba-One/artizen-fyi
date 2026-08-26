@@ -6,8 +6,8 @@ import { build } from 'esbuild';
 import { env, pipeline } from '@huggingface/transformers';
 
 // Emits the precomputed embedding catalogs:
-//   match-fund-vectors-v2.bin       - so on-device scoring only has to embed the project text
-//   match-project-vectors-v2-N.bin  - so an existing catalog project needs no model at all
+//   match-fund-vectors.bin       - so on-device scoring only has to embed the project text
+//   match-project-vectors-N.bin  - so an existing catalog project needs no model at all
 // The project vectors are sharded because a page scores one project: a single file meant a project
 // page downloaded 3 MB to read one kilobyte of it.
 const inputPath = process.argv[2];
@@ -117,7 +117,7 @@ if (!inputPath) {
   const projectVectors = await embedAll('projects', index.projects, projectText);
   await extractor.dispose();
 
-  await writeCatalog('match-fund-vectors-v2.bin', index.funds, fundText, fundVectors);
+  await writeCatalog('match-fund-vectors.bin', index.funds, fundText, fundVectors);
 
   const buckets = SEMANTIC_CATALOG.projectVectorBuckets;
   const sharded = Array.from({ length: buckets }, () => []);
@@ -130,7 +130,7 @@ if (!inputPath) {
     // and fall back, not take a 404 as a broken deployment.
     const rows = sharded[bucket];
     shardBytes += await writeCatalog(
-      `match-project-vectors-v2-${bucket}.bin`,
+      `match-project-vectors-${bucket}.bin`,
       rows.map((row) => row.project),
       projectText,
       rows.map((row) => row.vector),
@@ -138,7 +138,7 @@ if (!inputPath) {
     );
   }
   console.log(
-    `match-project-vectors-v2-*.bin: ${index.projects.length} vectors across ${buckets} shards, ` +
+    `match-project-vectors-*.bin: ${index.projects.length} vectors across ${buckets} shards, ` +
       `${shardBytes} bytes total, ${Math.round(shardBytes / buckets)} bytes median fetch`,
   );
   } finally {

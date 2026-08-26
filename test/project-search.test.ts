@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ProjectProfile, ProjectProfile } from '../src/artizen/types';
+import type { ProjectProfile } from '../src/artizen/types';
 import { findExactProject, matchInputForProject, searchProjects } from '../src/matching/project-search';
 
 const projects: ProjectProfile[] = [
@@ -77,5 +77,11 @@ describe('project search', () => {
     const input = matchInputForProject({ ...projects[0], tags });
     expect(input.tags).toEqual(tags);
     expect(input.tags).toHaveLength(10);
+  });
+
+  it('honors deliberately empty description and tag refinements', () => {
+    const input = matchInputForProject(projects[0], '', []);
+    expect(input.description).toBe('');
+    expect(input.tags).toEqual([]);
   });
 });

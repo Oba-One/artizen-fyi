@@ -16,6 +16,7 @@ export function renderMatch(): string {
     title: 'Find funds',
     description: 'Find Artizen funds that align with a project',
     matching: true,
+    matchStyles: true,
     extra: '<script type="module" src="/assets/match-client.js"></script>',
     body: panel(`
       <main class="artizen-match-page" data-match-root data-match-mode="form">

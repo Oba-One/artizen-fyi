@@ -43,10 +43,27 @@ function matchingUnavailable(): Response {
   });
 }
 
+function localRequest(url: URL): boolean {
+  return url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+}
+
+async function matchingAsset(env: Env, request: Request, projectId?: string): Promise<Response | undefined> {
+  if (!('ASSETS' in env) || !env.ASSETS) return undefined;
+  const url = new URL(request.url);
+  if (localRequest(url)) return undefined;
+  if (projectId != null) {
+    const bytes = new TextEncoder().encode(projectId);
+    const hash = await crypto.subtle.digest('SHA-256', bytes);
+    const key = [...new Uint8Array(hash)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+    url.pathname = `/match/project/${key}.json`;
+  }
+  return env.ASSETS.fetch(new Request(url, request));
+}
+
 /** Fixture catalogs exist for local QA only; serving them publicly would look like real advice. */
 async function servableMatchIndex(artizen: Artizen, url: URL): Promise<MatchIndex | null> {
   const index = await artizen.matchIndex();
-  const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+  const local = localRequest(url);
   return index && !(index.source.kind === 'fixture' && !local) ? index : null;
 }
 
@@ -206,25 +223,34 @@ export default {
     }
 
     if (request.method === 'GET' && path === '/match/review') {
-      const local = url.hostname === 'localhost' || url.hostname === '127.0.0.1';
+      const local = localRequest(url);
       return local ? html(renderMatchReview()) : html(renderNotFound(), 404);
     }
 
     if (request.method === 'GET' && path === '/match/index.json') {
+      const assetResponse = await matchingAsset(env, request);
+      if (assetResponse) return assetResponse;
       return matchingIndexResponse(artizen, request, url);
     }
 
     if (request.method === 'GET' && path === '/match/core.json') {
+      const assetResponse = await matchingAsset(env, request);
+      if (assetResponse) return assetResponse;
       return matchingCoreResponse(artizen, request, url);
     }
 
     if (request.method === 'GET' && path === '/match/projects.json') {
+      const assetResponse = await matchingAsset(env, request);
+      if (assetResponse) return assetResponse;
       return matchingProjectsResponse(artizen, request, url);
     }
 
     const matchProject = path.match(/^\/match\/project\/(.+)\.json$/);
     if (request.method === 'GET' && matchProject) {
-      return matchingProjectResponse(artizen, request, url, decodeURIComponent(matchProject[1]));
+      const projectId = decodeURIComponent(matchProject[1]);
+      const assetResponse = await matchingAsset(env, request, projectId);
+      if (assetResponse) return assetResponse;
+      return matchingProjectResponse(artizen, request, url, projectId);
     }
 
     if (request.method === 'GET' && path === '/boosts') {

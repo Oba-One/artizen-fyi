@@ -14,6 +14,7 @@ export function renderProject(project: ProjectPage): string {
     description: project.logline || `Artizen project: ${project.name}`,
     image: project.image,
     tree: true,
+    matchStyles: true,
     extra: '<script type="module" src="/assets/match-client.js"></script>',
     body: `
       ${heroSplit(

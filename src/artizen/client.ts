@@ -96,21 +96,10 @@ export class Artizen {
     console.log('[Artizen] boosts');
     const boosts = await this.cached(keys.boosts, () => buildBoosts(this.bubble), 'refresh', null);
 
-    console.log('[Artizen] matching index');
-    const matching = await this.cached(
-      keys.matching,
-      async () => buildMatchIndex(this.bubble, { previous: await this.get<MatchIndex>(keys.matching) }),
-      'refresh',
-      null,
-    );
-
     let dropped = await this.deleteByPrefix(keys.projects);
     dropped += await this.deleteByPrefix(keys.funds);
 
-    const matchSummary = matching
-      ? `${matching.projects.length} projects/${matching.funds.length} funds/${matching.relationships.length} relationships (${matching.indexVersion})`
-      : 'failed';
-    const summary = `[Artizen] refreshed ${seasons.length} seasons, boosts ${boosts && !boosts.error ? 'ok' : 'failed'}, matching ${matchSummary}, dropped ${dropped} project/fund stashes in ${Math.round((Date.now() - started) / 1000)}s`;
+    const summary = `[Artizen] refreshed ${seasons.length} seasons, boosts ${boosts && !boosts.error ? 'ok' : 'failed'}, dropped ${dropped} project/fund stashes in ${Math.round((Date.now() - started) / 1000)}s`;
     console.log(summary);
     return summary;
   }

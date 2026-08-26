@@ -72,6 +72,32 @@ function environment(value: MatchIndex): Env {
 }
 
 describe('matching routes', () => {
+  it('serves deployed split assets without reading or parsing the combined KV index', async () => {
+    let cacheReads = 0;
+    const env = {
+      CACHE: {
+        async get() {
+          cacheReads += 1;
+          throw new Error('production matching routes must not read KV');
+        },
+      },
+      ASSETS: {
+        async fetch(request: Request) {
+          const url = new URL(request.url);
+          return Response.json({ assetPath: url.pathname });
+        },
+      },
+    } as unknown as Env;
+
+    const core = await worker.fetch(new Request('https://artizen.fyi/match/core.json'), env);
+    expect(await core.json()).toEqual({ assetPath: '/match/core.json' });
+
+    const project = await worker.fetch(new Request('https://artizen.fyi/match/project/project-id.json'), env);
+    const body = (await project.json()) as { assetPath: string };
+    expect(body.assetPath).toMatch(/^\/match\/project\/[a-f0-9]{64}\.json$/);
+    expect(cacheReads).toBe(0);
+  });
+
   it('rejects fixture indexes outside local QA', async () => {
     const response = await worker.fetch(
       new Request('https://artizen.fyi/match/index.json'),

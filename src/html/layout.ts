@@ -2,6 +2,24 @@ import type { DetailPreview, Leaderboard } from '../artizen';
 import { fmtDate, usd } from '../format';
 import styles from '../styles.css';
 
+const MATCHING_CSS_START = '/* ARTIZEN_MATCHING_CSS_START */';
+const MATCHING_CSS_END = '/* ARTIZEN_MATCHING_CSS_END */';
+
+export function splitPageStyles(source: string): { base: string; matching: string } {
+  const matchingCssStart = source.indexOf(MATCHING_CSS_START);
+  const matchingCssEnd = source.indexOf(MATCHING_CSS_END);
+  if (matchingCssStart < 0 || matchingCssEnd < matchingCssStart) {
+    throw new Error('matching CSS markers are missing or out of order');
+  }
+  return {
+    matching: source.slice(matchingCssStart + MATCHING_CSS_START.length, matchingCssEnd),
+    base: source.slice(0, matchingCssStart) + source.slice(matchingCssEnd + MATCHING_CSS_END.length),
+  };
+}
+
+// Vitest stubs CSS imports; production's Worker bundler loads this import as text.
+const pageStyles = typeof styles === 'string' && styles ? splitPageStyles(styles) : { base: '', matching: '' };
+
 export function escapeHtml(value: unknown): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -153,6 +171,7 @@ export function layout(opts: {
   boards?: boolean;
   boosts?: boolean;
   matching?: boolean;
+  matchStyles?: boolean;
   strategies?: boolean;
 }): string {
   const desc = escapeHtml(opts.description || 'Fund and project leaderboards from Artizen');
@@ -205,7 +224,7 @@ export function layout(opts: {
   <link rel="stylesheet" href="https://s3.amazonaws.com/appforest_uf/f1669921386747x462861532157019100/RocGroteskBold.css">
   <link rel="stylesheet" href="https://s3.amazonaws.com/appforest_uf/f1670009029268x384309142695173700/RocGroteskMedium.css">
   <link rel="stylesheet" href="https://s3.amazonaws.com/appforest_uf/f1669919682183x184427803987397440/P22Mackinac-Medium_6.css">
-  <style>${styles}</style>
+  <style>${pageStyles.base}${opts.matchStyles ? pageStyles.matching : ''}</style>
 </head>
 <body>
   ${nav(opts.query, opts.season, opts.boards, opts.boosts, opts.matching, opts.strategies)}
@@ -427,6 +446,7 @@ export function renderDetailPlaceholder(kind: 'project' | 'fund', slug: string, 
     title,
     description: preview?.lead || undefined,
     tree: true,
+    matchStyles: kind === 'project',
     extra: `${DETAIL_POLL_SCRIPT}${kind === 'project' ? '<script type="module" src="/assets/match-client.js"></script>' : ''}`,
     body: `<div aria-busy="true">
       ${panel(
