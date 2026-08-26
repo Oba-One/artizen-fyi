@@ -317,10 +317,7 @@ const FOOTER = `
 
 
 /**
- * The part of the fund-matching UI that /match and the project detail panel share.
- * Both pages used to carry their own copy of this markup and had already drifted;
- * keeping it in one place is what stops the local-AI control, the filters, and the
- * results grid from diverging again.
+ * Shared markup for the fund-matching results region on /match.
  */
 export function matchResultsRegion(status: string): string {
   return `
@@ -448,8 +445,7 @@ export function renderDetailPlaceholder(kind: 'project' | 'fund', slug: string, 
     title,
     description: preview?.lead || undefined,
     tree: true,
-    matchStyles: kind === 'project',
-    extra: `${DETAIL_POLL_SCRIPT}${kind === 'project' ? '<script type="module" src="/assets/match-client.js"></script>' : ''}`,
+    extra: DETAIL_POLL_SCRIPT,
     body: `<div aria-busy="true">
       ${panel(
         `<div class="artizen-hero artizen-ph" aria-hidden="true"></div>

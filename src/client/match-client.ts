@@ -135,9 +135,8 @@ class BrowserMatcher {
 
   /**
    * The project list is the bulk of the catalog and nothing on a first paint needs it, so it is
-   * fetched on demand: the whole list when the picker opens, one record on a project page. The
-   * worker is told either way, because relationships and embedding fingerprints are derived from
-   * whichever projects are known.
+   * fetched on demand when the picker opens. The worker is told as well, because relationships
+   * and embedding fingerprints are derived from whichever projects are known.
    */
   loadProjects(url = PROJECTS_URL): Promise<ProjectProfile[]> {
     // Cleared on failure: this fetch happens mid-interaction now, so a network blip must not
@@ -1469,34 +1468,6 @@ function projectFacets(project: ProjectProfile): string[] {
   return project.facets || [];
 }
 
-async function initializeDetail(root: Element, engine: BrowserMatcher): Promise<void> {
-  const id = (root as HTMLElement).dataset.projectId;
-  const slug = (root as HTMLElement).dataset.projectSlug || decodeURIComponent(location.pathname.split('/').pop() || '');
-  const projectReference = id || slug;
-  // One record, not the whole list: this page already knows which project it is about.
-  const projects = await engine
-    .loadProjects(`/match/project/${encodeURIComponent(projectReference)}.json`)
-    .catch(() => [] as ProjectProfile[]);
-  const project = projects.find((candidate) => (id && candidate.id === id) || candidate.slug === slug);
-  if (!project) {
-    setStatus(root, 'This project is not in the current matching catalog yet. Try the project description tool instead.');
-    return;
-  }
-  const semanticRef: { control?: SemanticControl } = {};
-  const view = installResults(root, engine.index, semanticRef);
-  const semantic = installSemanticControl(root, engine, view.show);
-  semanticRef.control = semantic;
-  const setInfoSource = installInfoDialog(root);
-  const input = matchInputForProject(project);
-  view.setProject(project.id);
-  view.setFocus(projectFacets(project));
-  semantic.setInput(input);
-  const outcome = await engine.match(input);
-  semantic.setSource(outcome.semanticSource, outcome.semanticDowngrade);
-  setInfoSource(outcome.semanticSource);
-  view.show(outcome.result);
-}
-
 function initializeForm(root: Element, engine: BrowserMatcher): void {
   const form = find<HTMLFormElement>(root, '[data-match-form]');
   const projectInput = find<HTMLInputElement>(root, '[data-project-input]');
@@ -1960,8 +1931,7 @@ async function initialize(root: Element): Promise<void> {
   initialized.add(root);
   try {
     const engine = await matcher();
-    if ((root as HTMLElement).dataset.matchMode === 'detail') await initializeDetail(root, engine);
-    else initializeForm(root, engine);
+    initializeForm(root, engine);
   } catch {
     setStatus(root, 'Fund matching is temporarily unavailable. The rest of this page still works normally.');
   }
