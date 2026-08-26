@@ -7,25 +7,22 @@
   --line: #D9DBE0;
   --green: #1ACC6C;
   --green-deep: #06AA59;
-  /* Not a brand colour. Algae is 2.1:1 on white and Moss 3.0:1, both under the 4.5:1 that text
-     needs, so green text, filled badges, and the fit meter darken to this and only ever to this. */
-  --green-ink: #06773F;
   --shadow: 0 8px 18px rgba(16, 18, 18, 0.08);
   --radius: 1.15rem;
   --shell: 90rem;
   --artizen-nav-height: calc(1.4rem + 2.4rem + 1.85rem + 1px);
   --bs-primary: var(--green);
   --bs-primary-rgb: 26, 204, 108;
-  --bs-link-color: var(--green-ink);
+  --bs-link-color: var(--green-deep);
   --bs-link-hover-color: var(--ink);
-  --bs-link-color-rgb: 6, 119, 63;
+  --bs-link-color-rgb: 6, 170, 89;
   --bs-link-hover-color-rgb: 16, 18, 18;
   --bs-pagination-color: var(--ink);
   --bs-pagination-hover-color: var(--ink);
   --bs-pagination-focus-color: var(--ink);
   --bs-pagination-active-color: #fff;
-  --bs-pagination-active-bg: var(--green-ink);
-  --bs-pagination-active-border-color: var(--green-ink);
+  --bs-pagination-active-bg: var(--green-deep);
+  --bs-pagination-active-border-color: var(--green-deep);
   --bs-pagination-disabled-color: var(--ink);
   --bs-pagination-disabled-bg: var(--paper);
   --bs-pagination-disabled-border-color: var(--line);
@@ -86,7 +83,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 h1 { font-size: 2.15rem; }
 h2 { font-size: 1.45rem; }
-a { color: var(--green-ink); text-underline-offset: 0.15em; }
+a { color: var(--green-deep); text-underline-offset: 0.15em; }
 a:hover { color: var(--ink); }
 a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .text-muted { color: var(--muted) !important; }
@@ -104,10 +101,16 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border-radius: 999px;
   padding: 0.35em 0.7em;
 }
-/* Project is the Brand fill that can carry white text. Fund is an Interface outline: Lavender is
-   an illustration colour, not chrome. */
+/* Bootstrap primary is Algae, which cannot carry white type. Every filled green badge — drive
+   multiples, current/active, prize, Curated — uses Moss, the same fill as fit and history. */
+.text-bg-primary {
+  color: #fff !important;
+  background-color: var(--green-deep) !important;
+}
+/* Project is Moss, the Brand fill that can carry white text. Fund is an Interface outline:
+   Lavender is an illustration colour, not chrome. */
 .artizen-kind-project {
-  background: var(--green-ink);
+  background: var(--green-deep);
   color: #fff;
 }
 .artizen-kind-fund {
@@ -216,8 +219,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .page-item.active .page-link,
 .pagination .active > .page-link,
 .dt-container .dt-paging .page-item.current .page-link {
-  background: var(--green-ink) !important;
-  border-color: var(--green-ink) !important;
+  background: var(--green-deep) !important;
+  border-color: var(--green-deep) !important;
   color: #fff !important;
 }
 .page-item.disabled .page-link,
@@ -547,7 +550,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-match-refine { margin-top: 0.75rem; }
 .artizen-match-refine summary {
   cursor: pointer;
-  color: var(--green-ink);
+  color: var(--green-deep);
   font-size: 0.88rem;
   list-style-position: inside;
 }
@@ -600,7 +603,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   padding: 0.2rem 0;
   border: 0;
   background: none;
-  color: var(--green-ink);
+  color: var(--green-deep);
   font-size: 0.85rem;
   cursor: pointer;
   text-decoration: underline;
@@ -786,7 +789,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   padding: 0;
   border: 0;
   background: none;
-  color: var(--green-ink);
+  color: var(--green-deep);
   font-size: 0.82rem;
   cursor: pointer;
   text-decoration: underline;
@@ -912,7 +915,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border: 0;
   background: none;
   padding: 0.25rem 0.3rem;
-  color: var(--green-ink);
+  color: var(--green-deep);
   font-size: 0.82rem;
   white-space: nowrap;
   cursor: pointer;
@@ -1100,8 +1103,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   background: var(--muted);
 }
 .artizen-fit-fill-strong,
-.artizen-fit-fill-good { background: var(--green-ink); }
-.artizen-fit-fill-exploratory { background: color-mix(in srgb, var(--green-ink) 42%, var(--paper)); }
+.artizen-fit-fill-good { background: var(--green-deep); }
+.artizen-fit-fill-exploratory { background: color-mix(in srgb, var(--green-deep) 42%, var(--paper)); }
 .artizen-fit-fill-limited { background: var(--line); }
 .artizen-match-fit-value {
   min-width: 1.9rem;
@@ -1116,19 +1119,19 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-content: start;
   gap: 0.35rem;
 }
-/* Strong and Good share green-ink with Fund details and the history badges. The meter has no
-   type on the fill; the badges put white on the same ink so the label stays at 4.5:1. */
-.artizen-fit-strong { color: #fff; background: var(--green-ink); }
-.artizen-fit-good { color: #fff; background: var(--green-ink); }
+/* Strong and Good share Moss with Fund details and the history badges. The meter has no type
+   on the fill; the badges put white on the same green so the card stays one colour. */
+.artizen-fit-strong { color: #fff; background: var(--green-deep); }
+.artizen-fit-good { color: #fff; background: var(--green-deep); }
 .artizen-fit-exploratory { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 .artizen-fit-limited { color: var(--muted); background: transparent; border: 1px dashed var(--line); }
-/* Same filled treatment as Strong / Project: white type on the fill needs 4.5:1. */
+/* Same filled treatment as Strong / Project: white type on Moss, not Algae. */
 .artizen-known-relationship {
   display: inline-flex;
   align-items: center;
   gap: 0.35em;
   color: #fff;
-  background: var(--green-ink);
+  background: var(--green-deep);
 }
 .artizen-known-relationship .bi {
   font-size: 0.9em;
@@ -1157,7 +1160,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   padding: 0.5rem 0 0;
   border: 0;
   background: none;
-  color: var(--green-ink);
+  color: var(--green-deep);
   font-size: 0.88rem;
   cursor: pointer;
   text-decoration: underline;
@@ -1175,11 +1178,11 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   cursor: pointer;
 }
 .artizen-match-card-star:hover,
-.artizen-match-card-star[aria-pressed="true"] { color: var(--green-ink); }
-/* Same filled treatment as Strong / Project: green-ink can carry white text, Algae cannot. */
+.artizen-match-card-star[aria-pressed="true"] { color: var(--green-deep); }
+/* Same filled treatment as Strong / Project: Moss can carry white text, Algae cannot. */
 .artizen-match-moved {
   color: #fff;
-  background: var(--green-ink);
+  background: var(--green-deep);
   white-space: nowrap;
 }
 .artizen-match-more-row {
@@ -1195,7 +1198,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   padding: 0;
   border: 0;
   background: none;
-  color: var(--green-ink);
+  color: var(--green-deep);
   font-size: 0.88rem;
   cursor: pointer;
   text-decoration: underline;
@@ -1281,7 +1284,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   cursor: pointer;
 }
 .artizen-fund-dialog-ai:hover { background: var(--paper); }
-.artizen-fund-dialog-ai .bi { color: var(--green-ink); }
+.artizen-fund-dialog-ai .bi { color: var(--green-deep); }
 .artizen-fund-dialog-ai-hint {
   display: block;
   margin-top: 0.35rem !important;
@@ -1503,7 +1506,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   line-height: 1;
   cursor: pointer;
 }
-.artizen-nav-toggle:hover { color: var(--green-ink); }
+.artizen-nav-toggle:hover { color: var(--green-deep); }
 .artizen-nav-toggle .bi { display: block; line-height: 1; }
 @media (max-width: 639px) {
   .artizen-nav-inner {
