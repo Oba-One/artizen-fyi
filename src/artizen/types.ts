@@ -192,6 +192,8 @@ export type ProjectSiblingFund = {
 };
 
 export type ProjectPage = {
+  id: string;
+  slug: string;
   name: string;
   artizen_url: string;
   creator?: string;
@@ -257,6 +259,171 @@ export type FundPage = {
   active: unknown;
   contrib_total: number;
   seasons: FundFundingSeason[];
+};
+
+export type MatchRelationshipKind = 'submitted' | 'curated' | 'funded';
+
+export type MatchFit = 'strong' | 'good' | 'exploratory' | 'limited';
+
+export type MatchReason = {
+  kind:
+    | 'content'
+    | 'tag'
+    | 'facet'
+    | 'core-concept'
+    | 'semantic'
+    | 'similar-project'
+    | 'relationship'
+    | 'limited-evidence';
+  label: string;
+};
+
+export type ProjectMatchInput = {
+  projectId?: string;
+  title?: string;
+  description: string;
+  tags: string[];
+};
+
+export type ProjectFundRelationship = {
+  projectId: string;
+  fundId: string;
+  kind: MatchRelationshipKind;
+  seasonNumber?: number;
+  createdAt?: string;
+};
+
+export type MatchIndexSource = {
+  kind: 'artizen-api' | 'fixture';
+  projects: number;
+  funds: number;
+  relationships: number;
+};
+
+export type MatchFacetCategory = 'domain' | 'medium' | 'approach' | 'audience' | 'place';
+
+export type MatchFacet = {
+  id: string;
+  label: string;
+  category: MatchFacetCategory;
+};
+
+/**
+ * A project's fund history, as compact tuples rather than full relationship rows.
+ *
+ * Only the fund and the kind are read at match time; season and creation date exist to dedupe at
+ * build time. Carrying the pair per project instead of a flat table of every project's rows is
+ * what lets the browser download one project's history rather than all 9,000.
+ */
+export type ProjectHistory = Array<[fundId: string, kind: MatchRelationshipKind]>;
+
+export type ProjectProfile = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  tags: string[];
+  facets: string[];
+  image?: string;
+  history?: ProjectHistory;
+};
+
+export type FundProfile = {
+  id: string;
+  slug: string;
+  name: string;
+  subtitle?: string;
+  forTitle?: string;
+  active: boolean;
+  available?: number;
+  themes: string[];
+  aliases: string[];
+  preferredTerms: string[];
+  excludedTerms: string[];
+  profileText: string;
+  profileHash: string;
+  facets: string[];
+  focusFacets: string[];
+  coreConcepts: string[];
+  image?: string;
+};
+
+export type ScoreBreakdown = {
+  lexical: number;
+  facets: number;
+  coreCoverage: number;
+  semantic?: number;
+};
+
+export type ScoringConfig = {
+  version: string;
+  lexicalWeight: number;
+  facetWeight: number;
+  coreCoverageWeight: number;
+  semanticWeight: number;
+  semanticFacetWeight: number;
+  semanticCoreCoverageWeight: number;
+  semanticLexicalWeight: number;
+  strongThreshold: number;
+  goodThreshold: number;
+  exploratoryThreshold: number;
+  unsupportedFocusPenalty: number;
+};
+
+export type SemanticCatalogManifest = {
+  modelId: 'mixedbread-ai/mxbai-embed-xsmall-v1';
+  modelRevision: string;
+  dtype: 'q8';
+  dimensions: 256;
+  weightsBytes: number;
+  modelPath: string;
+  wasmPath: string;
+  vectorsUrl: string;
+  /**
+   * Embeddings for every catalog project, so selecting one needs no model at all. Sharded, because
+   * a page scores one project: the URL is `${projectVectorPrefix}${bucket}.bin`.
+   */
+  projectVectorPrefix: string;
+  projectVectorBuckets: number;
+  vectorVersion: string;
+};
+
+export type MatchIndex = {
+  schemaVersion: 2;
+  indexVersion: string;
+  generatedAt: string;
+  source: MatchIndexSource;
+  taxonomyVersion: string;
+  facets: MatchFacet[];
+  projects: ProjectProfile[];
+  funds: FundProfile[];
+  relationships: ProjectFundRelationship[];
+  scoring: ScoringConfig;
+  semantic?: SemanticCatalogManifest;
+};
+
+export type FundRecommendation = {
+  fundId: string;
+  score: number;
+  fit: MatchFit;
+  reasons: MatchReason[];
+  knownRelationship?: MatchRelationshipKind;
+  active: boolean;
+  available?: number;
+  breakdown: ScoreBreakdown;
+  supportedFocus: boolean;
+};
+
+export type MatchResult = {
+  sufficient: boolean;
+  recommendations: FundRecommendation[];
+  mode: 'baseline' | 'semantic';
+};
+
+export type SemanticScorer = {
+  load(onProgress: (progress: number) => void): Promise<void>;
+  score(input: ProjectMatchInput, fundIds: string[]): Promise<Map<string, number>>;
+  dispose(): void;
 };
 
 export type BoostHolder = {

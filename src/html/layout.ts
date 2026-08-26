@@ -2,6 +2,24 @@ import type { DetailPreview, Leaderboard } from '../artizen';
 import { fmtDate, usd } from '../format';
 import styles from '../styles.css';
 
+const MATCHING_CSS_START = '/* ARTIZEN_MATCHING_CSS_START */';
+const MATCHING_CSS_END = '/* ARTIZEN_MATCHING_CSS_END */';
+
+export function splitPageStyles(source: string): { base: string; matching: string } {
+  const matchingCssStart = source.indexOf(MATCHING_CSS_START);
+  const matchingCssEnd = source.indexOf(MATCHING_CSS_END);
+  if (matchingCssStart < 0 || matchingCssEnd < matchingCssStart) {
+    throw new Error('matching CSS markers are missing or out of order');
+  }
+  return {
+    matching: source.slice(matchingCssStart + MATCHING_CSS_START.length, matchingCssEnd),
+    base: source.slice(0, matchingCssStart) + source.slice(matchingCssEnd + MATCHING_CSS_END.length),
+  };
+}
+
+// Vitest stubs CSS imports; production's Worker bundler loads this import as text.
+const pageStyles = typeof styles === 'string' && styles ? splitPageStyles(styles) : { base: '', matching: '' };
+
 export function escapeHtml(value: unknown): string {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -69,6 +87,7 @@ const DETAIL_POLL_SCRIPT = `
           img.classList.add('is-loaded');
         }
       });
+      document.dispatchEvent(new CustomEvent('artizen:content'));
     }
     url.searchParams.delete('content');
     url.searchParams.delete('refresh');
@@ -151,6 +170,8 @@ export function layout(opts: {
   season?: string | null;
   boards?: boolean;
   boosts?: boolean;
+  matching?: boolean;
+  matchStyles?: boolean;
   strategies?: boolean;
 }): string {
   const desc = escapeHtml(opts.description || 'Fund and project leaderboards from Artizen');
@@ -203,10 +224,10 @@ export function layout(opts: {
   <link rel="stylesheet" href="https://s3.amazonaws.com/appforest_uf/f1669921386747x462861532157019100/RocGroteskBold.css">
   <link rel="stylesheet" href="https://s3.amazonaws.com/appforest_uf/f1670009029268x384309142695173700/RocGroteskMedium.css">
   <link rel="stylesheet" href="https://s3.amazonaws.com/appforest_uf/f1669919682183x184427803987397440/P22Mackinac-Medium_6.css">
-  <style>${styles}</style>
+  <style>${pageStyles.base}${opts.matchStyles ? pageStyles.matching : ''}</style>
 </head>
 <body>
-  ${nav(opts.query, opts.season, opts.boards, opts.boosts, opts.strategies)}
+  ${nav(opts.query, opts.season, opts.boards, opts.boosts, opts.matching, opts.strategies)}
   <div class="artizen-shell">
     ${opts.body}
   </div>
@@ -216,7 +237,14 @@ export function layout(opts: {
 </html>`;
 }
 
-function nav(query?: string, season?: string | null, boards?: boolean, boosts?: boolean, strategies?: boolean): string {
+function nav(
+  query?: string,
+  season?: string | null,
+  boards?: boolean,
+  boosts?: boolean,
+  matching?: boolean,
+  strategies?: boolean,
+): string {
   const seasonField = season
     ? `<input type="hidden" name="season" value="${escapeHtml(season)}">`
     : '';
@@ -224,6 +252,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
   const strategiesHref = season ? `/strategies?season=${encodeURIComponent(season)}` : '/strategies';
   const boardsClass = boards ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
   const boostsClass = boosts ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
+  const matchingClass = matching ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
   const strategiesClass = strategies ? 'artizen-nav-pill artizen-nav-pill-ink' : 'artizen-nav-pill';
   return `
 <header class="artizen-nav">
@@ -233,6 +262,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
         <a class="${boardsClass}" href="${boardsHref}">Seasons</a>
         <a class="${boostsClass}" href="/boosts">Boosts</a>
         <a class="${strategiesClass}" href="${strategiesHref}">Strategies</a>
+        <a class="${matchingClass}" href="/match">Find funds</a>
       </div>
       <button type="button" class="artizen-nav-toggle d-md-none" data-bs-toggle="offcanvas" data-bs-target="#artizen-nav-offcanvas" aria-controls="artizen-nav-offcanvas" aria-label="Menu">
         <i class="bi bi-list" aria-hidden="true"></i>
@@ -262,6 +292,7 @@ function nav(query?: string, season?: string | null, boards?: boolean, boosts?: 
       <a class="${boards ? 'active' : ''}" href="${boardsHref}"${boards ? ' aria-current="page"' : ''}>Seasons</a>
       <a class="${boosts ? 'active' : ''}" href="/boosts"${boosts ? ' aria-current="page"' : ''}>Boosts</a>
       <a class="${strategies ? 'active' : ''}" href="${strategiesHref}"${strategies ? ' aria-current="page"' : ''}>Strategies</a>
+      <a class="${matching ? 'active' : ''}" href="/match"${matching ? ' aria-current="page"' : ''}>Find funds</a>
     </nav>
   </div>
 </div>
@@ -284,6 +315,101 @@ const FOOTER = `
 </footer>
 `;
 
+
+/**
+ * The part of the fund-matching UI that /match and the project detail panel share.
+ * Both pages used to carry their own copy of this markup and had already drifted;
+ * keeping it in one place is what stops the local-AI control, the filters, and the
+ * results grid from diverging again.
+ */
+export function matchResultsRegion(status: string): string {
+  return `
+      <div class="artizen-results-bar">
+        <div class="artizen-results-summary">
+          <p class="artizen-match-status" data-match-status role="status" aria-live="polite">${escapeHtml(status)}</p>
+          <button class="artizen-info-button" type="button" data-match-info aria-label="How these matches are made">
+            <i class="bi bi-info-circle" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="artizen-results-actions">
+          <div class="artizen-semantic-controls" data-semantic-controls hidden>
+            <button class="artizen-ai-button" type="button" data-semantic-button>
+              <i class="bi bi-stars" aria-hidden="true"></i>
+              <span class="artizen-ai-label" data-semantic-label>Improve with local AI</span>
+              <span class="artizen-ai-size" data-semantic-size></span>
+            </button>
+            <progress max="1" value="0" data-semantic-progress hidden></progress>
+          </div>
+        </div>
+        <div class="artizen-ai-note-row">
+          <p class="artizen-ai-note text-muted" role="status" aria-live="polite" data-semantic-status></p>
+          <button class="artizen-ai-undo" type="button" data-semantic-undo hidden>Undo edits</button>
+        </div>
+      </div>
+      <div class="artizen-match-controls" data-match-controls hidden>
+        <div class="artizen-filter-block">
+          <h3 class="artizen-filter-title" id="match-status-filters">Fund status</h3>
+          <div class="artizen-filter-group" role="group" aria-labelledby="match-status-filters">
+            <button class="artizen-match-toggle" type="button" data-filter-active aria-pressed="true">
+              Active curation <span class="artizen-match-count" data-count-active></span>
+            </button>
+            <button class="artizen-match-toggle" type="button" data-filter-available aria-pressed="false">
+              Funds available <span class="artizen-match-count" data-count-available></span>
+            </button>
+            <button class="artizen-match-toggle" type="button" data-filter-new aria-pressed="false" title="Hide funds this project has already applied to, been curated in, or been funded by">
+              New to me <span class="artizen-match-count" data-count-new></span>
+            </button>
+          </div>
+        </div>
+        <div class="artizen-filter-block" data-project-focus hidden>
+          <h3 class="artizen-filter-title" id="match-project-focus">Your focus</h3>
+          <div class="artizen-facet-scroller">
+            <div class="artizen-project-focus-chips" data-project-focus-chips role="list" aria-labelledby="match-project-focus"></div>
+          </div>
+        </div>
+        <div class="artizen-filter-block" data-facet-filters hidden>
+          <div class="artizen-filter-heading">
+            <h3 class="artizen-filter-title" id="match-focus-filters">Focus areas</h3>
+            <button class="artizen-match-facet-clear" type="button" data-facet-clear hidden>Clear</button>
+          </div>
+          <div class="artizen-facet-scroller">
+            <div class="artizen-match-facet-chips" data-facet-chips role="group" aria-labelledby="match-focus-filters"></div>
+          </div>
+        </div>
+        <div class="artizen-filter-block">
+          <h3 class="artizen-filter-title" id="match-list-tools">Find and sort</h3>
+          <div class="artizen-tools-row" role="group" aria-labelledby="match-list-tools">
+            <div class="artizen-fund-search">
+              <i class="bi bi-search" aria-hidden="true"></i>
+              <label class="visually-hidden" for="match-fund-search">Search these funds by name</label>
+              <input class="form-control" id="match-fund-search" type="search" autocomplete="off" placeholder="Search these funds" data-fund-search>
+            </div>
+            <label class="visually-hidden" for="match-sort">Sort funds</label>
+            <select class="form-select artizen-sort-select" id="match-sort" data-match-sort>
+              <option value="fit">Best fit</option>
+              <option value="available">Most available</option>
+              <option value="name">Name</option>
+            </select>
+            <button class="artizen-match-toggle" type="button" data-filter-shortlist aria-pressed="false">
+              Shortlisted <span class="artizen-match-count" data-count-shortlist></span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="artizen-match-results" data-match-results></div>
+      <div class="artizen-match-more-row">
+        <button class="btn btn-outline-dark artizen-match-more" type="button" data-match-more hidden>Show more funds</button>
+        <button class="artizen-match-collapse" type="button" data-match-collapse hidden>Back to recommendations</button>
+      </div>
+      <dialog class="artizen-fund-dialog" closedby="any" data-fund-dialog>
+        <button class="artizen-fund-dialog-close" type="button" data-fund-dialog-close aria-label="Close">&times;</button>
+        <div class="artizen-fund-dialog-body" data-fund-dialog-body></div>
+      </dialog>
+      <dialog class="artizen-info-dialog" closedby="any" data-match-info-dialog aria-label="How these matches are made">
+        <button class="artizen-info-dialog-close" type="button" data-match-info-close aria-label="Close">&times;</button>
+        <div class="artizen-info-dialog-body" data-match-info-body></div>
+      </dialog>`;
+}
 
 export function panel(inner: string, opts?: { className?: string }): string {
   const cls = ['artizen-panel', opts?.className || ''].filter(Boolean).join(' ');
@@ -320,7 +446,8 @@ export function renderDetailPlaceholder(kind: 'project' | 'fund', slug: string, 
     title,
     description: preview?.lead || undefined,
     tree: true,
-    extra: DETAIL_POLL_SCRIPT,
+    matchStyles: kind === 'project',
+    extra: `${DETAIL_POLL_SCRIPT}${kind === 'project' ? '<script type="module" src="/assets/match-client.js"></script>' : ''}`,
     body: `<div aria-busy="true">
       ${panel(
         `<div class="artizen-hero artizen-ph" aria-hidden="true"></div>

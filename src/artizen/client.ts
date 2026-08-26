@@ -2,7 +2,8 @@ import { Bubble } from './bubble';
 import { buildBoosts, buildLeaderboard } from './leaderboard';
 import { buildFund } from './fund';
 import { buildProject } from './project';
-import type { BoostsPage, DetailPreview, FundPage, Leaderboard, ProjectPage } from './types';
+import { buildMatchIndex, MATCH_INDEX_KEY } from '../matching/index';
+import type { BoostsPage, DetailPreview, FundPage, Leaderboard, MatchIndex, ProjectPage } from './types';
 import { failed } from './util';
 
 const keys = {
@@ -12,6 +13,7 @@ const keys = {
   boosts: 'artizen/boosts/v2',
   projects: 'artizen/project/v46/',
   funds: 'artizen/fund/v10/',
+  matching: MATCH_INDEX_KEY,
 };
 
 export class Artizen {
@@ -69,6 +71,15 @@ export class Artizen {
       error: true,
     };
     return this.cached(keys.boosts, () => buildBoosts(this.bubble), 'require', fallback);
+  }
+
+  async matchIndex(): Promise<MatchIndex | null> {
+    return this.cached(
+      keys.matching,
+      async () => buildMatchIndex(this.bubble, { previous: await this.get<MatchIndex>(keys.matching) }),
+      'require',
+      null,
+    );
   }
 
   async refreshCache(): Promise<string> {

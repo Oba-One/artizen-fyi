@@ -1,0 +1,302 @@
+{
+  "schemaVersion": 2,
+  "indexVersion": "9e50d262029bc94a6134",
+  "generatedAt": "2026-08-24T21:56:52.780Z",
+  "source": {
+    "kind": "fixture",
+    "projects": 3,
+    "funds": 3,
+    "relationships": 2
+  },
+  "taxonomyVersion": "2026-08-23.1",
+  "facets": [
+    {
+      "id": "domain:arts-media",
+      "label": "Arts and media",
+      "category": "domain"
+    },
+    {
+      "id": "medium:film-storytelling",
+      "label": "Film and storytelling",
+      "category": "medium"
+    },
+    {
+      "id": "medium:music-performance",
+      "label": "Music and performance",
+      "category": "medium"
+    },
+    {
+      "id": "domain:science-research",
+      "label": "Science and research",
+      "category": "domain"
+    },
+    {
+      "id": "domain:ai-technology",
+      "label": "AI and technology",
+      "category": "domain"
+    },
+    {
+      "id": "domain:open-infrastructure",
+      "label": "Open infrastructure",
+      "category": "domain"
+    },
+    {
+      "id": "domain:climate-ecology",
+      "label": "Climate and ecology",
+      "category": "domain"
+    },
+    {
+      "id": "domain:marine-ocean",
+      "label": "Marine and ocean",
+      "category": "domain"
+    },
+    {
+      "id": "domain:agriculture-land",
+      "label": "Agriculture and land",
+      "category": "domain"
+    },
+    {
+      "id": "domain:education",
+      "label": "Education and learning",
+      "category": "domain"
+    },
+    {
+      "id": "domain:health-wellness",
+      "label": "Health and wellness",
+      "category": "domain"
+    },
+    {
+      "id": "domain:community-economy",
+      "label": "Community and shared economy",
+      "category": "domain"
+    },
+    {
+      "id": "domain:culture-identity",
+      "label": "Culture and identity",
+      "category": "domain"
+    },
+    {
+      "id": "approach:public-goods",
+      "label": "Public goods",
+      "category": "approach"
+    },
+    {
+      "id": "approach:regenerative",
+      "label": "Regenerative practice",
+      "category": "approach"
+    },
+    {
+      "id": "approach:decentralized",
+      "label": "Decentralized coordination",
+      "category": "approach"
+    },
+    {
+      "id": "audience:women",
+      "label": "Women creators",
+      "category": "audience"
+    },
+    {
+      "id": "audience:queer",
+      "label": "Queer creators",
+      "category": "audience"
+    },
+    {
+      "id": "audience:indigenous",
+      "label": "Indigenous and First Nations",
+      "category": "audience"
+    },
+    {
+      "id": "audience:youth",
+      "label": "Young people",
+      "category": "audience"
+    },
+    {
+      "id": "audience:african",
+      "label": "African creators",
+      "category": "audience"
+    },
+    {
+      "id": "audience:latin",
+      "label": "Latin American creators",
+      "category": "audience"
+    },
+    {
+      "id": "place:africa",
+      "label": "Africa",
+      "category": "place"
+    },
+    {
+      "id": "place:latin-america",
+      "label": "Latin America",
+      "category": "place"
+    }
+  ],
+  "projects": [
+    {
+      "id": "project-doc",
+      "slug": "project-doc",
+      "name": "Border Stories",
+      "description": "A documentary following musicians across a contested border",
+      "tags": [
+        "Film"
+      ],
+      "facets": [
+        "medium:film-storytelling",
+        "medium:music-performance"
+      ]
+    },
+    {
+      "id": "project-science",
+      "slug": "project-science",
+      "name": "Open Biology Lab",
+      "description": "A decentralized laboratory for open scientific research",
+      "tags": [
+        "Ocean",
+        "Science"
+      ],
+      "facets": [
+        "approach:decentralized",
+        "domain:marine-ocean",
+        "domain:science-research"
+      ],
+      "image": "https://media.example/project-science.jpg",
+      "history": [
+        [
+          "fund-science",
+          "curated"
+        ]
+      ]
+    },
+    {
+      "id": "project-reef",
+      "slug": "project-reef",
+      "name": "Reef Sound Archive",
+      "description": "Recording coral reef soundscapes with coastal fishing communities",
+      "tags": [
+        "Climate",
+        "Ocean"
+      ],
+      "facets": [
+        "domain:climate-ecology",
+        "domain:community-economy",
+        "domain:marine-ocean"
+      ],
+      "history": [
+        [
+          "fund-ocean",
+          "submitted"
+        ]
+      ]
+    }
+  ],
+  "funds": [
+    {
+      "id": "fund-science",
+      "slug": "fund-science",
+      "name": "DeSci Fund for Open Biology Research",
+      "subtitle": "Supporting decentralized laboratories and scientific researchers without truncation",
+      "forTitle": "For biology, laboratory research, and citizen science",
+      "active": true,
+      "available": 4200,
+      "themes": [],
+      "aliases": [],
+      "preferredTerms": [],
+      "excludedTerms": [],
+      "profileText": "DeSci Fund for Open Biology Research. Supporting decentralized laboratories and scientific researchers without truncation. For biology, laboratory research, and citizen science",
+      "profileHash": "a577fc807a6a5820e6a863bb54bceaa9142295d465653bcee8eafb22e91ac2f2",
+      "facets": [
+        "approach:decentralized",
+        "domain:science-research"
+      ],
+      "focusFacets": [
+        "domain:science-research"
+      ],
+      "coreConcepts": [],
+      "image": "https://media.example/fund-science.jpg"
+    },
+    {
+      "id": "fund-film",
+      "slug": "fund-film",
+      "name": "Documentary Film Fund",
+      "subtitle": "Independent cinematic storytelling",
+      "forTitle": "For documentary filmmakers",
+      "active": false,
+      "themes": [],
+      "aliases": [],
+      "preferredTerms": [],
+      "excludedTerms": [],
+      "profileText": "Documentary Film Fund. Independent cinematic storytelling. For documentary filmmakers",
+      "profileHash": "7bc029d7fd534787b51ce655cddc7237ffd341f792c1db4a47e621daef301427",
+      "facets": [
+        "medium:film-storytelling"
+      ],
+      "focusFacets": [
+        "medium:film-storytelling"
+      ],
+      "coreConcepts": []
+    },
+    {
+      "id": "fund-ocean",
+      "slug": "fund-ocean",
+      "name": "Ocean Fund for Reef Restoration",
+      "subtitle": "Marine conservation with coastal fishing communities and reef stewardship",
+      "forTitle": "For ocean, reef, marine, and coastal projects",
+      "active": true,
+      "available": 9100,
+      "themes": [],
+      "aliases": [],
+      "preferredTerms": [],
+      "excludedTerms": [],
+      "profileText": "Ocean Fund for Reef Restoration. Marine conservation with coastal fishing communities and reef stewardship. For ocean, reef, marine, and coastal projects",
+      "profileHash": "19a340bb1489333881050661ba94d2c95dda859a97e03d72562768c3dc413cc6",
+      "facets": [
+        "domain:climate-ecology",
+        "domain:community-economy",
+        "domain:marine-ocean"
+      ],
+      "focusFacets": [
+        "domain:marine-ocean"
+      ],
+      "coreConcepts": []
+    }
+  ],
+  "relationships": [
+    {
+      "projectId": "project-reef",
+      "fundId": "fund-ocean",
+      "kind": "submitted"
+    },
+    {
+      "projectId": "project-science",
+      "fundId": "fund-science",
+      "kind": "curated"
+    }
+  ],
+  "scoring": {
+    "version": "baseline-2026-08-23.3",
+    "lexicalWeight": 0.4,
+    "facetWeight": 0.4,
+    "coreCoverageWeight": 0.2,
+    "semanticWeight": 0.55,
+    "semanticFacetWeight": 0.25,
+    "semanticCoreCoverageWeight": 0.15,
+    "semanticLexicalWeight": 0.05,
+    "strongThreshold": 0.44,
+    "goodThreshold": 0.38,
+    "exploratoryThreshold": 0.1,
+    "unsupportedFocusPenalty": 0.35
+  },
+  "semantic": {
+    "modelId": "mixedbread-ai/mxbai-embed-xsmall-v1",
+    "modelRevision": "b0561d9a97e6b298da39f0ef3e7d3cf153b1b29a",
+    "dtype": "q8",
+    "dimensions": 256,
+    "weightsBytes": 24448010,
+    "modelPath": "/assets/models/",
+    "wasmPath": "/assets/ort/",
+    "vectorsUrl": "/assets/match-fund-vectors.bin",
+    "projectVectorPrefix": "/assets/match-project-vectors-",
+    "projectVectorBuckets": 64,
+    "vectorVersion": "b0561d9a97e6-2026-08-23.1-256"
+  }
+}

@@ -1,0 +1,76 @@
+import { readFileSync } from 'node:fs';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import type { MatchIndex } from '../src/artizen/types';
+import { PrecomputedSemanticScorer } from '../src/client/precomputed-scorer';
+import { serializeVectorCatalog } from '../src/client/vector-catalog';
+import { semanticManifest } from '../src/matching/semantic-config';
+import { projectVectorText, vectorBucket, vectorFingerprint } from '../src/matching/semantic-text';
+
+const originalFetch = globalThis.fetch;
+
+afterEach(() => {
+  globalThis.fetch = originalFetch;
+  vi.restoreAllMocks();
+});
+
+function vector(dimensions: number, position: number): Float32Array {
+  const result = new Float32Array(dimensions);
+  result[position % dimensions] = 1;
+  return result;
+}
+
+describe('precomputed semantic vectors', () => {
+  it('retries transient fund-catalog and project-shard failures', async () => {
+    const index = JSON.parse(readFileSync('test/fixtures/match-index.json', 'utf8')) as MatchIndex;
+    const manifest = semanticManifest(index)!;
+    const project = index.projects[0];
+    const shardUrl = `${manifest.projectVectorPrefix}${vectorBucket(project.id, manifest.projectVectorBuckets)}.bin`;
+    const fundCatalog = serializeVectorCatalog(
+      manifest.vectorVersion,
+      manifest.dimensions,
+      index.funds.map((fund, position) => ({
+        id: fund.id,
+        fingerprint: vectorFingerprint(fund.profileText),
+        vector: vector(manifest.dimensions, position),
+      })),
+    );
+    const projectCatalog = serializeVectorCatalog(manifest.vectorVersion, manifest.dimensions, [
+      {
+        id: project.id,
+        fingerprint: vectorFingerprint(projectVectorText(project)),
+        vector: vector(manifest.dimensions, 0),
+      },
+    ]);
+    let fundAttempts = 0;
+    let shardAttempts = 0;
+    globalThis.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === manifest.vectorsUrl) {
+        fundAttempts += 1;
+        return fundAttempts === 1 ? new Response(null, { status: 503 }) : new Response(fundCatalog);
+      }
+      if (url === shardUrl) {
+        shardAttempts += 1;
+        return shardAttempts === 1 ? new Response(null, { status: 503 }) : new Response(projectCatalog);
+      }
+      return new Response(null, { status: 404 });
+    }) as typeof fetch;
+    const scorer = new PrecomputedSemanticScorer(index);
+
+    expect(await scorer.load()).toBe(false);
+    expect(await scorer.load()).toBe(true);
+
+    const input = {
+      projectId: project.id,
+      title: project.name,
+      description: project.description,
+      tags: project.tags,
+    };
+    expect(await scorer.score(input)).toEqual({});
+    const recovered = await scorer.score(input);
+
+    expect(recovered.scores?.size).toBe(index.funds.length);
+    expect(fundAttempts).toBe(2);
+    expect(shardAttempts).toBe(2);
+  });
+});

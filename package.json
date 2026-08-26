@@ -3,14 +3,43 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "wrangler dev",
+    "dev": "ARTIZEN_MATCH_QA=1 wrangler dev",
     "cron:prod": "wrangler dev --env cron --port 8788",
     "deploy": "wrangler deploy",
+    "build:client": "node scripts/build-client.mjs",
+    "build:match-catalog": "node scripts/build-match-catalog.mjs",
+    "prepare:semantic": "node scripts/fetch-semantic-assets.mjs",
+    "build:semantic-vectors": "node scripts/build-semantic-vectors.mjs",
+    "typecheck": "tsc && tsc -p tsconfig.client.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "evaluate:matching": "node scripts/evaluate-matching.mjs",
+    "inspect:matching": "node scripts/inspect-match.mjs",
+    "benchmark:matching": "node scripts/benchmark-match.mjs",
+    "calibrate:matching": "node scripts/calibrate-match.mjs",
+    "calibrate:semantic": "node scripts/calibrate-semantic.mjs",
+    "facet:gaps": "node scripts/facet-gaps.mjs",
+    "compare:match-modes": "node scripts/compare-match-modes.mjs",
+    "qa:match": "ARTIZEN_MATCH_QA=1 npm run build:client && node scripts/serve-match-qa.mjs",
+    "check": "npm run typecheck && npm test && npm run build:client",
     "kv:create": "wrangler kv namespace create CACHE",
-    "types": "wrangler types"
+    "types": "wrangler types",
+    "predeploy": "npm run prepare:semantic && npm run build:match-catalog && npm run build:semantic-vectors -- public/match/index.json"
   },
   "devDependencies": {
+    "esbuild": "^0.28.1",
     "typescript": "^5.9.2",
+    "vitest": "^3.2.4",
     "wrangler": "^4.28.0"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.2.0",
+    "onnxruntime-web": "1.26.0-dev.20260416-b7804b056c"
+  },
+  "overrides": {
+    "onnxruntime-web": "1.26.0-dev.20260416-b7804b056c"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

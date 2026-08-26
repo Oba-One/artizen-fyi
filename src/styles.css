@@ -1,27 +1,35 @@
 :root {
   --ink: #101212;
+  --slate: #202222;
   --muted: #8690A0;
   --paper: #F1F3EE;
   --panel: #ffffff;
-  --line: #E2E5E7;
+  --line: #D9DBE0;
   --green: #1ACC6C;
   --green-deep: #06AA59;
+  /* Not a brand colour. Algae is 2.1:1 on white and Moss 3.0:1, both under the 4.5:1 that text
+     needs, so green text darkens to this and only ever to this. Fills keep Algae and Moss. */
+  --green-ink: #06773F;
+  --reef: #B3F487;
+  --success: #2DD685;
+  --warn: #D6C52D;
+  --lavender: #C2B6DC;
   --shadow: 0 8px 18px rgba(16, 18, 18, 0.08);
   --radius: 1.15rem;
   --shell: 90rem;
   --artizen-nav-height: calc(1.4rem + 2.4rem + 1.85rem + 1px);
   --bs-primary: var(--green);
   --bs-primary-rgb: 26, 204, 108;
-  --bs-link-color: var(--green-deep);
-  --bs-link-hover-color: #058a48;
-  --bs-link-color-rgb: 6, 170, 89;
-  --bs-link-hover-color-rgb: 5, 138, 72;
+  --bs-link-color: var(--green-ink);
+  --bs-link-hover-color: var(--ink);
+  --bs-link-color-rgb: 6, 119, 63;
+  --bs-link-hover-color-rgb: 16, 18, 18;
   --bs-pagination-color: var(--ink);
   --bs-pagination-hover-color: var(--ink);
   --bs-pagination-focus-color: var(--ink);
   --bs-pagination-active-color: #fff;
-  --bs-pagination-active-bg: var(--green);
-  --bs-pagination-active-border-color: var(--green);
+  --bs-pagination-active-bg: var(--green-ink);
+  --bs-pagination-active-border-color: var(--green-ink);
   --bs-pagination-disabled-color: var(--ink);
   --bs-pagination-disabled-bg: var(--paper);
   --bs-pagination-disabled-border-color: var(--line);
@@ -34,6 +42,38 @@
   --bs-border-color: var(--line);
   --bs-secondary-rgb: 134, 144, 160;
 }
+/* Bootstrap's dark buttons stand in for Artizen's Primary and Secondary, so they are retargeted
+   here rather than overridden at each call site: Slate that darkens to Night, and an outline that
+   fills with Moon. Both pill-shaped and weight 500, which is what every button in the style guide
+   is. */
+.btn-dark {
+  --bs-btn-bg: var(--slate);
+  --bs-btn-border-color: var(--slate);
+  --bs-btn-hover-bg: var(--ink);
+  --bs-btn-hover-border-color: var(--ink);
+  --bs-btn-active-bg: var(--ink);
+  --bs-btn-active-border-color: var(--ink);
+  --bs-btn-disabled-bg: var(--line);
+  --bs-btn-disabled-border-color: var(--line);
+  --bs-btn-disabled-color: var(--muted);
+  border-radius: 999px;
+  font-weight: 500;
+}
+.btn-outline-dark {
+  --bs-btn-color: var(--ink);
+  --bs-btn-border-color: var(--slate);
+  --bs-btn-hover-bg: var(--paper);
+  --bs-btn-hover-color: var(--ink);
+  --bs-btn-hover-border-color: var(--slate);
+  --bs-btn-active-bg: var(--paper);
+  --bs-btn-active-color: var(--ink);
+  --bs-btn-active-border-color: var(--slate);
+  --bs-btn-disabled-color: var(--muted);
+  --bs-btn-disabled-border-color: var(--line);
+  border-radius: 999px;
+  font-weight: 500;
+}
+
 html { font-size: 16.5px; }
 body {
   min-height: 100vh;
@@ -50,8 +90,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 h1 { font-size: 2.15rem; }
 h2 { font-size: 1.45rem; }
-a { color: var(--green-deep); text-underline-offset: 0.15em; }
-a:hover { color: #058a48; }
+a { color: var(--green-ink); text-underline-offset: 0.15em; }
+a:hover { color: var(--ink); }
 a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .text-muted { color: var(--muted) !important; }
 .lead, .artizen-subtitle { font-family: var(--bs-subtitle-font-family); font-weight: 400; }
@@ -68,13 +108,15 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border-radius: 999px;
   padding: 0.35em 0.7em;
 }
+/* Same two rules the fit badges follow: a green that can carry white text, and Lavender rather
+   than an off-palette blue for the other category. */
 .artizen-kind-project {
-  background: var(--green);
+  background: var(--green-ink);
   color: #fff;
 }
 .artizen-kind-fund {
-  background: #4C6EF5;
-  color: #fff;
+  background: var(--lavender);
+  color: var(--ink);
 }
 .card {
   background: var(--panel);
@@ -177,8 +219,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .page-item.active .page-link,
 .pagination .active > .page-link,
 .dt-container .dt-paging .page-item.current .page-link {
-  background: var(--green) !important;
-  border-color: var(--green) !important;
+  background: var(--green-ink) !important;
+  border-color: var(--green-ink) !important;
   color: #fff !important;
 }
 .page-item.disabled .page-link,
@@ -270,6 +312,1147 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   font-size: 1.15rem;
   margin: 0;
 }
+
+/* ARTIZEN_MATCHING_CSS_START */
+.artizen-match-page {
+  margin: 0 auto;
+}
+.artizen-match-intro,
+.artizen-match-page form {
+  max-width: 64rem;
+  margin-inline: auto;
+}
+.artizen-match-intro { margin-bottom: 1.5rem; }
+.artizen-match-intro h1 { margin: 0.65rem 0 0.4rem; }
+.artizen-match-eyebrow {
+  color: var(--ink);
+  background: var(--reef);
+}
+.artizen-match-page form {
+  display: grid;
+  gap: 1.15rem;
+}
+.artizen-match-mode {
+  display: inline-flex;
+  justify-self: start;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  margin: 0;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  max-width: 100%;
+}
+.artizen-match-mode label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+}
+.artizen-match-mode label {
+  flex: 1;
+  justify-content: center;
+  padding: 0.42rem 0.9rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  font-size: 0.92rem;
+}
+.artizen-match-mode label input { position: absolute; opacity: 0; pointer-events: none; }
+.artizen-match-mode label:has(input:checked) {
+  color: #fff;
+  background: var(--ink);
+}
+.artizen-match-mode label:has(input:focus-visible) {
+  outline: 2px solid var(--green);
+  outline-offset: 1px;
+}
+.artizen-match-page [data-source-panel] {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+.artizen-match-page [data-source-panel][hidden] { display: none; }
+
+.artizen-match-page label:not(.artizen-match-mode label) {
+  margin-bottom: 0.3rem;
+}
+.artizen-match-page textarea,
+.artizen-match-page input.form-control {
+  margin-bottom: 0.65rem;
+  border-color: var(--line);
+  background: var(--panel);
+}
+.artizen-match-page textarea:focus,
+.artizen-match-page input.form-control:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 0.2rem rgba(26, 204, 108, 0.2);
+}
+.artizen-project-picker { position: relative; }
+.artizen-project-field { position: relative; }
+.artizen-project-picker input.form-control {
+  margin-bottom: 0;
+  padding-block: 0.7rem;
+  padding-inline: 2.5rem 2.6rem;
+  font-size: 1rem;
+  border-radius: 0.85rem;
+}
+.artizen-project-icon {
+  position: absolute;
+  top: 50%;
+  left: 0.9rem;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+.artizen-project-clear {
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  width: 1.7rem;
+  height: 1.7rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.artizen-project-clear[hidden] { display: none; }
+.artizen-project-clear:hover { background: var(--line); }
+/* type="search" draws its own cancel button, which would sit beside ours. */
+.artizen-project-field input[type="search"]::-webkit-search-cancel-button { display: none; }
+.artizen-project-options {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  right: 0;
+  max-height: 19rem;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 0.35rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 0.9rem;
+  box-shadow: var(--shadow);
+}
+.artizen-project-options[hidden] { display: none; }
+.artizen-project-options [role="option"] {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.65rem;
+  cursor: pointer;
+}
+.artizen-project-option-thumb {
+  flex: none;
+  display: block;
+  width: 2.4rem;
+  height: 2.4rem;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  background: var(--paper);
+}
+.artizen-project-option-thumb-empty { border: 1px solid var(--line); }
+.artizen-project-option-copy {
+  display: grid;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 0;
+}
+.artizen-project-options [role="option"]:hover,
+.artizen-project-options [role="option"][aria-selected="true"] {
+  background: var(--paper);
+}
+.artizen-project-options [role="option"] strong {
+  display: block;
+  overflow: hidden;
+  font-weight: 400;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.artizen-project-option-detail {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Impact tags as chips read faster than a dot-joined run of text. */
+.artizen-tag-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+}
+.artizen-tag-chips::-webkit-scrollbar { display: none; }
+.artizen-match-project-preview > .artizen-tag-chips {
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 1.25rem), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 1.25rem), transparent 100%);
+}
+.artizen-tag-chips > span {
+  flex: none;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 0.74rem;
+  white-space: nowrap;
+}
+.artizen-project-options [role="option"][aria-selected="true"] .artizen-tag-chips > span,
+.artizen-project-options [role="option"]:hover .artizen-tag-chips > span { background: var(--panel); }
+.artizen-tag-chips-rest { font-variant-numeric: tabular-nums; }
+.artizen-project-option-empty {
+  padding: 0.65rem 0.75rem;
+  color: var(--muted);
+}
+/* Guidance, not an error: the warning palette without the red, because an untagged project still
+   gets results - just half as many that are backed by evidence. */
+.artizen-tag-prompt {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.75rem;
+  margin-top: 0.6rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--warn);
+  border-radius: 0.8rem;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 0.9rem;
+  text-wrap: pretty;
+}
+.artizen-tag-prompt[hidden] { display: none; }
+.artizen-tag-prompt-icon { flex: none; font-size: 1.05rem; }
+.artizen-tag-prompt > span { flex: 1 1 14rem; min-width: 0; }
+.artizen-tag-prompt-action {
+  flex: none;
+  padding: 0.32rem 0.8rem;
+  border: 1px solid var(--slate);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.artizen-tag-prompt-action:hover { background: var(--paper); }
+.artizen-match-refine { margin-top: 0.75rem; }
+.artizen-match-refine summary {
+  cursor: pointer;
+  color: var(--green-ink);
+  font-size: 0.88rem;
+  list-style-position: inside;
+}
+.artizen-match-refine[open] summary { margin-bottom: 0.8rem; }
+.artizen-match-project-preview {
+  /* Fixed rows - one line of name, exactly two of description, one of chips - so the card is the
+     same height empty or full at any width, and choosing a project shifts nothing below it. */
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    "thumb name   change"
+    "thumb detail detail"
+    "thumb tags   tags";
+  align-items: center;
+  column-gap: 0.75rem;
+  row-gap: 0.2rem;
+  min-height: 7.6rem;
+  margin-top: 0.6rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: 0.8rem;
+  background: var(--panel);
+}
+.artizen-match-project-preview > .artizen-match-preview-thumb { grid-area: thumb; }
+.artizen-match-preview-name { grid-area: name; }
+.artizen-match-preview-detail { grid-area: detail; }
+.artizen-match-project-preview > .artizen-tag-chips,
+.artizen-match-project-preview > .artizen-match-preview-slug { grid-area: tags; }
+.artizen-match-preview-change { grid-area: change; }
+.artizen-match-project-preview-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--muted);
+  border-style: dashed;
+  text-align: center;
+}
+.artizen-match-preview-icon { font-size: 1.15rem; opacity: 0.7; }
+.artizen-match-project-preview span { color: var(--muted); }
+.artizen-match-preview-name {
+  overflow: hidden;
+  color: var(--ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.artizen-match-preview-change {
+  align-self: center;
+  justify-self: end;
+  padding: 0.2rem 0;
+  border: 0;
+  background: none;
+  color: var(--green-ink);
+  font-size: 0.85rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.artizen-match-preview-detail {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  height: calc(2 * 1.4em);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+.artizen-match-preview-slug { font-size: 0.8rem; opacity: 0.75; }
+.artizen-match-tag-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: start;
+}
+.artizen-match-selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.artizen-match-selected-tags li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 999px;
+  padding: 0.25rem 0.35rem 0.25rem 0.65rem;
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+.artizen-match-selected-tags button {
+  display: inline-grid;
+  place-items: center;
+  width: 1.45rem;
+  height: 1.45rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  color: var(--ink);
+  background: transparent;
+  font-size: 1.15rem;
+  line-height: 1;
+}
+.artizen-match-selected-tags button:hover,
+.artizen-match-selected-tags button:focus-visible { background: var(--paper); }
+.artizen-match-submit {
+  justify-self: start;
+  border-radius: 999px;
+  padding-inline: 1.1rem;
+}
+.artizen-match-output {
+  margin-top: 2rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--line);
+}
+.artizen-match-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+.artizen-match-heading h2 { margin: 0; }
+.artizen-match-note {
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  margin: 0.75rem 0;
+}
+/* The results region renders at two very different widths - the full /match page and the narrower
+   project detail panel - so it queries its own size rather than the viewport. */
+.artizen-match-output,
+.artizen-match {
+  container-type: inline-size;
+  container-name: matchout;
+}
+.artizen-results-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin: 0.75rem 0 0;
+}
+.artizen-results-summary {
+  display: flex;
+  align-items: start;
+  gap: 0.5rem;
+  /* Sized to its text, so the info button sits beside the sentence it explains rather than being
+     pushed to the far edge of the row. */
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.artizen-match-status {
+  /* Two lines are reserved so a longer status message never reflows the results below it. */
+  min-height: 2.6em;
+  margin: 0;
+  color: var(--muted);
+  text-wrap: pretty;
+}
+.artizen-results-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: none;
+}
+.artizen-info-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+.artizen-info-button:hover { color: var(--ink); border-color: var(--green); }
+.artizen-semantic-controls {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 0.5rem;
+  flex: none;
+}
+.artizen-semantic-controls[hidden] { display: none; }
+.artizen-ai-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--slate);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.artizen-ai-button:hover:not(:disabled) { background: var(--paper); }
+.artizen-ai-button:disabled { cursor: default; color: var(--muted); }
+.artizen-ai-button .bi { color: var(--green-ink); }
+.artizen-ai-size {
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+.artizen-ai-size[hidden] { display: none; }
+.artizen-semantic-controls progress { accent-color: var(--ink); max-width: 9rem; width: 100%; }
+.artizen-ai-note-row {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.15rem 0.6rem;
+}
+/* The note is usually empty and the undo action usually hidden, so the row would otherwise sit in
+   the layout as a bare flex gap under the status. */
+.artizen-ai-note-row:not(:has(> *:not([hidden]):not(:empty))) { display: none; }
+.artizen-ai-note {
+  margin: -0.35rem 0 0;
+  font-size: 0.82rem;
+}
+.artizen-ai-note:empty { display: none; }
+/* Refinements are the only reason the prepared comparison stops applying, so the way back is to
+   drop them - offered beside the sentence that explains what happened. */
+.artizen-ai-undo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--green-ink);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.artizen-ai-undo[hidden] { display: none; }
+.artizen-match-controls {
+  display: grid;
+  gap: 0.85rem;
+  margin: 0.8rem 0;
+  padding: 0.8rem 0.85rem;
+  border-radius: 0.85rem;
+  background: var(--paper);
+}
+.artizen-filter-block { display: grid; gap: 0.45rem; min-width: 0; }
+.artizen-filter-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.artizen-filter-title {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--bs-body-font-family);
+  font-size: 0.78rem;
+  font-weight: 400;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+.artizen-match-controls[hidden] { display: none; }
+/* Wrapping, not scrolling: three pills is a short, fixed list, so a second line is better than a
+   hidden one. Paired with `flex: 1 1 auto` below, a pill never shrinks under its own label. */
+.artizen-filter-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.artizen-filter-block[hidden] { display: none; }
+/* One scrolling lane at every width, not only on a phone. Twenty-five focus chips wrapped to
+   seven rows on a laptop, making the filter panel taller than the results it filters; every chip
+   stays reachable in the lane, and the edge fade is the signal that there are more. */
+.artizen-facet-scroller {
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: none;
+  padding-block: 0.2rem;
+  padding-inline-end: 1.6rem;
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 1.5rem), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 1.5rem), transparent 100%);
+}
+.artizen-facet-scroller::-webkit-scrollbar { display: none; }
+.artizen-match-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 0.42rem 0.7rem;
+  border: 1px solid var(--slate);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 0.88rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+/* A pressed filter is Artizen's Primary button: Slate, white, darkening to Night. Algae here
+   would put the label at 2.1:1, which is the one thing the style guide gets wrong. */
+.artizen-match-toggle:hover:not([aria-pressed="true"]) { background: var(--paper); }
+.artizen-match-toggle[aria-pressed="true"] {
+  color: #fff;
+  background: var(--slate);
+  border-color: var(--slate);
+}
+.artizen-match-toggle[aria-pressed="true"]:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.artizen-match-toggle[aria-pressed="true"] .artizen-match-count { color: rgba(255, 255, 255, 0.92); }
+.artizen-match-count {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+.artizen-match-facet-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+}
+/* A lighter border than the status toggles above them: both are Artizen Secondary pills, but two
+   dozen Slate outlines in one scrolling lane would out-shout the three filters that matter most. */
+.artizen-facet-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.artizen-facet-chip:hover { background: var(--paper); }
+.artizen-facet-chip[aria-pressed="true"] {
+  color: #fff;
+  background: var(--slate);
+  border-color: var(--slate);
+}
+.artizen-facet-chip[aria-pressed="true"]:hover {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+.artizen-facet-chip-count { opacity: 0.65; font-size: 0.78rem; }
+.artizen-facet-chip[aria-pressed="true"] .artizen-facet-chip-count { opacity: 0.8; }
+.artizen-match-facet-clear {
+  border: 0;
+  background: none;
+  padding: 0.25rem 0.3rem;
+  color: var(--green-ink);
+  font-size: 0.82rem;
+  white-space: nowrap;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.artizen-match-facet-clear[hidden] { display: none; }
+/* The project's own focus areas, shown so the filter vocabulary below is legible. Inert on
+   purpose: filtering by them would just re-run the ranking that already used them. */
+.artizen-project-focus-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.artizen-project-focus-chip {
+  flex: none;
+  padding: 0.25rem 0.7rem;
+  border: 1px dashed var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  /* Full ink, not muted: these are short labels that have to be read, and the dashed border and
+     absent hover already say they are not pressable. Muted would put them at 3.2:1. */
+  color: var(--ink);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+.artizen-tools-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+.artizen-fund-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1 1 11rem;
+  min-width: 0;
+}
+.artizen-fund-search .bi {
+  position: absolute;
+  left: 0.7rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+.artizen-fund-search input {
+  padding-left: 2.1rem;
+  border-radius: 999px;
+  font-size: 0.88rem;
+}
+.artizen-sort-select {
+  flex: 0 0 auto;
+  width: auto;
+  border-radius: 999px;
+  font-size: 0.88rem;
+}
+
+/* Cards arrive rather than appear. `--card-index` is set only on a fresh set of results, so a
+   filter toggle settles in place instead of replaying the sequence. */
+@keyframes artizen-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+}
+
+/* Subgrid lets every card's title, description, meter, badges, and action line up with its
+   siblings, and collapse together when a row needs less room. */
+.artizen-match-results {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  column-gap: 0.85rem;
+  row-gap: 0.5rem;
+}
+.artizen-match-card {
+  grid-row: span 6;
+  display: grid;
+  grid-template-rows: auto auto auto auto auto auto;
+  grid-template-rows: subgrid;
+  min-width: 0;
+  margin-bottom: 0.5rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--panel);
+  animation: artizen-card-in 240ms ease-out backwards;
+  /* Capped so the twelfth card is not still waiting a third of a second after the first. */
+  animation-delay: calc(min(var(--card-index, 0), 8) * 28ms);
+}
+.artizen-match-card-inactive {
+  border-style: dashed;
+  border-color: var(--warn);
+  background: var(--paper);
+}
+.artizen-match-card-head {
+  display: flex;
+  align-items: start;
+  gap: 0.7rem;
+}
+.artizen-match-card-title {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex: 1;
+  min-width: 0;
+}
+.artizen-match-card-marks {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: end;
+  gap: 0.3rem;
+}
+.artizen-match-thumb,
+.artizen-match-preview-thumb {
+  flex: none;
+  display: block;
+  object-fit: cover;
+  border-radius: 0.6rem;
+  background: var(--paper);
+}
+.artizen-match-thumb { width: 3rem; height: 3rem; }
+.artizen-match-preview-thumb { width: 3.25rem; height: 3.25rem; }
+.artizen-match-thumb-empty,
+.artizen-match-preview-thumb-empty { border: 1px solid var(--line); }
+.artizen-match-card h3 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  margin: 0;
+  font-size: 1.05rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+.artizen-match-card h3 a { color: var(--ink); }
+.artizen-match-card-subtitle {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--bs-subtitle-font-family);
+  font-size: 0.92rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.artizen-match-fit {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.artizen-match-fit-track {
+  flex: 1;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.artizen-match-fit-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--muted);
+}
+.artizen-fit-fill-strong { background: var(--green-deep); }
+.artizen-fit-fill-good { background: var(--green); }
+.artizen-fit-fill-exploratory { background: var(--reef); }
+.artizen-fit-fill-limited { background: var(--line); }
+.artizen-match-fit-value {
+  min-width: 1.9rem;
+  text-align: right;
+  color: var(--ink);
+  font-size: 0.95rem;
+  font-variant-numeric: tabular-nums;
+}
+.artizen-match-card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: start;
+  gap: 0.35rem;
+}
+/* The readable green, not Moss: this one carries 12px text, where Moss would be 3.0:1. The meter
+   fill below keeps Moss, because a bar has nothing to read. */
+.artizen-fit-strong { color: #fff; background: var(--green-ink); }
+.artizen-fit-good { color: var(--ink); background: var(--success); }
+.artizen-fit-exploratory { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
+.artizen-fit-limited { color: var(--muted); background: transparent; border: 1px dashed var(--line); }
+/* Lavender, so "you have already been here" reads as its own category rather than another shade
+   of the green the fit bands own. */
+.artizen-known-relationship { color: var(--ink); background: var(--lavender); }
+/* Curating is the normal state, so it states itself and stops there - Artizen's neutral outline
+   badge. That leaves the greens to mean one thing on a card, which is how well the fund fits.
+   Not curating keeps the warning fill, because it is the exception worth interrupting for. */
+.artizen-status-active { color: var(--ink); background: var(--panel); border: 1px solid var(--line); }
+.artizen-status-inactive { color: var(--ink); background: var(--warn); }
+.artizen-status-available { color: var(--green-ink); background: var(--panel); border: 1px solid var(--line); }
+.artizen-match-reasons {
+  margin: 0;
+  padding-left: 1.15rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+  text-wrap: pretty;
+}
+.artizen-match-reasons li + li { margin-top: 0.25rem; }
+.artizen-match-card-actions {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  align-self: end;
+  gap: 0.5rem;
+}
+.artizen-match-card-open {
+  padding: 0.5rem 0 0;
+  border: 0;
+  background: none;
+  color: var(--green-ink);
+  font-size: 0.88rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.artizen-match-card-star {
+  flex: none;
+  padding: 0.35rem 0.15rem 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.artizen-match-card-star:hover,
+.artizen-match-card-star[aria-pressed="true"] { color: var(--green-ink); }
+/* Outlined rather than filled: movement is a footnote on the card, not a third status. */
+.artizen-match-moved {
+  color: var(--green-ink);
+  background: var(--panel);
+  border: 1px solid var(--green);
+  white-space: nowrap;
+}
+.artizen-match-more-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+.artizen-match-more-row:not(:has(button:not([hidden]))) { display: none; }
+.artizen-match-more { margin-top: 1rem; }
+.artizen-match-collapse {
+  margin-top: 1rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--green-ink);
+  font-size: 0.88rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+.artizen-match-collapse[hidden] { display: none; }
+.artizen-match-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 1rem;
+  border-radius: 0.8rem;
+  background: var(--paper);
+  text-wrap: pretty;
+}
+.artizen-fund-dialog {
+  width: min(38rem, calc(100vw - 2rem));
+  max-height: min(85vh, 48rem);
+  padding: 1.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--ink);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.artizen-fund-dialog::backdrop { background: rgba(16, 18, 18, 0.45); }
+.artizen-fund-dialog-close {
+  position: absolute;
+  z-index: 2;
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+/* The artwork leads: full width, bled to the dialog edges, with the name and description under it. */
+.artizen-fund-dialog-banner {
+  margin: -1.5rem -1.5rem 0;
+  aspect-ratio: 16 / 9;
+  overflow: clip;
+  background: var(--paper);
+  border-radius: calc(var(--radius) - 1px) calc(var(--radius) - 1px) 0 0;
+}
+.artizen-fund-dialog-banner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.artizen-fund-dialog-title {
+  margin: 0;
+  font-size: 1.35rem;
+  text-wrap: balance;
+}
+.artizen-fund-dialog-subtitle {
+  margin: 0;
+  color: var(--muted);
+  font-family: var(--bs-subtitle-font-family);
+  text-wrap: pretty;
+}
+.artizen-fund-dialog-body > * + * { margin-top: 0.9rem; }
+.artizen-fund-dialog-banner + .artizen-fund-dialog-title { margin-top: 1rem; }
+.artizen-fund-dialog-title + .artizen-fund-dialog-subtitle { margin-top: 0.35rem; }
+.artizen-fund-dialog-ai {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--green);
+  border-radius: 0.8rem;
+  background: var(--panel);
+  color: var(--ink);
+  font-size: 0.92rem;
+  text-align: start;
+  cursor: pointer;
+}
+.artizen-fund-dialog-ai:hover { background: var(--paper); }
+.artizen-fund-dialog-ai .bi { color: var(--green-ink); }
+.artizen-fund-dialog-ai-hint {
+  display: block;
+  margin-top: 0.35rem !important;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  text-wrap: pretty;
+}
+.artizen-fund-dialog-breakdown { display: grid; gap: 0.4rem; }
+.artizen-fund-dialog-breakdown > div {
+  display: grid;
+  grid-template-columns: minmax(6rem, 10rem) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.artizen-fund-dialog-facts { margin: 0; }
+.artizen-fund-dialog-row {
+  display: grid;
+  grid-template-columns: minmax(4rem, 5rem) minmax(0, 1fr);
+  gap: 0.6rem;
+  font-size: 0.9rem;
+}
+.artizen-fund-dialog-row + .artizen-fund-dialog-row { margin-top: 0.35rem; }
+.artizen-fund-dialog-row dt { color: var(--muted); font-weight: 400; }
+.artizen-fund-dialog-row dd { margin: 0; text-wrap: pretty; }
+
+@container matchout (width < 34rem) {
+  .artizen-match-toggle {
+    /* `1 1 0` let three toggles share the row evenly and spill their labels outside the pill at
+       375px. Growing from the content width instead keeps every label inside its own pill. */
+    flex: 1 1 auto;
+    padding-inline: 0.55rem;
+    font-size: 0.82rem;
+  }
+  .artizen-match-toggle > .artizen-match-count { flex: none; }
+  /* Sharing the row with the fit badge left fund names about thirty characters of space, which
+     truncated most of them. Give the title the full width and let the badge drop beneath it. */
+  .artizen-match-card-title { flex-wrap: wrap; row-gap: 0.4rem; }
+  .artizen-match-card-title h3 {
+    flex: 1 1 100%;
+    -webkit-line-clamp: 4;
+    line-clamp: 4;
+  }
+  /* With the title on its own line the marks have room to sit side by side. */
+  .artizen-match-card-marks {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .artizen-results-bar { flex-direction: column; gap: 0.5rem; }
+  .artizen-semantic-controls { justify-content: start; }
+  .artizen-ai-note { text-align: start; }
+}
+
+.artizen-info-dialog {
+  position: fixed;
+  margin: 0;
+  width: min(360px, calc(100vw - 2rem));
+  max-height: min(70vh, 30rem);
+  padding: 1.1rem 1.2rem;
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  background: var(--panel);
+  color: var(--ink);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-shadow: var(--shadow);
+}
+.artizen-info-dialog::backdrop { background: rgba(16, 18, 18, 0.25); }
+.artizen-info-dialog-close {
+  float: right;
+  width: 1.8rem;
+  height: 1.8rem;
+  margin: -0.3rem -0.4rem 0 0.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.artizen-info-dialog-body p {
+  margin: 0 0 0.7rem;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  text-wrap: pretty;
+}
+.artizen-info-dialog-body p:last-child { margin-bottom: 0; }
+
+@media (max-width: 700px) {
+  /* Bottom sheet on phones, where an anchored popover would have nowhere to sit. */
+  .artizen-info-dialog {
+    inset: auto 0 0 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 80vh;
+    padding: 1.2rem 1.1rem 1.6rem;
+    border-width: 1px 0 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    box-shadow: none;
+    animation: artizen-sheet-in 0.24s ease-out;
+  }
+  .artizen-info-dialog::backdrop { background: rgba(16, 18, 18, 0.45); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .artizen-info-dialog { animation: none; }
+}
+
+/* Phone layout for the form half of the page. The hero used to fill the whole first screen
+   before the search field came into view. */
+@media (max-width: 560px) {
+  .artizen-match-page h1 { font-size: 1.62rem; }
+  .artizen-match-intro .lead { font-size: 0.95rem; }
+  .artizen-match-page [data-source-panel] { padding: 0.8rem; }
+  .artizen-match-mode {
+    display: flex;
+    width: 100%;
+    justify-self: stretch;
+  }
+  .artizen-match-mode label {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 0.5rem;
+    font-size: 0.84rem;
+  }
+  .artizen-match-project-preview {
+    column-gap: 0.6rem;
+    padding: 0.7rem;
+  }
+  .artizen-match-preview-thumb { width: 2.6rem; height: 2.6rem; }
+  .artizen-match-preview-change { font-size: 0.8rem; }
+}
+
+/* Sheet on small screens: full width, anchored to the bottom edge. */
+@media (max-width: 700px) {
+  .artizen-match-heading { align-items: stretch; flex-direction: column; }
+  .artizen-match-heading .btn { align-self: start; }
+  .artizen-fund-dialog {
+    width: 100%;
+    max-width: 100%;
+    max-height: 88vh;
+    margin: auto auto 0;
+    padding: 1.1rem;
+    border-width: 1px 0 0;
+    border-radius: var(--radius) var(--radius) 0 0;
+    animation: artizen-sheet-in 0.24s ease-out;
+  }
+  .artizen-fund-dialog-banner {
+    margin: -1.1rem -1.1rem 0;
+    aspect-ratio: 2 / 1;
+  }
+}
+@keyframes artizen-sheet-in {
+  from { transform: translateY(12%); }
+  to { transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .artizen-fund-dialog { animation: none; }
+  .artizen-match-card { animation: none; }
+}
+.artizen-review-page { max-width: 64rem; margin: 0 auto; }
+.artizen-review-page section + section { margin-top: 1.5rem; }
+.artizen-review-provenance,
+.artizen-review-setup,
+.artizen-review-candidate {
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+.artizen-review-provenance h2,
+.artizen-review-setup h2,
+.artizen-review-candidate h2 { margin-top: 0; }
+.artizen-review-provenance dl { display: grid; gap: 0.45rem; margin: 0; }
+.artizen-review-provenance dl div { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: 0.75rem; }
+.artizen-review-provenance dt { color: var(--muted); font-weight: 400; }
+.artizen-review-provenance dd { margin: 0; overflow-wrap: anywhere; }
+.artizen-review-actions,
+.artizen-review-grades { display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.8rem; }
+.artizen-review-candidate textarea { margin-top: 0.8rem; }
+.artizen-review-reveal { width: 100%; padding-top: 0.8rem; border-top: 1px solid var(--line); }
+.artizen-review-reveal h3 { font-size: 1.1rem; }
+.artizen-review-reveal li + li { margin-top: 0.35rem; }
+/* ARTIZEN_MATCHING_CSS_END */
 .artizen-nav .artizen-wordmark { font-size: 1.45rem; justify-self: center; }
 .artizen-byline {
   margin: 0;
@@ -308,7 +1491,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   line-height: 1;
   cursor: pointer;
 }
-.artizen-nav-toggle:hover { color: var(--green-deep); }
+.artizen-nav-toggle:hover { color: var(--green-ink); }
 .artizen-nav-toggle .bi { display: block; line-height: 1; }
 @media (max-width: 639px) {
   .artizen-nav-inner {
@@ -386,6 +1569,37 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-defs dd { margin: 0; }
 .artizen-panel > .artizen-note:last-child,
 .artizen-shell > .artizen-note:last-child { margin-bottom: 0; }
+
+/* On a 375px screen the shell gutter and the panel gutter together cost 86px - close to a quarter
+   of the viewport - purely for card chrome. Below this width the panel bleeds to both edges and
+   keeps only its own padding. The gutter is a custom property so the panel's negative margin can
+   never drift out of step with the shell's padding. */
+@media (max-width: 639px) {
+  .artizen-shell {
+    --shell-gutter: 0.85rem;
+    /* No block padding either: the nav already carries a bottom border, so a strip of paper
+       above the first panel is redundant separation, and below the last one it is just dead
+       space before the footer. Panels still separate from each other with their own margin. */
+    padding-block: 0;
+    padding-inline: var(--shell-gutter);
+  }
+  .artizen-panel {
+    margin-inline: calc(var(--shell-gutter, 0px) * -1);
+    padding-inline: 0.95rem;
+    border-inline: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .artizen-shell > .artizen-panel:first-child { border-top: 0; }
+  .artizen-shell > .artizen-panel:last-child {
+    margin-bottom: 0;
+    border-bottom: 0;
+  }
+  /* /drives and /search end in a bare grid row rather than a panel. With the shell's block
+     padding gone, those would otherwise butt straight up against the dark footer. */
+  .artizen-shell > :last-child:not(.artizen-panel) { margin-bottom: 1.25rem; }
+  .artizen-shell > :first-child:not(.artizen-panel) { margin-top: 1rem; }
+}
 
 .artizen-wordmark {
   display: inline-flex;
@@ -489,7 +1703,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 
 .artizen-badge-sm { font-size: 0.7rem; font-weight: 600; vertical-align: middle; position: relative; top: -0.12em; }
-.artizen-rank { font-size: 0.7rem; font-weight: 400; white-space: nowrap; color: #000; }
+.artizen-rank { font-size: 0.7rem; font-weight: 400; white-space: nowrap; color: var(--ink); }
 .artizen-drive-thumb { width: 100%; height: 140px; object-fit: cover; background: #202222; }
 .artizen-podium {
   font-size: 0.75rem;
@@ -625,7 +1839,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
     max-height: 220px;
     border-radius: 0;
   }
-  .artizen-hero-copy { padding: 1.2rem 1.35rem 1.4rem; }
+  .artizen-hero-copy { padding: 1.2rem 0.95rem 1.4rem; }
 }
 
 .artizen-dt-placeholder {
@@ -800,7 +2014,7 @@ table.dataTable.table-sm > thead > tr th.dt-type-date .dt-column-order {
   height: 1.75rem;
   border-radius: 999px;
   object-fit: cover;
-  background: #ECEDEF;
+  background: var(--line);
   flex: 0 0 auto;
 }
 .artizen-holder-avatar-empty { border: 1px solid var(--line); }
