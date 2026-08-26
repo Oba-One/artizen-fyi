@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { FundProfile, MatchIndex, ProjectHistory, ProjectMatchInput } from '../src/artizen/types';
-import { matchFunds, prepareMatchIndex } from '../src/matching/engine';
+import { isMatchIndexStale, MATCH_INDEX_STALE_MS, matchFunds, prepareMatchIndex } from '../src/matching/engine';
 import { DEFAULT_SCORING } from '../src/matching/index';
 import { MATCH_FACETS, MATCH_TAXONOMY_VERSION, extractFacetIds } from '../src/matching/taxonomy';
 
@@ -109,6 +109,15 @@ function scores(index: MatchIndex, input: ProjectMatchInput): Array<[string, num
 }
 
 describe('matching engine v2', () => {
+  it('uses a monthly freshness guard for deploy-scoped catalogs', () => {
+    const generatedAt = '2026-08-01T00:00:00.000Z';
+    const generated = Date.parse(generatedAt);
+    expect(MATCH_INDEX_STALE_MS).toBe(30 * 24 * 60 * 60 * 1000);
+    expect(isMatchIndexStale({ generatedAt }, generated + MATCH_INDEX_STALE_MS)).toBe(false);
+    expect(isMatchIndexStale({ generatedAt }, generated + MATCH_INDEX_STALE_MS + 1)).toBe(true);
+    expect(isMatchIndexStale({ generatedAt: 'not-a-date' }, generated)).toBe(true);
+  });
+
   it('keeps scores and order invariant when projectId changes', () => {
     const index = fixture();
     const input = {

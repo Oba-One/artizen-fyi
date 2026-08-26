@@ -33,6 +33,19 @@ afterEach(() => {
 });
 
 describe('local semantic cancellation', () => {
+  it('stays cancelled while the transformers chunk is importing', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const index = JSON.parse(readFileSync('test/fixtures/match-index.json', 'utf8')) as MatchIndex;
+    const scorer = new LocalSemanticScorer(index);
+    const loading = scorer.load(() => undefined);
+
+    scorer.dispose();
+
+    await expect(loading).rejects.toMatchObject({ name: 'AbortError' });
+    expect(transformers.pipeline).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
   it('aborts the active model request instead of only dropping references', async () => {
     globalThis.fetch = vi.fn((_input, init) =>
       new Promise((_resolve, reject) => {

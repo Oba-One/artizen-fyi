@@ -125,7 +125,7 @@ ONNX Runtime ships four `ort-wasm-simd-threaded` builds, but each of its entry p
 
 Asset URLs and the vector version live in `src/matching/semantic-config.ts` and are read from the browser bundle rather than duplicated across build scripts.
 
-The matching catalog is deployment-scoped rather than hourly: catalog JSON and vectors are one release artifact. The builder rejects fixtures, empty catalogs, invalid hashes, and unexplained record-count drops over 20%. Bubble pagination drift is logged but does not break unrelated crawls. Checked-in ontology and fund vocabulary corrections live under `src/matching/` and must not encode project-specific rules or eligibility claims.
+The matching catalog is deployment-scoped rather than hourly: catalog JSON and vectors are one release artifact. The UI treats a catalog as current for 30 days, then identifies its build date and warns that newer Artizen changes may be missing. The builder rejects fixtures, empty catalogs, invalid hashes, and unexplained record-count drops over 20%. Bubble pagination drift is logged but does not break unrelated crawls. Checked-in ontology and fund vocabulary corrections live under `src/matching/` and must not encode project-specific rules or eligibility claims.
 
 To inspect, benchmark, or run the human-label evaluation harness against an exported index:
 

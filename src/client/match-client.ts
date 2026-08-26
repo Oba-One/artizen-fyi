@@ -233,7 +233,7 @@ function readyMessage(index: BrowserMatchIndex): string {
   const date = Number.isFinite(generated.getTime())
     ? new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(generated)
     : 'an unknown date';
-  return `${base} The catalog was last refreshed on ${date} and may be out of date.`;
+  return `${base} This deployment's matching catalog was built on ${date} and may not include newer Artizen changes.`;
 }
 
 function money(value: number): string {

@@ -26,7 +26,10 @@ async function webGpuAvailable(): Promise<boolean> {
 export class LocalSemanticScorer implements SemanticScorer {
   private extractor: FeatureExtractor | undefined;
   private vectors = new Map<string, Float32Array>();
-  private abortController: AbortController | undefined;
+  // Created with the scorer, not after the transformers chunk resolves. A cancel message can
+  // arrive while either dynamic import is still pending; keeping the signal alive from
+  // construction makes that cancellation visible before any model request can start.
+  private readonly abortController = new AbortController();
   private restoreFetch: (() => void) | undefined;
 
   constructor(private readonly index: MatchIndex) {}
@@ -34,9 +37,10 @@ export class LocalSemanticScorer implements SemanticScorer {
   async load(onProgress: (progress: number) => void): Promise<void> {
     const manifest = semanticManifest(this.index);
     if (!manifest) throw new Error('Semantic matching is not configured');
+    this.throwIfCancelled();
     const transformers = await import('@huggingface/transformers');
-    const controller = new AbortController();
-    this.abortController = controller;
+    this.throwIfCancelled();
+    const controller = this.abortController;
     const previousFetch = transformers.env.fetch;
     const abortableFetch: typeof fetch = (input, init = {}) =>
       globalThis.fetch(input, { ...init, signal: controller.signal });
@@ -83,7 +87,9 @@ export class LocalSemanticScorer implements SemanticScorer {
         ...options,
         device: 'wasm',
       })) as unknown as FeatureExtractor;
+      this.throwIfCancelled();
       this.vectors = await this.loadFundVectors(onProgress);
+      this.throwIfCancelled();
       onProgress(1);
     } finally {
       this.restoreFetch?.();
@@ -101,8 +107,7 @@ export class LocalSemanticScorer implements SemanticScorer {
   }
 
   dispose(): void {
-    this.abortController?.abort();
-    this.abortController = undefined;
+    this.abortController.abort();
     this.restoreFetch?.();
     void this.extractor?.dispose();
     this.extractor = undefined;
@@ -111,6 +116,12 @@ export class LocalSemanticScorer implements SemanticScorer {
 
   private fundFingerprints(): Map<string, string> {
     return new Map(this.index.funds.map((fund) => [fund.id, vectorFingerprint(fund.profileText)]));
+  }
+
+  private throwIfCancelled(): void {
+    if (this.abortController.signal.aborted) {
+      throw new DOMException('Local AI loading was cancelled', 'AbortError');
+    }
   }
 
   private serializeFunds(vectors: Map<string, Float32Array>): ArrayBuffer {
@@ -128,6 +139,7 @@ export class LocalSemanticScorer implements SemanticScorer {
     const manifest = semanticManifest(this.index)!;
     const cacheRequest = new Request(`/assets/.computed-${manifest.vectorVersion}.bin`);
     let vectors = new Map<string, Float32Array>();
+    this.throwIfCancelled();
     try {
       const cache = await caches.open('artizen-semantic-fund-vectors');
       const cached = await cache.match(cacheRequest);
@@ -135,9 +147,10 @@ export class LocalSemanticScorer implements SemanticScorer {
     } catch {
       // Cache access is optional. The public vector catalog remains the next source.
     }
+    this.throwIfCancelled();
     if (vectors.size < this.index.funds.length) {
       try {
-        const response = await fetch(manifest.vectorsUrl, { cache: 'no-cache', signal: this.abortController?.signal });
+        const response = await fetch(manifest.vectorsUrl, { cache: 'no-cache', signal: this.abortController.signal });
         if (response.ok) {
           const published = parseVectorCatalog(await response.arrayBuffer(), manifest, this.fundFingerprints());
           for (const [fundId, vector] of published) {
@@ -147,14 +160,17 @@ export class LocalSemanticScorer implements SemanticScorer {
       } catch {
         // Missing precomputed vectors are calculated locally below.
       }
+      this.throwIfCancelled();
     }
     const missing = this.index.funds.filter((fund) => !vectors.has(fund.id));
     for (let start = 0; start < missing.length; start += 12) {
+      this.throwIfCancelled();
       const batch = missing.slice(start, start + 12);
       const output = await this.extractor!(batch.map((fund) => fund.profileText), {
         pooling: 'mean',
         normalize: true,
       });
+      this.throwIfCancelled();
       const fullDimensions = output.dims.at(-1) || manifest.dimensions;
       batch.forEach((fund, index) => {
         vectors.set(fund.id, truncateAndNormalize(output.data, index * fullDimensions, manifest.dimensions));
@@ -162,6 +178,7 @@ export class LocalSemanticScorer implements SemanticScorer {
       onProgress(0.75 + 0.25 * Math.min(1, (start + batch.length) / Math.max(1, missing.length)));
     }
     if (missing.length) {
+      this.throwIfCancelled();
       try {
         const cache = await caches.open('artizen-semantic-fund-vectors');
         await cache.put(cacheRequest, new Response(this.serializeFunds(vectors)));

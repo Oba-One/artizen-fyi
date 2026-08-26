@@ -96,8 +96,12 @@ function relationshipMap(index: MatchIndex): Map<string, ProjectFundRelationship
   return result;
 }
 
-/** A catalog older than a day means the hourly cron has stopped; the UI says so rather than pretending. */
-export const MATCH_INDEX_STALE_MS = 26 * 60 * 60 * 1000;
+/**
+ * Matching catalogs are immutable release assets, not hourly cache entries. A month without a
+ * catalog-building deployment is old enough to flag as an operational freshness issue without
+ * warning every visitor the day after a healthy release.
+ */
+export const MATCH_INDEX_STALE_MS = 30 * 24 * 60 * 60 * 1000;
 
 export function isMatchIndexStale(
   index: Pick<MatchIndex, 'generatedAt'>,

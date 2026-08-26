@@ -16,13 +16,11 @@ let semanticScorer: import('./semantic-scorer').LocalSemanticScorer | undefined;
 let semanticLoad: Promise<void> | undefined;
 let semanticEpoch = 0;
 let precomputed: PrecomputedSemanticScorer | undefined;
-let precomputedReady: Promise<boolean> | undefined;
 
 /** Rebuilt whenever the project list changes, because both depend on which projects are known. */
 function refreshProjectState(index: MatchIndex): void {
   prepared = prepareMatchIndex(index);
   precomputed = index.semantic ? new PrecomputedSemanticScorer(index) : undefined;
-  precomputedReady = undefined;
 }
 
 /**
@@ -35,8 +33,7 @@ function refreshProjectState(index: MatchIndex): void {
  */
 async function precomputedScores(input: ProjectMatchInput): Promise<PrecomputedOutcome> {
   if (!precomputed || !input.projectId) return {};
-  precomputedReady ||= precomputed.load().catch(() => false);
-  await precomputedReady;
+  if (!(await precomputed.load())) return {};
   return precomputed.score(input);
 }
 
@@ -77,6 +74,9 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
       const epoch = semanticEpoch;
       if (!semanticScorer) {
         const { LocalSemanticScorer } = await import('./semantic-scorer');
+        // Cancellation can be handled by another message event while this chunk is importing.
+        // Do not construct a fresh scorer and start the transformers import after that cancel.
+        if (epoch !== semanticEpoch) return;
         semanticScorer = new LocalSemanticScorer(prepared.index);
       }
       if (!semanticLoad) {

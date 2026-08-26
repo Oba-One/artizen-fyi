@@ -30,6 +30,7 @@ export type PrecomputedOutcome = {
  */
 export class PrecomputedSemanticScorer {
   private funds: Map<string, Float32Array> | undefined;
+  private fundLoad: Promise<boolean> | undefined;
   /**
    * One entry per shard the page has actually needed. Keyed by shard rather than by project so two
    * projects that land in the same file share a fetch, and memoised as the promise so two matches
@@ -45,8 +46,24 @@ export class PrecomputedSemanticScorer {
    * one project's kilobyte.
    */
   async load(): Promise<boolean> {
+    if (this.funds?.size) return true;
+    if (this.fundLoad) return this.fundLoad;
     const manifest = semanticManifest(this.index);
     if (!manifest) return false;
+    const pending = this.loadFunds(manifest);
+    this.fundLoad = pending;
+    try {
+      return await pending;
+    } finally {
+      // Successful vectors stay in `funds`; failures clear the in-flight promise so the next
+      // match can recover from a transient response without requiring a page reload.
+      if (this.fundLoad === pending) this.fundLoad = undefined;
+    }
+  }
+
+  private async loadFunds(
+    manifest: { vectorVersion: string; dimensions: number; vectorsUrl: string },
+  ): Promise<boolean> {
     const fingerprints = new Map(this.index.funds.map((fund) => [fund.id, vectorFingerprint(fund.profileText)]));
     this.funds = await this.fetchCatalog(manifest, manifest.vectorsUrl, fingerprints);
     return Boolean(this.funds?.size);
@@ -82,6 +99,12 @@ export class PrecomputedSemanticScorer {
           .map((candidate) => [candidate.id, vectorFingerprint(projectVectorText(candidate))]),
       );
       pending = this.fetchCatalog(manifest, `${manifest.projectVectorPrefix}${bucket}.bin`, expected);
+      pending = pending.then((vectors) => {
+        // Keep successful shards, including empty but valid ones. A failed request is `undefined`
+        // and must be retried by the next comparison rather than memoised for the whole session.
+        if (!vectors) this.shards.delete(bucket);
+        return vectors;
+      });
       this.shards.set(bucket, pending);
     }
     return pending;
@@ -93,7 +116,7 @@ export class PrecomputedSemanticScorer {
     expected: Map<string, string>,
   ): Promise<Map<string, Float32Array> | undefined> {
     try {
-      // Rebuilt with every catalog refresh under a stable filename, so it must revalidate.
+      // Rebuilt with every catalog deployment under a stable filename, so it must revalidate.
       const response = await fetch(url, { cache: 'no-cache' });
       if (!response.ok) return undefined;
       return parseVectorCatalog(await response.arrayBuffer(), manifest, expected);
