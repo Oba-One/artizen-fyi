@@ -326,10 +326,12 @@ export function matchResultsRegion(status: string): string {
   return `
       <div class="artizen-results-bar">
         <div class="artizen-results-summary">
-          <p class="artizen-match-status" data-match-status role="status" aria-live="polite">${escapeHtml(status)}</p>
-          <button class="artizen-info-button" type="button" data-match-info aria-label="How these matches are made">
-            <i class="bi bi-info-circle" aria-hidden="true"></i>
-          </button>
+          <p class="artizen-match-status" role="status" aria-live="polite">
+            <span data-match-status>${escapeHtml(status)}</span>
+            <button class="artizen-info-button" type="button" data-match-info aria-label="How these matches are made">
+              <i class="bi bi-info-circle" aria-hidden="true"></i>
+            </button>
+          </p>
         </div>
         <div class="artizen-results-actions">
           <div class="artizen-semantic-controls" data-semantic-controls hidden>

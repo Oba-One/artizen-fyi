@@ -695,9 +695,6 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   margin: 0.75rem 0 0;
 }
 .artizen-results-summary {
-  display: flex;
-  align-items: start;
-  gap: 0.5rem;
   /* Sized to its text, so the info button sits beside the sentence it explains rather than being
      pushed to the far edge of the row. */
   flex: 0 1 auto;
@@ -717,20 +714,23 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   flex: none;
 }
 .artizen-info-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 2rem;
-  height: 2rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--panel);
-  color: var(--muted);
-  font-size: 0.95rem;
+  appearance: none;
+  display: inline-block;
+  margin: 0 0 0 0.2em;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  vertical-align: baseline;
   cursor: pointer;
 }
-.artizen-info-button:hover { color: var(--ink); border-color: var(--green); }
+.artizen-info-button:hover { color: var(--ink); }
+.artizen-info-button:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
 .artizen-semantic-controls {
   align-items: center;
   display: flex;
@@ -756,7 +756,6 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-ai-button:hover:not(:disabled) { background: var(--paper); }
 .artizen-ai-button:disabled { cursor: default; color: var(--muted); }
-.artizen-ai-button .bi { color: var(--green-ink); }
 .artizen-ai-size {
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
@@ -942,6 +941,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   white-space: nowrap;
 }
 .artizen-tools-row {
+  --artizen-tool-height: 2.45rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -957,21 +957,28 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-fund-search .bi {
   position: absolute;
+  top: 50%;
   left: 0.7rem;
   color: var(--muted);
   font-size: 0.85rem;
   pointer-events: none;
+  transform: translateY(-50%);
 }
-.artizen-fund-search input {
-  padding-left: 2.1rem;
+.artizen-match-page .artizen-fund-search input.form-control,
+.artizen-sort-select,
+.artizen-tools-row .artizen-match-toggle {
+  box-sizing: border-box;
+  height: var(--artizen-tool-height);
+  min-height: var(--artizen-tool-height);
+  margin-bottom: 0;
+  padding-block: 0;
   border-radius: 999px;
   font-size: 0.88rem;
 }
+.artizen-match-page .artizen-fund-search input.form-control { padding-left: 2.1rem; }
 .artizen-sort-select {
   flex: 0 0 auto;
   width: auto;
-  border-radius: 999px;
-  font-size: 0.88rem;
 }
 
 /* Cards arrive rather than appear. `--card-index` is set only on a fresh set of results, so a
@@ -983,18 +990,17 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   }
 }
 
-/* Subgrid lets every card's title, description, meter, badges, and action line up with its
-   siblings, and collapse together when a row needs less room. */
+/* Cap at three columns so a card keeps enough width for a title, a meter, and the marks. */
 .artizen-match-results {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   column-gap: 0.85rem;
   row-gap: 0.5rem;
 }
 .artizen-match-card {
-  grid-row: span 6;
+  grid-row: span 5;
   display: grid;
-  grid-template-rows: auto auto auto auto auto auto;
+  grid-template-rows: auto auto auto auto auto;
   grid-template-rows: subgrid;
   min-width: 0;
   margin-bottom: 0.5rem;
@@ -1015,20 +1021,20 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   display: flex;
   align-items: start;
   gap: 0.7rem;
+  grid-row: 1;
 }
 .artizen-match-card-title {
   display: flex;
+  flex-direction: column;
   align-items: start;
-  justify-content: space-between;
-  gap: 0.65rem;
+  gap: 0.4rem;
   flex: 1;
   min-width: 0;
 }
 .artizen-match-card-marks {
   display: flex;
-  flex: none;
-  flex-direction: column;
-  align-items: end;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.3rem;
 }
 .artizen-match-thumb,
@@ -1052,10 +1058,14 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   margin: 0;
   font-size: 1.05rem;
   min-width: 0;
+  align-self: stretch;
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
-.artizen-match-card h3 a { color: var(--ink); }
+.artizen-match-card h3 a {
+  color: var(--ink);
+  text-decoration: none;
+}
 .artizen-match-card-subtitle {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -1068,11 +1078,13 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   font-size: 0.92rem;
   line-height: 1.45;
   text-wrap: pretty;
+  grid-row: 2;
 }
 .artizen-match-fit {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  grid-row: 3;
 }
 .artizen-match-fit-track {
   flex: 1;
@@ -1110,11 +1122,22 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-fit-good { color: #fff; background: var(--green-ink); }
 .artizen-fit-exploratory { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 .artizen-fit-limited { color: var(--muted); background: transparent; border: 1px dashed var(--line); }
-.artizen-known-relationship { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
-.artizen-status-active { color: var(--ink); background: var(--panel); border: 1px solid var(--line); }
+/* Same filled treatment as Strong / Project: the check and the type need 4.5:1. */
+.artizen-known-relationship {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  color: #fff;
+  background: var(--green-ink);
+}
+.artizen-known-relationship .bi {
+  font-size: 0.9em;
+  line-height: 1;
+}
 .artizen-status-inactive { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 .artizen-status-available { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 .artizen-match-reasons {
+  grid-row: 4;
   margin: 0;
   padding-left: 1.15rem;
   color: var(--muted);
@@ -1127,7 +1150,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-items: end;
   justify-content: space-between;
   align-self: end;
-  gap: 0.5rem;
+  grid-row: 5;
+  gap: 0.75rem;
 }
 .artizen-match-card-open {
   padding: 0.5rem 0 0;
@@ -1140,6 +1164,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   text-underline-offset: 0.15em;
 }
 .artizen-match-card-star {
+  appearance: none;
   flex: none;
   padding: 0.35rem 0.15rem 0;
   border: 0;
@@ -1286,7 +1311,12 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-fund-dialog-row dt { color: var(--muted); font-weight: 400; }
 .artizen-fund-dialog-row dd { margin: 0; text-wrap: pretty; }
 
+@container matchout (width < 62rem) {
+  .artizen-match-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @container matchout (width < 34rem) {
+  .artizen-match-results { grid-template-columns: 1fr; }
   .artizen-match-toggle {
     /* `1 1 0` let three toggles share the row evenly and spill their labels outside the pill at
        375px. Growing from the content width instead keeps every label inside its own pill. */
@@ -1295,19 +1325,9 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
     font-size: 0.82rem;
   }
   .artizen-match-toggle > .artizen-match-count { flex: none; }
-  /* Sharing the row with the fit badge left fund names about thirty characters of space, which
-     truncated most of them. Give the title the full width and let the badge drop beneath it. */
-  .artizen-match-card-title { flex-wrap: wrap; row-gap: 0.4rem; }
   .artizen-match-card-title h3 {
-    flex: 1 1 100%;
     -webkit-line-clamp: 4;
     line-clamp: 4;
-  }
-  /* With the title on its own line the marks have room to sit side by side. */
-  .artizen-match-card-marks {
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
   }
   .artizen-results-bar { flex-direction: column; gap: 0.5rem; }
   .artizen-semantic-controls { justify-content: start; }

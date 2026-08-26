@@ -253,7 +253,7 @@ function badge(label: string, className: string, title?: string): HTMLElement {
 }
 
 const RELATIONSHIP_LABELS = {
-  submitted: '\u2713 Applied',
+  submitted: 'Applied',
   curated: '\u2713 Curated',
   funded: '\u2713 Funded',
 } as const;
@@ -377,24 +377,29 @@ function availabilityBadge(recommendation: BrowserRecommendation): HTMLElement |
   return badge(`${money(recommendation.available || 0)} available`, 'artizen-status-available');
 }
 
+function relationshipBadge(kind: keyof typeof RELATIONSHIP_LABELS): HTMLElement {
+  const element = document.createElement('span');
+  element.className = 'badge artizen-known-relationship';
+  element.title = RELATIONSHIP_TITLES[kind];
+  if (kind === 'submitted') {
+    const icon = document.createElement('i');
+    icon.className = 'bi bi-send';
+    icon.setAttribute('aria-hidden', 'true');
+    element.append(icon, document.createTextNode(RELATIONSHIP_LABELS[kind]));
+  } else {
+    element.textContent = RELATIONSHIP_LABELS[kind];
+  }
+  return element;
+}
+
 function statusBadges(recommendation: BrowserRecommendation, withAvailability = true): HTMLElement[] {
   const badges: HTMLElement[] = [];
-  badges.push(
-    recommendation.active
-      ? badge('Curating now', 'artizen-status-active')
-      : badge('Not curating new projects', 'artizen-status-inactive'),
-  );
+  if (!recommendation.active) {
+    badges.push(badge('Not curating new projects', 'artizen-status-inactive'));
+  }
   const available = withAvailability ? availabilityBadge(recommendation) : undefined;
   if (available) badges.push(available);
-  if (recommendation.knownRelationship) {
-    badges.push(
-      badge(
-        RELATIONSHIP_LABELS[recommendation.knownRelationship],
-        'artizen-known-relationship',
-        RELATIONSHIP_TITLES[recommendation.knownRelationship],
-      ),
-    );
-  }
+  if (recommendation.knownRelationship) badges.push(relationshipBadge(recommendation.knownRelationship));
   return badges;
 }
 
@@ -447,7 +452,7 @@ function recommendationCard(
   link.href = `/funds/${encodeURIComponent(fund.slug)}`;
   link.textContent = fund.name;
   title.append(link);
-  // Fit and money sit together: the two things a project weighs first.
+  // Fit, money, history, and inactivity sit together under the title.
   const marks = document.createElement('div');
   marks.className = 'artizen-match-card-marks';
   marks.append(badge(FIT_LABELS[recommendation.fit], `artizen-fit-${recommendation.fit}`));
@@ -457,6 +462,7 @@ function recommendationCard(
   }
   const available = availabilityBadge(recommendation);
   if (available) marks.append(available);
+  marks.append(...statusBadges(recommendation, false));
   heading.append(title, marks);
   header.append(heading);
   article.append(header);
@@ -467,11 +473,6 @@ function recommendationCard(
   article.append(subtitle);
 
   article.append(fitMeter(recommendation, index));
-
-  const meta = document.createElement('div');
-  meta.className = 'artizen-match-card-meta';
-  meta.append(...statusBadges(recommendation, false));
-  article.append(meta);
 
   if (recommendation.reasons.length) {
     const list = document.createElement('ul');
@@ -484,7 +485,8 @@ function recommendationCard(
     article.append(list);
   }
 
-  // One row, so the card keeps the six-row rhythm the subgrid aligns siblings on.
+  // Always the last subgrid row, so Fund details and the star sit at the bottom
+  // of every card even when reasons are missing.
   const actions = document.createElement('div');
   actions.className = 'artizen-match-card-actions';
   const open = document.createElement('button');
