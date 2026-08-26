@@ -395,7 +395,7 @@ function relationshipBadge(kind: keyof typeof RELATIONSHIP_LABELS): HTMLElement 
 function statusBadges(recommendation: BrowserRecommendation, withAvailability = true): HTMLElement[] {
   const badges: HTMLElement[] = [];
   if (!recommendation.active) {
-    badges.push(badge('Not curating new projects', 'artizen-status-inactive'));
+    badges.push(badge('Not curating', 'artizen-status-inactive'));
   }
   const available = withAvailability ? availabilityBadge(recommendation) : undefined;
   if (available) badges.push(available);
