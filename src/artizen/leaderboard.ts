@@ -1,6 +1,18 @@
 import type { Bubble } from './bubble';
 import { legacySeasonProjectRows } from './legacy';
-import type { BoostHolder, BoostsPage, Drive, FundRow, Leaderboard, PodiumRow, ProjectRow, Row, Season } from './types';
+import type {
+  BonusChart,
+  BonusShareRow,
+  BoostHolder,
+  BoostsPage,
+  Drive,
+  FundRow,
+  Leaderboard,
+  PodiumRow,
+  ProjectRow,
+  Row,
+  Season,
+} from './types';
 import {
   LEAD_CREATOR,
   bonusShare,
@@ -10,6 +22,7 @@ import {
   driveHasBonusPot,
   field,
   hidden,
+  ids,
   localFundPath,
   localProjectPath,
   mapSome,
@@ -24,6 +37,7 @@ import {
 } from './util';
 
 const TOP_BOOST_HOLDERS = 100;
+const BONUS_CHART_POINTS = 10;
 const BOOST_BUCKETS: Array<{ label: string; min: number; max: number }> = [
   { label: '0', min: 0, max: 0 },
   { label: '1–99', min: 1, max: 99 },
@@ -205,7 +219,7 @@ async function attachDrivePodiums(client: Bubble, drives: Drive[]): Promise<Reco
     ),
     Promise.all(
       drives.map(async (drive) => {
-        if (!driveHasBonusPot(drive) || drive.active) return { project: [] as Row[], fund: [] as Row[] };
+        if (!driveHasBonusPot(drive)) return { project: [] as Row[], fund: [] as Row[] };
         const [project, fund] = await Promise.all([
           client.driveBonusParticipants(drive.id, 'project'),
           client.driveBonusParticipants(drive.id, 'fund'),
@@ -218,25 +232,50 @@ async function attachDrivePodiums(client: Bubble, drives: Drive[]): Promise<Reco
     project: bonusWeightSum(parts.project),
     fund: bonusWeightSum(parts.fund),
   }));
+  const chartParts = bonusParts.map((parts) => ({
+    project: sortByDesc([...parts.project], (row) => num(row['boost points received'])).slice(0, BONUS_CHART_POINTS),
+    fund: sortByDesc([...parts.fund], (row) => num(row['boost points received'])).slice(0, BONUS_CHART_POINTS),
+  }));
   const records = pages.flat();
-  const catalogs = {
-    project: await client.indexed(
+  const [projectCatalog, fundCatalog] = await Promise.all([
+    client.indexed(
       'project',
-      records.map((row) => row['project']),
+      ids([...records, ...chartParts.flatMap((p) => p.project)].map((row) => row['project'])),
     ),
-    fund: await client.indexed(
+    client.indexed(
       'fund',
-      records.map((row) => row['fund']),
+      ids([...records, ...chartParts.flatMap((p) => p.fund)].map((row) => row['fund'])),
     ),
-  };
+  ]);
+  const catalogs = { project: projectCatalog, fund: fundCatalog };
   drives.forEach((drive, i) => {
     const salesRank = driveHasBonusPot(drive);
     drive.podium = podiumRows(pages[i * 2], 'project', catalogs.project, salesRank, num(drive.bonus_projects), weights[i].project);
     drive.fund_podium = podiumRows(pages[i * 2 + 1], 'fund', catalogs.fund, salesRank, num(drive.bonus_funds), weights[i].fund);
+    const projectShares = bonusShareRows(
+      chartParts[i].project,
+      'project',
+      catalogs.project,
+      num(drive.bonus_projects),
+      weights[i].project,
+    );
+    const fundShares = bonusShareRows(
+      chartParts[i].fund,
+      'fund',
+      catalogs.fund,
+      num(drive.bonus_funds),
+      weights[i].fund,
+    );
+    const charts = [
+      bonusChart('project', num(drive.bonus_projects), weights[i].project, projectShares),
+      bonusChart('fund', num(drive.bonus_funds), weights[i].fund, fundShares),
+    ].filter((chart): chart is BonusChart => chart != null);
+    drive.bonus_charts = charts.length ? charts : undefined;
   });
 
   const bonuses: Record<string, number> = {};
   drives.forEach((drive, i) => {
+    if (drive.active) return;
     const weightSum = weights[i].project;
     const pot = num(drive.bonus_projects);
     if (!(weightSum > 0) || !(pot > 0)) return;
@@ -264,6 +303,43 @@ function topBoostParticipants(
       { key: 'boost', constraint_type: 'equals', value: boostId },
       { key: kind, constraint_type: 'is_not_empty' },
     ],
+  });
+}
+
+function bonusChart(
+  kind: 'project' | 'fund',
+  pot: number,
+  weightSum: number,
+  shares: BonusShareRow[],
+): BonusChart | undefined {
+  if (shares.length === 0 || !(pot > 0) || !(weightSum > 0)) return undefined;
+  return { kind, pot, weight_sum: weightSum, shares };
+}
+
+function bonusShareRows(
+  rows: Row[],
+  kind: 'project' | 'fund',
+  records: Record<string, Row>,
+  pot: number,
+  weightSum: number,
+): BonusShareRow[] {
+  if (!(weightSum > 0) || !(pot > 0)) return [];
+  const nameField = kind === 'fund' ? 'name' : 'Name';
+  return mapSome(rows, (row) => {
+    if (kind === 'fund' && row['project']) return undefined;
+    const id = row[kind];
+    if (!id) return undefined;
+    const record = byId(records, id);
+    if (hidden(record)) return undefined;
+    const points = num(row['boost points received']);
+    if (!(points > 0)) return undefined;
+    const slug = text(record?.['Slug'] || record?.['slugg']) || id;
+    return {
+      name: text(record?.[nameField]) || kind[0].toUpperCase() + kind.slice(1),
+      url: kind === 'fund' ? localFundPath(slug) : localProjectPath(slug),
+      points,
+      bonus: bonusShare(points, weightSum, pot),
+    };
   });
 }
 

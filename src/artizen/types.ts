@@ -38,6 +38,20 @@ export type PodiumRow = {
   bonus?: number;
 };
 
+export type BonusShareRow = {
+  name: string;
+  url: string;
+  points: number;
+  bonus: number;
+};
+
+export type BonusChart = {
+  kind: 'project' | 'fund';
+  pot: number;
+  weight_sum: number;
+  shares: BonusShareRow[];
+};
+
 export type Drive = {
   id: string;
   name: string;
@@ -68,6 +82,7 @@ export type Drive = {
   fund_third?: number | null;
   podium?: PodiumRow[];
   fund_podium?: PodiumRow[];
+  bonus_charts?: BonusChart[];
 };
 
 export type ProjectRow = {

@@ -1,22 +1,205 @@
-import { driveHasBonusPot, type Drive, type Leaderboard, type PodiumRow } from '../artizen';
+import { BONUS_POWER, driveHasBonusPot, type BonusChart, type Drive, type Leaderboard, type PodiumRow } from '../artizen';
 import { compactNum, delimited, fmtDate, prizeLabel, truncate, usd } from '../format';
 import { board, boardEmpty, escapeHtml, layout, namedLink, pageTitle, panel } from './layout';
 
 export function renderDrives(data: Leaderboard, seasonParam: string | null): string {
   const empty = boardEmpty(data);
   let body = '';
+  let extra = '';
   if (!empty) {
+    const chart = bonusChartPanel(data.drives);
     body =
-      data.drives.length === 0
+      (chart?.html ?? '') +
+      (data.drives.length === 0
         ? panel('<p class="text-muted mb-0">No fund drives in this season.</p>')
-        : `<div class="row">${data.drives.map((drive) => driveCard(drive)).join('')}</div>`;
+        : `<div class="row">${data.drives.map((drive) => driveCard(drive)).join('')}</div>`);
+    extra = chart?.script ?? '';
   }
   return layout({
     title: pageTitle(data),
     body: board(data, 'drives', seasonParam) + body,
+    extra,
     season: seasonParam,
     boards: true,
   });
+}
+
+function pickBonusCharts(drives: Drive[]): { drive: Drive; charts: BonusChart[] } | undefined {
+  const hits = drives.filter((drive) => drive.bonus_charts && drive.bonus_charts.length > 0);
+  const drive = hits.find((item) => item.active) ?? hits[0];
+  return drive?.bonus_charts?.length ? { drive, charts: drive.bonus_charts } : undefined;
+}
+
+function chartKind(chart: BonusChart): { kind: string; noun: string; label: string } {
+  return chart.kind === 'fund'
+    ? { kind: 'funds', noun: 'fund', label: 'Funds' }
+    : { kind: 'projects', noun: 'project', label: 'Projects' };
+}
+
+function bonusChartPanel(drives: Drive[]): { html: string; script: string } | undefined {
+  const picked = pickBonusCharts(drives);
+  if (!picked) return undefined;
+  const { drive, charts } = picked;
+  const pair = charts.length > 1;
+  const payloads = charts.map((chart) => {
+    const meta = chartKind(chart);
+    return {
+      id: `artizen-bonus-chart-${chart.kind}`,
+      pot: chart.pot,
+      weightSum: chart.weight_sum,
+      power: BONUS_POWER,
+      kind: meta.kind,
+      points: chart.shares.map((row) => ({
+        name: row.name,
+        url: row.url,
+        x: row.points,
+        y: row.bonus,
+      })),
+    };
+  });
+  const intro = pair
+    ? `${escapeHtml(drive.name)}. Extra boosts still count, but less and less — so each pot spreads wide. Showing the top 10 by boosts; hover a point for its take.`
+    : (() => {
+        const meta = chartKind(charts[0]);
+        return `${escapeHtml(drive.name)} · ${meta.kind} share a <strong>${usd(charts[0].pot)}</strong> pot. Extra boosts still count, but less and less — so the pot spreads wide. Showing the top 10 by boosts; hover a ${meta.noun} for its take.`;
+      })();
+  const canvases = charts
+    .map((chart) => {
+      const meta = chartKind(chart);
+      const title = pair
+        ? `<h3 class="artizen-bonus-chart-title">${meta.label} · ${usd(chart.pot)} pot</h3>`
+        : '';
+      return `<div>
+        ${title}
+        <div class="artizen-bonus-chart"><canvas id="artizen-bonus-chart-${chart.kind}" aria-label="${meta.label} bonus versus boosts"></canvas></div>
+      </div>`;
+    })
+    .join('');
+  const html = panel(`
+    <h2 class="artizen-panel-title">Bonus vs boosts</h2>
+    <p class="text-muted small mb-3">${intro}</p>
+    <div class="artizen-bonus-charts${pair ? ' artizen-bonus-charts-pair' : ''}">${canvases}</div>
+  `);
+  const script = `
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script>
+(function() {
+  if (!window.Chart) return;
+  var charts = ${JSON.stringify(payloads).replace(/</g, '\\u003c')};
+  var ink = '#101212';
+  var muted = '#8690A0';
+  var line = '#E2E5E7';
+  var green = '#1ACC6C';
+  function compact(n) {
+    var a = Math.abs(n);
+    if (a >= 1e6) return (n / 1e6).toFixed(a >= 1e7 ? 0 : 1).replace(/\\.0$/, '') + 'm';
+    if (a >= 1e3) return (n / 1e3).toFixed(a >= 1e4 ? 0 : 1).replace(/\\.0$/, '') + 'k';
+    return String(Math.round(n));
+  }
+  function money(n) {
+    if (Math.abs(n) >= 100) return '$' + Math.round(n).toLocaleString('en-US');
+    return '$' + Number(n).toFixed(2);
+  }
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  Chart.defaults.color = muted;
+  function draw(data) {
+    var canvas = document.getElementById(data.id);
+    if (!canvas) return;
+    var maxX = 1;
+    for (var i = 0; i < data.points.length; i++) {
+      if (data.points[i].x > maxX) maxX = data.points[i].x;
+    }
+    maxX *= 1.06;
+    var curve = [];
+    var curveSteps = 128;
+    for (var s = 0; s <= curveSteps; s++) {
+      var progress = s / curveSteps;
+      var x = maxX * Math.pow(progress, 1 / data.power);
+      var w = x > 0 ? Math.pow(x, data.power) : 0;
+      curve.push({ x: x, y: data.weightSum > 0 ? (w / data.weightSum) * data.pot : 0 });
+    }
+    var accent = data.kind === 'funds' ? '#4C6EF5' : green;
+    new Chart(canvas, {
+      type: 'scatter',
+      data: {
+        datasets: [
+          {
+            label: 'Bonus curve',
+            data: curve,
+            showLine: true,
+            pointRadius: 0,
+            pointHitRadius: 0,
+            borderColor: accent,
+            borderWidth: 2,
+            backgroundColor: 'transparent',
+            tension: 0,
+            order: 2
+          },
+          {
+            label: data.kind === 'funds' ? 'Top 10 funds' : 'Top 10 projects',
+            data: data.points,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            pointBorderWidth: 1,
+            pointBorderColor: '#fff',
+            backgroundColor: accent,
+            order: 1
+          }
+        ]
+      },
+      options: {
+        animation: false,
+        maintainAspectRatio: false,
+        interaction: { mode: 'nearest', intersect: true },
+        onHover: function(e, els) {
+          var t = e.native && e.native.target;
+          if (t) t.style.cursor = els.length && els[0].datasetIndex === 1 ? 'pointer' : 'default';
+        },
+        onClick: function(_e, els, chart) {
+          var el = els[0];
+          if (!el || el.datasetIndex !== 1) return;
+          var pt = chart.data.datasets[1].data[el.index];
+          if (pt && pt.url) location.href = pt.url;
+        },
+        plugins: {
+          legend: {
+            display: true,
+            labels: { boxWidth: 12, color: ink, usePointStyle: true }
+          },
+          tooltip: {
+            callbacks: {
+              title: function(items) {
+                var pt = items[0] && items[0].raw;
+                return pt && pt.name ? pt.name : '';
+              },
+              label: function(item) {
+                if (item.datasetIndex === 0) return money(item.parsed.y);
+                return compact(item.parsed.x) + ' boosts  ·  ' + money(item.parsed.y);
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Boosts', color: ink },
+            grid: { color: line },
+            ticks: { callback: compact },
+            min: 0
+          },
+          y: {
+            title: { display: true, text: 'Bonus', color: ink },
+            grid: { color: line },
+            ticks: { callback: money },
+            min: 0
+          }
+        }
+      }
+    });
+  }
+  for (var c = 0; c < charts.length; c++) draw(charts[c]);
+})();
+</script>`;
+  return { html, script };
 }
 
 function driveCard(drive: Drive): string {

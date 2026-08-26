@@ -7,11 +7,11 @@ import type { BoostsPage, DetailPreview, FundPage, Leaderboard, MatchIndex, Proj
 import { failed } from './util';
 
 const keys = {
-  leaderboard: (season: string | number) => `artizen/leaderboard/v33/${season}`,
-  project: (slug: string) => `artizen/project/v45/${slug}`,
+  leaderboard: (season: string | number) => `artizen/leaderboard/v36/${season}`,
+  project: (slug: string) => `artizen/project/v46/${slug}`,
   fund: (slug: string) => `artizen/fund/v10/${slug}`,
   boosts: 'artizen/boosts/v2',
-  projects: 'artizen/project/v45/',
+  projects: 'artizen/project/v46/',
   funds: 'artizen/fund/v10/',
   matching: MATCH_INDEX_KEY,
 };

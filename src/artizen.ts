@@ -1,6 +1,8 @@
 export { Artizen } from './artizen/client';
-export { driveHasBonusPot } from './artizen/util';
+export { BONUS_POWER, bonusShare, driveHasBonusPot } from './artizen/util';
 export type {
+  BonusChart,
+  BonusShareRow,
   BoostBucket,
   BoostHolder,
   BoostsPage,

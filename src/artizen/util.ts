@@ -115,7 +115,7 @@ export function hidden(row?: Row | null): boolean {
   return Boolean(row?.['Hide'] || row?.['unPublished']);
 }
 
-const BONUS_POWER = 0.2;
+export const BONUS_POWER = 0.2;
 
 export function bonusWeight(points: number): number {
   return points > 0 ? points ** BONUS_POWER : 0;
@@ -242,20 +242,21 @@ export function assignVenusDrive(tx: Row, drives: Drive[]): Drive | undefined {
     if (!start) return false;
     return created >= start && (finish == null || created <= finish);
   });
-  if (inWindow.length > 0) {
-    return inWindow.reduce((best, drive) => {
-      const a = parseTime(drive.start)?.getTime() ?? 0;
-      const b = parseTime(best.start)?.getTime() ?? 0;
-      return a > b ? drive : best;
-    });
-  }
+  if (inWindow.length > 0) return latestStart(inWindow);
 
-  const started = candidates.filter((drive) => {
-    const start = parseTime(drive.start);
-    return start != null && start <= created;
+  // Ended drives freeze `fund drive sales`. A later Venus buy is not in that
+  // number, so peeling it there zeros Sales. Put it on a drive still open.
+  const open = candidates.filter((drive) => {
+    const finish = parseTime(drive.end);
+    return finish == null || created <= finish;
   });
-  if (started.length === 0) return undefined;
-  return started.reduce((best, drive) => {
+  const pool = open.length > 0 ? open : candidates;
+  return pool.find((drive) => drive.active) ?? latestStart(pool);
+}
+
+function latestStart(drives: Drive[]): Drive | undefined {
+  if (drives.length === 0) return undefined;
+  return drives.reduce((best, drive) => {
     const a = parseTime(drive.start)?.getTime() ?? 0;
     const b = parseTime(best.start)?.getTime() ?? 0;
     return a > b ? drive : best;

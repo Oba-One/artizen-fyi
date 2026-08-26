@@ -1751,6 +1751,29 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   color: var(--ink);
   font-weight: 500;
 }
+.artizen-bonus-charts {
+  display: grid;
+  gap: 1.5rem 1.75rem;
+}
+.artizen-bonus-charts > * { min-width: 0; }
+.artizen-bonus-charts-pair {
+  grid-template-columns: 1fr 1fr;
+}
+.artizen-bonus-chart-title {
+  font-size: 1.05rem;
+  margin: 0 0 0.65rem;
+}
+.artizen-bonus-chart {
+  position: relative;
+  height: 22rem;
+}
+.artizen-bonus-chart canvas { display: block; }
+@media (max-width: 991px) {
+  .artizen-bonus-charts-pair { grid-template-columns: 1fr; }
+}
+@media (max-width: 767px) {
+  .artizen-bonus-chart { height: 18rem; }
+}
 .artizen-hero-card {
   display: grid;
   grid-template-columns: 11rem minmax(0, 1fr);
