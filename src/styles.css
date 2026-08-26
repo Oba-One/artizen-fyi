@@ -1122,7 +1122,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-fit-good { color: #fff; background: var(--green-ink); }
 .artizen-fit-exploratory { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 .artizen-fit-limited { color: var(--muted); background: transparent; border: 1px dashed var(--line); }
-/* Same filled treatment as Strong / Project: the check and the type need 4.5:1. */
+/* Same filled treatment as Strong / Project: white type on the fill needs 4.5:1. */
 .artizen-known-relationship {
   display: inline-flex;
   align-items: center;
