@@ -9,6 +9,7 @@ export type Funded = ProjectRow & {
   multiple_m?: number;
   multiple_p?: number;
   multiple_b?: number;
+  multiple_r?: number;
 };
 
 export function usd(value?: number | null): string {
@@ -69,6 +70,7 @@ export function funding(row: ProjectRow): Funded {
   const svm = sv + match;
   const v2 = venus + sprint;
   const vmp = v2 + match + prize + bonus;
+  const raised = row.raised == null ? sales + vmp : Number(row.raised) || 0;
   return {
     ...row,
     sales,
@@ -85,7 +87,8 @@ export function funding(row: ProjectRow): Funded {
     multiple_m: sales !== 0 ? match / sales : undefined,
     multiple_p: sales !== 0 ? prize / sales : undefined,
     multiple_b: sales !== 0 ? bonus / sales : undefined,
-    raised: row.raised == null ? sales + vmp : Number(row.raised) || 0,
+    raised,
+    multiple_r: sales !== 0 ? raised / sales : undefined,
   };
 }
 
@@ -113,11 +116,12 @@ const MONEY_COLS: readonly MoneyCol[] = [
   { field: 'sprint', label: 'Venus extras', as: 'usd' },
   { field: 'prize', label: 'Prize', as: 'usd' },
   { field: 'bonus', label: 'Bonus', as: 'usd' },
+  { field: 'raised', label: 'Raised', as: 'usd' },
   { field: 'multiple_v', label: 'V/S', as: 'x' },
   { field: 'multiple_m', label: 'M/S', as: 'x' },
   { field: 'multiple_p', label: 'P/S', as: 'x' },
   { field: 'multiple_b', label: 'B/S', as: 'x' },
-  { field: 'raised', label: 'Raised', as: 'usd' },
+  { field: 'multiple_r', label: 'R/S', as: 'x' },
 ];
 
 export function moneyColumns(includeBonus = false): MoneyCol[] {
