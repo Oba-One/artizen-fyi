@@ -8,7 +8,7 @@
   --green: #1ACC6C;
   --green-deep: #06AA59;
   /* Not a brand colour. Algae is 2.1:1 on white and Moss 3.0:1, both under the 4.5:1 that text
-     needs, so green text darkens to this and only ever to this. Fills keep Algae and Moss. */
+     needs, so green text, filled badges, and the fit meter darken to this and only ever to this. */
   --green-ink: #06773F;
   --shadow: 0 8px 18px rgba(16, 18, 18, 0.08);
   --radius: 1.15rem;
@@ -1099,9 +1099,9 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border-radius: 999px;
   background: var(--muted);
 }
-.artizen-fit-fill-strong { background: var(--green-deep); }
-.artizen-fit-fill-good { background: var(--green); }
-.artizen-fit-fill-exploratory { background: color-mix(in srgb, var(--green) 42%, var(--paper)); }
+.artizen-fit-fill-strong,
+.artizen-fit-fill-good { background: var(--green-ink); }
+.artizen-fit-fill-exploratory { background: color-mix(in srgb, var(--green-ink) 42%, var(--paper)); }
 .artizen-fit-fill-limited { background: var(--line); }
 .artizen-match-fit-value {
   min-width: 1.9rem;
@@ -1116,8 +1116,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-content: start;
   gap: 0.35rem;
 }
-/* Both filled fit labels use green-ink so the type stays at 4.5:1. Algae stays on the meter
-   fill, where there is nothing to read. */
+/* Strong and Good share green-ink with Fund details and the history badges. The meter has no
+   type on the fill; the badges put white on the same ink so the label stays at 4.5:1. */
 .artizen-fit-strong { color: #fff; background: var(--green-ink); }
 .artizen-fit-good { color: #fff; background: var(--green-ink); }
 .artizen-fit-exploratory { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
