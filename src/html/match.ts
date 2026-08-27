@@ -73,13 +73,13 @@ export function renderMatch(): string {
           <div class="artizen-match-heading">
             <div>
               <h2 id="match-results-title">Fund recommendations</h2>
-              <p class="text-muted mb-0">Ranked by thematic fit using each fund’s official language, not eligibility or past relationships.</p>
+              <p class="text-muted mb-0">Ranked by thematic fit and published eligibility language. Past relationships never affect the order.</p>
             </div>
           </div>
 ${matchResultsRegion('The public matching catalog is loading…')}
         </section>
 
-        <p class="artizen-match-note">Alignment is not a guarantee of eligibility, an open application, or a current deadline. Check each fund’s requirements on Artizen.</p>
+        <p class="artizen-match-note">Eligibility signals and exclusion warnings help you review likely fit; they are not eligibility decisions or guarantees of an open application or current deadline. Check each fund’s requirements on Artizen.</p>
         <noscript><p class="artizen-note">Fund matching needs JavaScript to run privately in your browser.</p></noscript>
       </main>
     `),

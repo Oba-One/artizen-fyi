@@ -5,12 +5,28 @@ import type { ProjectMatchInput, ProjectProfile } from '../artizen/types';
  * agree on it character for character, or a precomputed vector would silently describe different
  * text than the one being matched.
  */
-export function projectVectorText(project: Pick<ProjectProfile, 'name' | 'description' | 'tags'>): string {
-  return [project.name, project.description, ...project.tags].filter(Boolean).join('. ');
+export function projectVectorText(project: Pick<ProjectProfile, 'name' | 'description' | 'tags' | 'context'>): string {
+  return [
+    project.name,
+    project.description,
+    ...project.tags,
+    project.context?.description,
+    project.context?.impact,
+    project.context?.progress,
+    project.context?.team,
+  ].filter(Boolean).join('. ');
 }
 
 export function matchInputVectorText(input: ProjectMatchInput): string {
-  return [input.title, input.description, ...input.tags].filter(Boolean).join('. ');
+  return [
+    input.title,
+    input.description,
+    ...input.tags,
+    input.context?.description,
+    input.context?.impact,
+    input.context?.progress,
+    input.context?.team,
+  ].filter(Boolean).join('. ');
 }
 
 /**

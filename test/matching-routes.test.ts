@@ -17,6 +17,7 @@ function index(kind: 'artizen-api' | 'fixture'): MatchIndex {
         name: 'Project',
         description: 'Project description',
         tags: [],
+        context: { impact: 'A detailed project impact narrative.' },
         facets: [],
         history: [['fund', 'curated']],
       },
@@ -127,10 +128,12 @@ describe('matching routes', () => {
     const projectsBody = (await projects.json()) as { projects: MatchIndex['projects'] };
     expect(projectsBody.projects).toHaveLength(1);
     expect(projectsBody.projects[0].history).toEqual([['fund', 'curated']]);
+    expect(projectsBody.projects[0]).not.toHaveProperty('context');
 
     const one = await worker.fetch(new Request('https://artizen.fyi/match/project/project.json'), env);
     const oneBody = (await one.json()) as { projects: MatchIndex['projects'] };
     expect(oneBody.projects.map((project) => project.id)).toEqual(['project']);
+    expect(oneBody.projects[0].context?.impact).toBe('A detailed project impact narrative.');
 
     const missing = await worker.fetch(new Request('https://artizen.fyi/match/project/nope.json'), env);
     expect(missing.status).toBe(404);

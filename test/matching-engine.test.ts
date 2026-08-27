@@ -218,6 +218,99 @@ describe('matching engine v2', () => {
     expect(result.recommendations.find((row) => row.fundId === 'ocean')?.fit).toBe('exploratory');
   });
 
+  it('uses positive eligibility as a cautious boost and keeps explicit exclusions separate', () => {
+    const index = fixture();
+    const eligible = fund('eligible', 'Community Tool Fund', 'For open community coordination tools');
+    eligible.eligibilityCriteria = ['Applicants may build cooperative governance tools for public communities.'];
+    const review = { ...structuredClone(eligible), id: 'review', slug: 'review', name: 'Review Fund' };
+    review.eligibilityExclusions = ['We do not fund private surveillance tools or weapons research.'];
+    index.funds = [eligible, review];
+    index.source.funds = 2;
+
+    const result = matchFunds(prepareMatchIndex(index), {
+      description: 'Cooperative governance tools for public communities, alongside private surveillance tools research',
+      tags: ['Community'],
+    });
+    const plain = result.recommendations.find((row) => row.fundId === 'eligible')!;
+    const warned = result.recommendations.find((row) => row.fundId === 'review')!;
+
+    expect(plain.breakdown.eligibility).toBeGreaterThan(0);
+    expect(plain.reasons.some((reason) => reason.kind === 'eligibility')).toBe(true);
+    expect(warned.breakdown.exclusionRisk).toBeGreaterThan(0);
+    expect(warned.warnings?.[0].kind).toBe('eligibility-exclusion');
+    expect(warned.score).toBeLessThan(plain.score);
+  });
+
+  it('does not penalize a project for one incidental word from an exclusion', () => {
+    const index = fixture();
+    const candidate = fund('candidate', 'Community Research Fund', 'For community research and public tools');
+    candidate.eligibilityExclusions = ['We do not fund private weapons manufacturing.'];
+    index.funds = [candidate];
+    index.source.funds = 1;
+    const result = matchFunds(prepareMatchIndex(index), {
+      description: 'Public community research into private space governance',
+      tags: ['Community'],
+    });
+    expect(result.recommendations[0].breakdown.exclusionRisk).toBe(0);
+    expect(result.recommendations[0].warnings).toBeUndefined();
+  });
+
+  it('puts the Metacrisis-style systems fund in Green Goods’ first page using general concepts', () => {
+    const index = fixture();
+    const target = fund(
+      'metacrisis',
+      'Metacrisis Fund for Positive-Sum Interventions',
+      'Supports upstream interventions that change generator functions and enable positive-sum systems change.',
+    );
+    target.description =
+      'For collective sensemaking, systemic change, and economic interventions that internalize externalities.';
+    target.eligibilityCriteria = [
+      'Projects may develop circular economy and regenerative economics tools for positive-sum coordination.',
+    ];
+    target.profileText = [target.name, target.subtitle, target.description, ...target.eligibilityCriteria].join('. ');
+    target.facets = extractFacetIds(target.profileText);
+    target.focusFacets = ['approach:circular-economy', 'approach:systems-change'];
+    const decoys = Array.from({ length: 16 }, (_, position) =>
+      fund(
+        `decoy-${position}`,
+        `Creative Community Fund ${position}`,
+        'For local artists, community storytelling, education, and cultural events.',
+      ),
+    );
+    index.funds = [...decoys, target];
+    index.source.funds = index.funds.length;
+
+    const semanticScores = new Map(
+      index.funds.map((candidate) => [candidate.id, candidate.id === target.id ? 0.58 : 0.65]),
+    );
+    const result = matchFunds(
+      prepareMatchIndex(index),
+      {
+        projectId: 'green-goods',
+        title: 'Green Goods',
+        description: 'Tools that fund local regenerative public goods.',
+        tags: ['Circular Economy', 'Regenerative Economics', 'Coordination', 'Commons'],
+        context: {
+          impact:
+            'Builds a circular economy and positive-sum coordination system by internalizing externalities and supporting systems change.',
+          progress: 'Working tools support collective sensemaking and upstream intervention.',
+        },
+      },
+      semanticScores,
+    );
+    const rank = result.recommendations.findIndex((row) => row.fundId === target.id);
+    const recommendation = result.recommendations[rank];
+
+    expect(rank).toBeGreaterThanOrEqual(0);
+    expect(rank).toBeLessThan(12);
+    expect(recommendation.reasons.some((reason) => reason.kind === 'eligibility')).toBe(true);
+    expect(extractFacetIds('Green Goods')).toEqual([]);
+    expect(extractFacetIds('circular economy and positive-sum systems change')).toEqual([
+      'approach:circular-economy',
+      'approach:systems-change',
+    ]);
+  });
+
   it('returns insufficient evidence instead of catalog-relative guesses', () => {
     expect(matchFunds(prepareMatchIndex(fixture()), { description: 'art', tags: [] })).toEqual({
       sufficient: false,

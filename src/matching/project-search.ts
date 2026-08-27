@@ -23,6 +23,7 @@ export function matchInputForProject(
     title: project.name,
     description,
     tags: [...tags],
+    context: project.context,
   };
 }
 

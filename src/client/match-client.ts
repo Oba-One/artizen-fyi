@@ -60,6 +60,7 @@ class BrowserMatcher {
   private readonly semanticPending = new Map<number, SemanticPending>();
   private projectList: ProjectProfile[];
   private projectsPromise: Promise<ProjectProfile[]> | undefined;
+  private readonly projectDetails = new Map<string, Promise<ProjectProfile | undefined>>();
 
   constructor(
     readonly index: BrowserMatchIndex,
@@ -106,12 +107,46 @@ class BrowserMatcher {
     });
   }
 
-  match(input: ProjectMatchInput, semantic = false): Promise<MatchOutcome> {
+  async match(input: ProjectMatchInput, semantic = false): Promise<MatchOutcome> {
+    const hydratedInput = await this.hydrateProjectInput(input);
     const requestId = ++this.requestId;
     return new Promise((resolve, reject) => {
       this.pending.set(requestId, { resolve, reject });
-      this.worker.postMessage({ type: 'match', requestId, input, semantic });
+      this.worker.postMessage({ type: 'match', requestId, input: hydratedInput, semantic });
     });
+  }
+
+  /**
+   * Picker rows intentionally omit the large narrative fields. Fetch the selected record before
+   * scoring, then give the worker the same full profile used by the precomputed vector catalog.
+   * A transient failure degrades to the compact input instead of blocking matching altogether.
+   */
+  private async hydrateProjectInput(input: ProjectMatchInput): Promise<ProjectMatchInput> {
+    if (!input.projectId || input.context) return input;
+    let pending = this.projectDetails.get(input.projectId);
+    if (!pending) {
+      pending = this.fetchProjectDetail(input.projectId).catch(() => undefined);
+      this.projectDetails.set(input.projectId, pending);
+    }
+    const project = await pending;
+    if (!project) {
+      this.projectDetails.delete(input.projectId);
+      return input;
+    }
+    this.worker.postMessage({ type: 'projects', projects: [project] });
+    return { ...input, context: project.context };
+  }
+
+  private async fetchProjectDetail(projectId: string): Promise<ProjectProfile | undefined> {
+    const response = await fetch(`/match/project/${encodeURIComponent(projectId)}.json`, {
+      cache: 'no-cache',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return undefined;
+    const value = (await response.json()) as { indexVersion?: unknown; projects?: unknown };
+    if (value.indexVersion !== this.index.indexVersion) return undefined;
+    const projects = Array.isArray(value.projects) ? (value.projects as ProjectProfile[]) : [];
+    return projects.find((project) => project.id === projectId);
   }
 
   loadSemantic(onProgress: (progress: number) => void): Promise<void> {
@@ -484,6 +519,17 @@ function recommendationCard(
     article.append(list);
   }
 
+  if (recommendation.warnings?.length) {
+    const warnings = document.createElement('ul');
+    warnings.className = 'artizen-match-warnings';
+    for (const warning of recommendation.warnings) {
+      const item = document.createElement('li');
+      item.textContent = warning.label;
+      warnings.append(item);
+    }
+    article.append(warnings);
+  }
+
   // One row, so the card keeps the six-row rhythm the subgrid aligns siblings on.
   const actions = document.createElement('div');
   actions.className = 'artizen-match-card-actions';
@@ -515,6 +561,11 @@ function breakdownList(recommendation: BrowserRecommendation): HTMLElement | und
     ['Shared language', recommendation.breakdown.lexical],
     ['Shared focus', recommendation.breakdown.facets],
     ['Distinctive concepts', recommendation.breakdown.coreCoverage],
+    ['Published criteria', recommendation.breakdown.eligibility],
+    [
+      'Potential exclusion conflict',
+      recommendation.breakdown.exclusionRisk ? recommendation.breakdown.exclusionRisk : undefined,
+    ],
     ['On-device similarity', recommendation.breakdown.semantic],
   ];
   const list = document.createElement('div');
@@ -598,6 +649,40 @@ function fundDetailNodes(
     nodes.push(reasons);
   }
 
+  if (recommendation.warnings?.length) {
+    const warnings = document.createElement('ul');
+    warnings.className = 'artizen-match-warnings';
+    for (const warning of recommendation.warnings) {
+      const item = document.createElement('li');
+      item.textContent = warning.label;
+      warnings.append(item);
+    }
+    nodes.push(warnings);
+  }
+
+  if (fund.description || fund.eligibility) {
+    const published = document.createElement('details');
+    published.className = 'artizen-fund-dialog-published';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Published fund context';
+    published.append(summary);
+    if (fund.description) {
+      const heading = document.createElement('h3');
+      heading.textContent = 'About this fund';
+      const description = document.createElement('p');
+      description.textContent = fund.description;
+      published.append(heading, description);
+    }
+    if (fund.eligibility) {
+      const heading = document.createElement('h3');
+      heading.textContent = 'Eligibility';
+      const eligibility = document.createElement('p');
+      eligibility.textContent = fund.eligibility;
+      published.append(heading, eligibility);
+    }
+    nodes.push(published);
+  }
+
   if (semantic?.state() === 'available') {
     const upgrade = document.createElement('button');
     upgrade.type = 'button';
@@ -624,7 +709,8 @@ function fundDetailNodes(
 
   const note = document.createElement('p');
   note.className = 'artizen-match-note';
-  note.textContent = 'Alignment describes thematic fit. It is not a guarantee of eligibility, an open application, or a current deadline.';
+  note.textContent =
+    'The ranking uses thematic alignment and published eligibility language. Exclusion warnings are cautious signals to review, not eligibility decisions or guarantees of an open application or current deadline.';
   nodes.push(note);
   return nodes;
 }
@@ -641,7 +727,8 @@ type SemanticControl = {
 
 function infoParagraphs(source: MatchOutcome['semanticSource']): string[] {
   const shared = [
-    'Every fund is scored on how closely its own published wording matches your project: the words it uses, the focus areas it names, and the ideas that make it distinctive.',
+    'Every fund is scored on how closely its published description and positive eligibility criteria match your project: the words it uses, the focus areas it names, and the ideas that make it distinctive.',
+    'Clear overlap with eligibility criteria can add a small boost. If a project also shares several specific terms with an explicit exclusion, the ranking applies a cautious penalty and shows a warning so you can review the source language.',
     'Nothing about your history counts. Whether a fund has backed you before, whether it is curating, and how much money it holds are shown on the card but never change the ranking.',
   ];
   if (source === 'precomputed') {

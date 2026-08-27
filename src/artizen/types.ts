@@ -272,10 +272,23 @@ export type MatchReason = {
     | 'facet'
     | 'core-concept'
     | 'semantic'
+    | 'eligibility'
     | 'similar-project'
     | 'relationship'
     | 'limited-evidence';
   label: string;
+};
+
+export type MatchWarning = {
+  kind: 'eligibility-exclusion';
+  label: string;
+};
+
+export type ProjectNarrative = {
+  description?: string;
+  impact?: string;
+  progress?: string;
+  team?: string;
 };
 
 export type ProjectMatchInput = {
@@ -283,6 +296,7 @@ export type ProjectMatchInput = {
   title?: string;
   description: string;
   tags: string[];
+  context?: ProjectNarrative;
 };
 
 export type ProjectFundRelationship = {
@@ -323,6 +337,7 @@ export type ProjectProfile = {
   name: string;
   description: string;
   tags: string[];
+  context?: ProjectNarrative;
   facets: string[];
   image?: string;
   history?: ProjectHistory;
@@ -334,6 +349,10 @@ export type FundProfile = {
   name: string;
   subtitle?: string;
   forTitle?: string;
+  description?: string;
+  eligibility?: string;
+  eligibilityCriteria?: string[];
+  eligibilityExclusions?: string[];
   active: boolean;
   available?: number;
   themes: string[];
@@ -353,6 +372,8 @@ export type ScoreBreakdown = {
   facets: number;
   coreCoverage: number;
   semantic?: number;
+  eligibility?: number;
+  exclusionRisk?: number;
 };
 
 export type ScoringConfig = {
@@ -368,6 +389,8 @@ export type ScoringConfig = {
   goodThreshold: number;
   exploratoryThreshold: number;
   unsupportedFocusPenalty: number;
+  eligibilityBoost?: number;
+  exclusionPenalty?: number;
 };
 
 export type SemanticCatalogManifest = {
@@ -407,6 +430,7 @@ export type FundRecommendation = {
   score: number;
   fit: MatchFit;
   reasons: MatchReason[];
+  warnings?: MatchWarning[];
   knownRelationship?: MatchRelationshipKind;
   active: boolean;
   available?: number;

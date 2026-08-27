@@ -70,10 +70,11 @@ await rm(outputRoot, { recursive: true, force: true });
 await mkdir(join(outputRoot, 'project'), { recursive: true });
 
 const writeJson = (path, value) => writeFile(path, `${JSON.stringify(value)}\n`);
+const projectSummaries = index.projects.map(({ context: _context, ...project }) => project);
 await Promise.all([
   writeJson(join(outputRoot, 'index.json'), index),
   writeJson(join(outputRoot, 'core.json'), { ...index, projects: [], relationships: [] }),
-  writeJson(join(outputRoot, 'projects.json'), { indexVersion: index.indexVersion, projects: index.projects }),
+  writeJson(join(outputRoot, 'projects.json'), { indexVersion: index.indexVersion, projects: projectSummaries }),
 ]);
 
 for (let start = 0; start < index.projects.length; start += 100) {

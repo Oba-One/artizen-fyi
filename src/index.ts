@@ -119,7 +119,7 @@ async function matchingProjectsResponse(artizen: Artizen, request: Request, url:
   if (!index) return matchingUnavailable();
   return matchingJson(request, index.indexVersion, 'projects', () => ({
     indexVersion: index.indexVersion,
-    projects: index.projects,
+    projects: index.projects.map(({ context: _context, ...project }) => project),
   }));
 }
 

@@ -18,6 +18,8 @@ type Terms = Map<string, number>;
 type PreparedFund = {
   fund: FundProfile;
   terms: Terms;
+  eligibilityTerms: Terms;
+  exclusionTerms: Terms;
   facets: Set<string>;
   focusFacets: Set<string>;
 };
@@ -28,6 +30,8 @@ export type PreparedMatchIndex = {
   fundsById: Map<string, PreparedFund>;
   relationshipsByProject: Map<string, ProjectFundRelationship[]>;
   idf: Map<string, number>;
+  eligibilityIdf: Map<string, number>;
+  exclusionIdf: Map<string, number>;
 };
 
 function addText(terms: Terms, value: string | undefined, weight = 1): void {
@@ -118,9 +122,14 @@ export function prepareMatchIndex(index: MatchIndex): PreparedMatchIndex {
   }
   const funds = index.funds.map((fund) => {
     const terms = new Map<string, number>();
+    const eligibilityTerms = new Map<string, number>();
+    const exclusionTerms = new Map<string, number>();
     addText(terms, fund.name, 2);
     addText(terms, fund.subtitle, 1.25);
     addText(terms, fund.forTitle, 1.75);
+    addText(terms, fund.description, 1);
+    for (const criterion of fund.eligibilityCriteria || []) addText(eligibilityTerms, criterion);
+    for (const exclusion of fund.eligibilityExclusions || []) addText(exclusionTerms, exclusion);
     for (const theme of fund.themes) addText(terms, theme, 1.5);
     for (const alias of fund.aliases) addText(terms, alias, 1.25);
     for (const preferred of fund.preferredTerms) addText(terms, preferred, 1.75);
@@ -128,6 +137,8 @@ export function prepareMatchIndex(index: MatchIndex): PreparedMatchIndex {
     return {
       fund,
       terms,
+      eligibilityTerms,
+      exclusionTerms,
       facets: new Set(fund.facets),
       focusFacets: new Set(fund.focusFacets),
     };
@@ -138,6 +149,8 @@ export function prepareMatchIndex(index: MatchIndex): PreparedMatchIndex {
     fundsById: new Map(funds.map((candidate) => [candidate.fund.id, candidate])),
     relationshipsByProject: relationshipMap(index),
     idf: documentFrequency(funds.map((fund) => fund.terms)),
+    eligibilityIdf: documentFrequency(funds.map((fund) => fund.eligibilityTerms)),
+    exclusionIdf: documentFrequency(funds.map((fund) => fund.exclusionTerms)),
   };
 }
 
@@ -145,7 +158,16 @@ function inputTerms(input: ProjectMatchInput): Terms {
   const terms = new Map<string, number>();
   addText(terms, input.title, 1.4);
   addText(terms, input.description, 1);
+  addText(terms, input.context?.description, 1);
+  addText(terms, input.context?.impact, 1);
   for (const tag of input.tags) addText(terms, tag, 1.8);
+  return terms;
+}
+
+function eligibilityInputTerms(input: ProjectMatchInput): Terms {
+  const terms = inputTerms(input);
+  addText(terms, input.context?.progress, 0.75);
+  addText(terms, input.context?.team, 0.75);
   return terms;
 }
 
@@ -156,6 +178,14 @@ function disambiguateProjectInput(input: ProjectMatchInput): ProjectMatchInput {
     title: clean(input.title),
     description: clean(input.description) || '',
     tags: input.tags.map((tag) => clean(tag) || tag),
+    context: input.context
+      ? {
+          description: clean(input.context.description),
+          impact: clean(input.context.impact),
+          progress: clean(input.context.progress),
+          team: clean(input.context.team),
+        }
+      : undefined,
   };
 }
 
@@ -166,6 +196,11 @@ const FACET_WEIGHTS: Record<string, number> = {
   audience: 0.75,
   place: 0.65,
 };
+
+const DISTINCTIVE_APPROACH_FACETS = new Set([
+  'approach:circular-economy',
+  'approach:systems-change',
+]);
 
 function facetWeight(id: string): number {
   return FACET_WEIGHTS[facetCategory(id) || 'domain'] || 1;
@@ -191,8 +226,14 @@ function facetAlignment(
     .filter((id) => input.has(id))
     .reduce((sum, id) => sum + facetWeight(id), 0);
   const focusCoverage = focusWeight > 0 ? focusOverlap / focusWeight : 0;
+  const baseScore =
+    focus.size > 0 ? focusCoverage * 0.7 + fundCoverage * 0.2 + projectPrecision * 0.1 : balancedOverlap;
+  // These two approaches bridge language that otherwise looks unrelated (for example,
+  // regenerative economics and internalized externalities). An exact shared, fund-defining facet
+  // gets a small bonus inside the facet channel; it cannot rescue an unsupported focus.
+  const hasDistinctiveApproach = shared.some((id) => focus.has(id) && DISTINCTIVE_APPROACH_FACETS.has(id));
   return {
-    score: focus.size > 0 ? focusCoverage * 0.7 + fundCoverage * 0.2 + projectPrecision * 0.1 : balancedOverlap,
+    score: hasDistinctiveApproach ? baseScore + (1 - baseScore) * 0.2 : baseScore,
     shared: shared.sort(
       (a, b) => Number(focus.has(b)) - Number(focus.has(a)) || facetWeight(b) - facetWeight(a) || a.localeCompare(b),
     ),
@@ -201,7 +242,19 @@ function facetAlignment(
 }
 
 function normalizedInputPhrases(input: ProjectMatchInput): Set<string> {
-  const terms = normalizeTerms([input.title, input.description, ...input.tags].filter(Boolean).join(' '));
+  const terms = normalizeTerms(
+    [
+      input.title,
+      input.description,
+      input.context?.description,
+      input.context?.impact,
+      input.context?.progress,
+      input.context?.team,
+      ...input.tags,
+    ]
+      .filter(Boolean)
+      .join(' '),
+  );
   const phrases = new Set(terms);
   for (let index = 0; index < terms.length - 1; index += 1) phrases.add(`${terms[index]} ${terms[index + 1]}`);
   return phrases;
@@ -246,6 +299,7 @@ const GENERIC_REASON_TERMS = new Set([
   'action',
   'art',
   'build',
+  'chain',
   'community',
   'creat',
   'creative',
@@ -255,6 +309,7 @@ const GENERIC_REASON_TERMS = new Set([
   'impact',
   'initiative',
   'local',
+  'need',
   'open',
   'people',
   'project',
@@ -316,7 +371,18 @@ export function matchFunds(
 ): MatchResult {
   const scoringInput = disambiguateProjectInput(input);
   const query = inputTerms(scoringInput);
-  const inputFacets = new Set(extractFacetIds(scoringInput.title, scoringInput.description, scoringInput.tags.join(' ')));
+  const eligibilityQuery = eligibilityInputTerms(scoringInput);
+  const inputFacets = new Set(
+    extractFacetIds(
+      scoringInput.title,
+      scoringInput.description,
+      scoringInput.context?.description,
+      scoringInput.context?.impact,
+      scoringInput.context?.progress,
+      scoringInput.context?.team,
+      scoringInput.tags.join(' '),
+    ),
+  );
   const inputPhrases = normalizedInputPhrases(scoringInput);
   const specificTerms = [...query.keys()].filter((term) => !GENERIC_REASON_TERMS.has(term));
   const sufficient =
@@ -327,32 +393,74 @@ export function matchFunds(
     const alignment = facetAlignment(inputFacets, candidate.facets, candidate.focusFacets);
     const coverage = coreCoverage(inputPhrases, candidate.fund.coreConcepts);
     const semantic = semanticScores?.get(candidate.fund.id);
+    const eligibility = cosine(eligibilityQuery, candidate.eligibilityTerms, prepared.eligibilityIdf);
+    const exclusionSimilarity = cosine(eligibilityQuery, candidate.exclusionTerms, prepared.exclusionIdf);
+    const exclusionTerms = specificSharedTerms(
+      eligibilityQuery,
+      candidate.exclusionTerms,
+      prepared.exclusionIdf,
+    );
+    const exclusionRisk = exclusionTerms.length >= 2 && exclusionSimilarity >= 0.18 ? exclusionSimilarity : 0;
     const breakdown: ScoreBreakdown = {
       lexical: cosine(query, candidate.terms, prepared.idf),
       facets: alignment.score,
       coreCoverage: coverage.score,
+      ...(candidate.eligibilityTerms.size ? { eligibility } : {}),
+      ...(candidate.exclusionTerms.size ? { exclusionRisk } : {}),
       ...(semantic == null ? {} : { semantic: Math.max(0, Math.min(1, semantic)) }),
     };
     const combined = semantic == null ? baselineScore(breakdown, prepared.index) : semanticScore(breakdown, prepared.index);
-    const score = alignment.supportedFocus
-      ? combined
-      : combined * prepared.index.scoring.unsupportedFocusPenalty;
+    const eligibilityBoost = prepared.index.scoring.eligibilityBoost ?? 0.15;
+    const exclusionPenalty = prepared.index.scoring.exclusionPenalty ?? 0.2;
+    const eligibilityAdjusted = combined + (1 - combined) * eligibilityBoost * eligibility;
+    const focusAdjusted = alignment.supportedFocus
+      ? eligibilityAdjusted
+      : eligibilityAdjusted * prepared.index.scoring.unsupportedFocusPenalty;
+    const score = focusAdjusted * (1 - exclusionPenalty * exclusionRisk);
+    const eligibilityEvidence = specificSharedTerms(
+      eligibilityQuery,
+      candidate.eligibilityTerms,
+      prepared.eligibilityIdf,
+    );
     const definingEvidence =
       alignment.shared.some((facetId) => !GENERIC_ALIGNMENT_FACETS.has(facetId)) ||
       coverage.matched.length > 0 ||
-      specificSharedTerms(query, candidate.terms, prepared.idf).length > 0;
-    return { candidate, alignment, coverage, breakdown, score, definingEvidence };
+      specificSharedTerms(query, candidate.terms, prepared.idf).length > 0 ||
+      eligibilityEvidence.length > 0;
+    return {
+      candidate,
+      alignment,
+      coverage,
+      breakdown,
+      score,
+      definingEvidence,
+      eligibilityEvidence,
+      exclusionTerms,
+      exclusionRisk,
+    };
   });
 
   rows.sort((a, b) => b.score - a.score || a.candidate.fund.name.localeCompare(b.candidate.fund.name));
   const directRows = input.projectId ? prepared.relationshipsByProject.get(input.projectId) || [] : [];
-  const recommendations: FundRecommendation[] = rows.map(({ candidate, alignment, coverage, breakdown, score, definingEvidence }) => {
+  const recommendations: FundRecommendation[] = rows.map(({
+    candidate,
+    alignment,
+    coverage,
+    breakdown,
+    score,
+    definingEvidence,
+    eligibilityEvidence,
+    exclusionTerms,
+    exclusionRisk,
+  }) => {
     const known = knownRelationship(directRows, candidate.fund.id);
+    const focusedReasons = alignment.shared.filter((facetId) => candidate.focusFacets.has(facetId));
+    const reasonFacets = focusedReasons.length ? focusedReasons : alignment.shared;
     const reasons: Array<MatchReason | undefined> = [
-      alignment.shared.length
+      reasonFacets.length
         ? {
             kind: 'facet',
-            label: `Shared focus: ${alignment.shared.slice(0, 2).map(facetLabel).join(', ')}`,
+            label: `Shared focus: ${reasonFacets.slice(0, 2).map(facetLabel).join(', ')}`,
           }
         : undefined,
       coverage.matched.length
@@ -361,6 +469,14 @@ export function matchFunds(
             label: `Specific overlap: ${coverage.matched.slice(0, 2).map(readableConcept).join(', ')}`,
           }
         : undefined,
+      eligibilityEvidence.length
+        ? {
+            kind: 'eligibility',
+            label: `Published criteria overlap: ${eligibilityEvidence.slice(0, 3).map(readableConcept).join(', ')}`,
+          }
+        : breakdown.eligibility != null && breakdown.eligibility >= 0.25
+          ? { kind: 'eligibility', label: 'The project aligns with this fund’s published criteria' }
+          : undefined,
       contentReason(query, candidate.terms, prepared.idf),
       breakdown.semantic != null && breakdown.semantic >= 0.6
         ? { kind: 'semantic', label: 'The project description is similar to this fund’s stated focus' }
@@ -374,6 +490,17 @@ export function matchFunds(
       reasons: evidence.length
         ? evidence
         : [{ kind: 'limited-evidence', label: 'No clear alignment evidence found for this fund' }],
+      warnings: exclusionRisk
+        ? [
+            {
+              kind: 'eligibility-exclusion',
+              label: `Review this fund’s exclusions: shared language includes ${exclusionTerms
+                .slice(0, 3)
+                .map(readableConcept)
+                .join(', ')}`,
+            },
+          ]
+        : undefined,
       knownRelationship: known,
       active: candidate.fund.active,
       available: candidate.fund.available,

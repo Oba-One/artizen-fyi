@@ -79,6 +79,12 @@ describe('project search', () => {
     expect(input.tags).toHaveLength(10);
   });
 
+  it('preserves the stored narrative context when preparing a match', () => {
+    const context = { impact: 'Creates shared infrastructure for a circular economy.' };
+    const input = matchInputForProject({ ...projects[0], context });
+    expect(input.context).toEqual(context);
+  });
+
   it('honors deliberately empty description and tag refinements', () => {
     const input = matchInputForProject(projects[0], '', []);
     expect(input.description).toBe('');

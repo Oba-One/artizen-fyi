@@ -12,6 +12,7 @@ import type {
 } from '../artizen/types';
 import { firstMedia, hidden, int, mapSome, maybeNum, mediaUrl, num, text } from '../artizen/util';
 import { SEMANTIC_CATALOG } from './semantic-config';
+import { cleanNarrative, splitEligibility } from './narrative';
 import {
   MATCH_FACETS,
   MATCH_TAXONOMY_VERSION,
@@ -21,9 +22,10 @@ import {
 } from './taxonomy';
 
 export const MATCH_INDEX_KEY = 'artizen/matching/v2';
+const NARRATIVE_APPROACH_FOCUS = new Set(['approach:circular-economy', 'approach:systems-change']);
 
 export const DEFAULT_SCORING: ScoringConfig = {
-  version: 'baseline-2026-08-23.3',
+  version: 'context-2026-08-26.1',
   lexicalWeight: 0.4,
   facetWeight: 0.4,
   coreCoverageWeight: 0.2,
@@ -35,6 +37,8 @@ export const DEFAULT_SCORING: ScoringConfig = {
   goodThreshold: 0.38,
   exploratoryThreshold: 0.1,
   unsupportedFocusPenalty: 0.35,
+  eligibilityBoost: 0.15,
+  exclusionPenalty: 0.2,
 };
 
 type BuildOptions = {
@@ -95,7 +99,9 @@ export function deriveCoreConcepts(funds: FundProfile[]): void {
   const candidatesByFund = new Map<string, string[]>();
   const documentFrequency = new Map<string, number>();
   for (const fund of funds) {
-    const candidates = uniqueSorted(conceptCandidates(fund.name, fund.forTitle, fund.subtitle));
+    const candidates = uniqueSorted(
+      conceptCandidates(fund.name, fund.forTitle, fund.subtitle, fund.description, (fund.eligibilityCriteria || []).join(' ')),
+    );
     candidatesByFund.set(fund.id, candidates);
     for (const candidate of candidates) {
       documentFrequency.set(candidate, (documentFrequency.get(candidate) || 0) + 1);
@@ -179,6 +185,12 @@ export async function buildMatchIndex(client: Bubble, options: BuildOptions = {}
     const name = text(row['Name']);
     if (!id || !name) return undefined;
     const description = text(row['Logline']) || '';
+    const context = {
+      description: cleanNarrative(row['Description']) || undefined,
+      impact: cleanNarrative(row['Impact']) || undefined,
+      progress: cleanNarrative(row['Progress']) || undefined,
+      team: cleanNarrative(row['Team']) || undefined,
+    };
     const tags = uniqueSorted(strings(row['impact tags (impact tag)']).flatMap((tagId) => tagsById.get(tagId) || []));
     return {
       id,
@@ -186,7 +198,8 @@ export async function buildMatchIndex(client: Bubble, options: BuildOptions = {}
       name,
       description,
       tags,
-      facets: extractFacetIds(name, description, tags.join(' ')),
+      context,
+      facets: extractFacetIds(name, description, ...Object.values(context), tags.join(' ')),
       image:
         artifactImages.get(id)?.image ||
         firstMedia(row['(old) Artifact Image -crop'], row['Profile image lead creator']),
@@ -204,21 +217,43 @@ export async function buildMatchIndex(client: Bubble, options: BuildOptions = {}
     const name = text(ext?.['full title']) || baseName;
     const subtitle = text(ext?.['subtitle']);
     const forTitle = text(ext?.['for title']);
+    const description = cleanNarrative(ext?.['description']) || undefined;
+    const eligibility = splitEligibility(ext?.['eligibility']);
     const themes: string[] = [];
     const aliases: string[] = [];
     const preferredTerms: string[] = [];
     const excludedTerms: string[] = [];
-    const profileText = [name, subtitle, forTitle, ...themes, ...aliases, ...preferredTerms].filter(Boolean).join('. ');
+    const profileText = [
+      name,
+      subtitle,
+      forTitle,
+      description,
+      ...eligibility.criteria,
+      ...themes,
+      ...aliases,
+      ...preferredTerms,
+    ].filter(Boolean).join('. ');
     const facets = uniqueSorted(extractFacetIds(profileText));
-    const focusFacets = uniqueSorted(extractFundFocusFacetIds(name, forTitle, subtitle)).filter((facetId) =>
-      facets.includes(facetId),
-    );
+    // Long narratives often name problems or example media that the fund is not narrowly for
+    // (for example, AI risk in a systems-change fund). Keep established domain focus grounded in
+    // the headline fields, while allowing the two systems-oriented approaches to be recognized
+    // from the richer published context where fund titles rarely spell them out.
+    const focusFacets = uniqueSorted([
+      ...extractFundFocusFacetIds(name, forTitle, subtitle),
+      ...extractFundFocusFacetIds(description, eligibility.criteria.join(' ')).filter((facetId) =>
+        NARRATIVE_APPROACH_FOCUS.has(facetId),
+      ),
+    ]).filter((facetId) => facets.includes(facetId));
     funds.push({
       id,
       slug,
       name,
       subtitle,
       forTitle,
+      description,
+      eligibility: eligibility.text || undefined,
+      eligibilityCriteria: eligibility.criteria,
+      eligibilityExclusions: eligibility.exclusions,
       active: row['active'] !== false,
       available: maybeNum(row['Funding - current']),
       themes,
@@ -226,7 +261,20 @@ export async function buildMatchIndex(client: Bubble, options: BuildOptions = {}
       preferredTerms,
       excludedTerms,
       profileText,
-      profileHash: await digest({ name, subtitle, forTitle, themes, aliases, preferredTerms, excludedTerms, facets, focusFacets }),
+      profileHash: await digest({
+        name,
+        subtitle,
+        forTitle,
+        description,
+        eligibilityCriteria: eligibility.criteria,
+        eligibilityExclusions: eligibility.exclusions,
+        themes,
+        aliases,
+        preferredTerms,
+        excludedTerms,
+        facets,
+        focusFacets,
+      }),
       facets,
       focusFacets,
       coreConcepts: [],
@@ -329,5 +377,12 @@ export function validateMatchIndex(index: MatchIndex): void {
     index.scoring.semanticLexicalWeight;
   if (Math.abs(baselineWeight - 1) > 0.0001 || Math.abs(semanticWeight - 1) > 0.0001) {
     throw new Error('matching v2 weights must total 1');
+  }
+  const boundedAdjustments = [
+    index.scoring.eligibilityBoost ?? 0.15,
+    index.scoring.exclusionPenalty ?? 0.2,
+  ];
+  if (boundedAdjustments.some((value) => !Number.isFinite(value) || value < 0 || value > 1)) {
+    throw new Error('matching v2 eligibility adjustments must be between 0 and 1');
   }
 }

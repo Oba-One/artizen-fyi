@@ -22,6 +22,10 @@ function source(): Record<string, Row[]> {
         Slug: 'project-science',
         Name: 'Open Biology Lab',
         Logline: 'A decentralized laboratory for open scientific research',
+        Description: '[b]A public laboratory[/b] coordinating open biology.',
+        Impact: '<p>Shared scientific infrastructure.</p>',
+        Progress: 'A working prototype and ten partner labs.',
+        Team: 'Researchers and community stewards.',
         'impact tags (impact tag)': ['tag-science', 'tag-ocean'],
         '(old) Artifact Image -crop': '//media.example/project-science.jpg',
       },
@@ -32,6 +36,9 @@ function source(): Record<string, Row[]> {
         'full title': 'DeSci Fund for Open Biology Research',
         subtitle: 'Supporting decentralized laboratories and scientific researchers without truncation',
         'for title': 'For biology, laboratory research, and citizen science',
+        description: '[b]We support open scientific infrastructure.[/b]',
+        eligibility:
+          'Applicants should build public-interest research tools. Applicants must not create surveillance systems.\nWe do not fund private laboratories or weapons research.',
       },
       {
         _id: 'extended-film',
@@ -65,10 +72,23 @@ describe('matching index v2', () => {
     expect(index.semantic?.modelRevision).toMatch(/^[a-f0-9]{40}$/);
     const fund = index.funds.find((candidate) => candidate.id === 'fund-science')!;
     expect(fund.profileText).toContain('Supporting decentralized laboratories and scientific researchers without truncation');
+    expect(fund.description).toBe('We support open scientific infrastructure.');
+    expect(fund.eligibilityCriteria).toEqual(['Applicants should build public-interest research tools.']);
+    expect(fund.eligibilityExclusions).toEqual([
+      'Applicants must not create surveillance systems.',
+      'We do not fund private laboratories or weapons research.',
+    ]);
+    expect(fund.profileText).not.toContain('weapons research');
     expect(fund).not.toHaveProperty('derivedThemes');
     expect(fund.focusFacets).toContain('domain:science-research');
     expect(fund.profileHash).toMatch(/^[a-f0-9]{64}$/);
     expect(index.projects[0].tags).toEqual(['Ocean', 'Science']);
+    expect(index.projects[0].context).toEqual({
+      description: 'A public laboratory coordinating open biology.',
+      impact: 'Shared scientific infrastructure.',
+      progress: 'A working prototype and ten partner labs.',
+      team: 'Researchers and community stewards.',
+    });
     expect(index.projects[0].facets).toContain('domain:science-research');
   });
 
