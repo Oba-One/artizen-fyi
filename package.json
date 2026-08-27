@@ -23,8 +23,7 @@
     "qa:match": "ARTIZEN_MATCH_QA=1 npm run build:client && node scripts/serve-match-qa.mjs",
     "check": "npm run typecheck && npm test && npm run build:client",
     "kv:create": "wrangler kv namespace create CACHE",
-    "types": "wrangler types",
-    "predeploy": "npm run prepare:semantic && npm run build:match-catalog && npm run build:semantic-vectors -- public/match/index.json"
+    "types": "wrangler types"
   },
   "devDependencies": {
     "esbuild": "^0.28.1",

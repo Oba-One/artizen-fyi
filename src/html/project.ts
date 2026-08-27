@@ -1,6 +1,6 @@
 import type { ProjectPage, ProjectSibling, ProjectSiblingFund, ProjectSubmission } from '../artizen';
 import { moneyCells, moneyColumns, moneyHeaders, truncate, usd } from '../format';
-import { artizenLinks, driveBadges, escapeHtml, heroSplit, layout, matchResultsRegion, namedLink, panel, sumField, treeRow } from './layout';
+import { artizenLinks, driveBadges, escapeHtml, heroSplit, layout, namedLink, panel, sumField, treeRow } from './layout';
 
 export function renderProject(project: ProjectPage): string {
   const tags = (project.tags || []).map((tag) => `<span class="badge text-bg-secondary me-1 mb-1">${escapeHtml(tag)}</span>`).join('');
@@ -8,14 +8,11 @@ export function renderProject(project: ProjectPage): string {
   const submissions = project.submissions?.length ? projectSubmissions(project.submissions) : '';
   const siblings = project.siblings?.length ? projectSiblings(project.siblings) : '';
   const siblingFunds = project.sibling_funds?.length ? projectSiblingFunds(project.sibling_funds) : '';
-  const matching = projectMatching(project);
   return layout({
     title: project.name,
     description: project.logline || `Artizen project: ${project.name}`,
     image: project.image,
     tree: true,
-    matchStyles: true,
-    extra: '<script type="module" src="/assets/match-client.js"></script>',
     body: `
       ${heroSplit(
         project.image,
@@ -25,30 +22,12 @@ export function renderProject(project: ProjectPage): string {
           ${tags ? `<div class="mb-2">${tags}</div>` : ''}
           ${artizenLinks(project.artizen_url)}`,
       )}
-      ${matching}
       ${fundingTable}
       ${submissions}
       ${siblings}
       ${siblingFunds}
     `,
   });
-}
-
-function projectMatching(project: ProjectPage): string {
-  return panel(`
-    <section class="artizen-match" data-match-root data-match-mode="detail" data-project-id="${escapeHtml(project.id)}" data-project-slug="${escapeHtml(project.slug)}" aria-labelledby="fund-alignment-title">
-      <div class="artizen-match-heading">
-        <div>
-          <h2 class="artizen-panel-title" id="fund-alignment-title">Fund alignment</h2>
-          <p class="text-muted mb-0">Matches use this project’s public description and all stored impact tags. Past relationships do not affect ranking.</p>
-        </div>
-        <a href="/match" class="btn btn-outline-dark btn-sm">Try another project</a>
-      </div>
-      <p class="artizen-match-note">Alignment is not a guarantee of eligibility, an open application, or a current deadline. Check each fund’s requirements on Artizen.</p>
-${matchResultsRegion('Preparing recommendations…')}
-      <noscript><p class="artizen-note">Fund alignment needs JavaScript to run privately in your browser.</p></noscript>
-    </section>
-  `);
 }
 
 function projectFundingTable(project: ProjectPage): string {

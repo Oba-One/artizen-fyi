@@ -7,29 +7,22 @@
   --line: #D9DBE0;
   --green: #1ACC6C;
   --green-deep: #06AA59;
-  /* Not a brand colour. Algae is 2.1:1 on white and Moss 3.0:1, both under the 4.5:1 that text
-     needs, so green text darkens to this and only ever to this. Fills keep Algae and Moss. */
-  --green-ink: #06773F;
-  --reef: #B3F487;
-  --success: #2DD685;
-  --warn: #D6C52D;
-  --lavender: #C2B6DC;
   --shadow: 0 8px 18px rgba(16, 18, 18, 0.08);
   --radius: 1.15rem;
   --shell: 90rem;
   --artizen-nav-height: calc(1.4rem + 2.4rem + 1.85rem + 1px);
   --bs-primary: var(--green);
   --bs-primary-rgb: 26, 204, 108;
-  --bs-link-color: var(--green-ink);
+  --bs-link-color: var(--green-deep);
   --bs-link-hover-color: var(--ink);
-  --bs-link-color-rgb: 6, 119, 63;
+  --bs-link-color-rgb: 6, 170, 89;
   --bs-link-hover-color-rgb: 16, 18, 18;
   --bs-pagination-color: var(--ink);
   --bs-pagination-hover-color: var(--ink);
   --bs-pagination-focus-color: var(--ink);
   --bs-pagination-active-color: #fff;
-  --bs-pagination-active-bg: var(--green-ink);
-  --bs-pagination-active-border-color: var(--green-ink);
+  --bs-pagination-active-bg: var(--green-deep);
+  --bs-pagination-active-border-color: var(--green-deep);
   --bs-pagination-disabled-color: var(--ink);
   --bs-pagination-disabled-bg: var(--paper);
   --bs-pagination-disabled-border-color: var(--line);
@@ -90,7 +83,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 h1 { font-size: 2.15rem; }
 h2 { font-size: 1.45rem; }
-a { color: var(--green-ink); text-underline-offset: 0.15em; }
+a { color: var(--green-deep); text-underline-offset: 0.15em; }
 a:hover { color: var(--ink); }
 a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .text-muted { color: var(--muted) !important; }
@@ -108,15 +101,22 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border-radius: 999px;
   padding: 0.35em 0.7em;
 }
-/* Same two rules the fit badges follow: a green that can carry white text, and Lavender rather
-   than an off-palette blue for the other category. */
+/* Bootstrap primary is Algae, which cannot carry white type. Every filled green badge — drive
+   multiples, current/active, prize, Curated — uses Moss, the same fill as fit and history. */
+.text-bg-primary {
+  color: #fff !important;
+  background-color: var(--green-deep) !important;
+}
+/* Project is Moss, the Brand fill that can carry white text. Fund is an Interface outline:
+   Lavender is an illustration colour, not chrome. */
 .artizen-kind-project {
-  background: var(--green-ink);
+  background: var(--green-deep);
   color: #fff;
 }
 .artizen-kind-fund {
-  background: var(--lavender);
   color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--line);
 }
 .card {
   background: var(--panel);
@@ -219,8 +219,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .page-item.active .page-link,
 .pagination .active > .page-link,
 .dt-container .dt-paging .page-item.current .page-link {
-  background: var(--green-ink) !important;
-  border-color: var(--green-ink) !important;
+  background: var(--green-deep) !important;
+  border-color: var(--green-deep) !important;
   color: #fff !important;
 }
 .page-item.disabled .page-link,
@@ -325,8 +325,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-match-intro { margin-bottom: 1.5rem; }
 .artizen-match-intro h1 { margin: 0.65rem 0 0.4rem; }
 .artizen-match-eyebrow {
-  color: var(--ink);
-  background: var(--reef);
+  color: #fff;
+  background: var(--ink);
 }
 .artizen-match-page form {
   display: grid;
@@ -524,7 +524,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   gap: 0.5rem 0.75rem;
   margin-top: 0.6rem;
   padding: 0.7rem 0.85rem;
-  border: 1px solid var(--warn);
+  border: 1px solid var(--line);
   border-radius: 0.8rem;
   background: var(--paper);
   color: var(--ink);
@@ -550,7 +550,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-match-refine { margin-top: 0.75rem; }
 .artizen-match-refine summary {
   cursor: pointer;
-  color: var(--green-ink);
+  color: var(--green-deep);
   font-size: 0.88rem;
   list-style-position: inside;
 }
@@ -603,7 +603,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   padding: 0.2rem 0;
   border: 0;
   background: none;
-  color: var(--green-ink);
+  color: var(--green-deep);
   font-size: 0.85rem;
   cursor: pointer;
   text-decoration: underline;
@@ -698,9 +698,6 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   margin: 0.75rem 0 0;
 }
 .artizen-results-summary {
-  display: flex;
-  align-items: start;
-  gap: 0.5rem;
   /* Sized to its text, so the info button sits beside the sentence it explains rather than being
      pushed to the far edge of the row. */
   flex: 0 1 auto;
@@ -720,20 +717,23 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   flex: none;
 }
 .artizen-info-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  width: 2rem;
-  height: 2rem;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--panel);
-  color: var(--muted);
-  font-size: 0.95rem;
+  appearance: none;
+  display: inline-block;
+  margin: 0 0 0 0.2em;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  line-height: 1;
+  vertical-align: baseline;
   cursor: pointer;
 }
-.artizen-info-button:hover { color: var(--ink); border-color: var(--green); }
+.artizen-info-button:hover { color: var(--ink); }
+.artizen-info-button:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
 .artizen-semantic-controls {
   align-items: center;
   display: flex;
@@ -759,7 +759,6 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-ai-button:hover:not(:disabled) { background: var(--paper); }
 .artizen-ai-button:disabled { cursor: default; color: var(--muted); }
-.artizen-ai-button .bi { color: var(--green-ink); }
 .artizen-ai-size {
   padding: 0.05rem 0.4rem;
   border-radius: 999px;
@@ -790,7 +789,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   padding: 0;
   border: 0;
   background: none;
-  color: var(--green-ink);
+  color: var(--green-deep);
   font-size: 0.82rem;
   cursor: pointer;
   text-decoration: underline;
@@ -916,7 +915,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border: 0;
   background: none;
   padding: 0.25rem 0.3rem;
-  color: var(--green-ink);
+  color: var(--green-deep);
   font-size: 0.82rem;
   white-space: nowrap;
   cursor: pointer;
@@ -945,6 +944,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   white-space: nowrap;
 }
 .artizen-tools-row {
+  --artizen-tool-height: 2.45rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -960,21 +960,28 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-fund-search .bi {
   position: absolute;
+  top: 50%;
   left: 0.7rem;
   color: var(--muted);
   font-size: 0.85rem;
   pointer-events: none;
+  transform: translateY(-50%);
 }
-.artizen-fund-search input {
-  padding-left: 2.1rem;
+.artizen-match-page .artizen-fund-search input.form-control,
+.artizen-sort-select,
+.artizen-tools-row .artizen-match-toggle {
+  box-sizing: border-box;
+  height: var(--artizen-tool-height);
+  min-height: var(--artizen-tool-height);
+  margin-bottom: 0;
+  padding-block: 0;
   border-radius: 999px;
   font-size: 0.88rem;
 }
+.artizen-match-page .artizen-fund-search input.form-control { padding-left: 2.1rem; }
 .artizen-sort-select {
   flex: 0 0 auto;
   width: auto;
-  border-radius: 999px;
-  font-size: 0.88rem;
 }
 
 /* Cards arrive rather than appear. `--card-index` is set only on a fresh set of results, so a
@@ -986,11 +993,10 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   }
 }
 
-/* Subgrid lets every card's title, description, meter, badges, and action line up with its
-   siblings, and collapse together when a row needs less room. */
+/* Cap at three columns so a card keeps enough width for a title, a meter, and the marks. */
 .artizen-match-results {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 19rem), 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   column-gap: 0.85rem;
   row-gap: 0.5rem;
 }
@@ -1011,27 +1017,27 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-match-card-inactive {
   border-style: dashed;
-  border-color: var(--warn);
+  border-color: var(--line);
   background: var(--paper);
 }
 .artizen-match-card-head {
   display: flex;
   align-items: start;
   gap: 0.7rem;
+  grid-row: 1;
 }
 .artizen-match-card-title {
   display: flex;
+  flex-direction: column;
   align-items: start;
-  justify-content: space-between;
-  gap: 0.65rem;
+  gap: 0.4rem;
   flex: 1;
   min-width: 0;
 }
 .artizen-match-card-marks {
   display: flex;
-  flex: none;
-  flex-direction: column;
-  align-items: end;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.3rem;
 }
 .artizen-match-thumb,
@@ -1055,10 +1061,14 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   margin: 0;
   font-size: 1.05rem;
   min-width: 0;
+  align-self: stretch;
   overflow-wrap: anywhere;
   text-wrap: balance;
 }
-.artizen-match-card h3 a { color: var(--ink); }
+.artizen-match-card h3 a {
+  color: var(--ink);
+  text-decoration: none;
+}
 .artizen-match-card-subtitle {
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -1071,11 +1081,13 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   font-size: 0.92rem;
   line-height: 1.45;
   text-wrap: pretty;
+  grid-row: 2;
 }
 .artizen-match-fit {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  grid-row: 3;
 }
 .artizen-match-fit-track {
   flex: 1;
@@ -1090,9 +1102,9 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border-radius: 999px;
   background: var(--muted);
 }
-.artizen-fit-fill-strong { background: var(--green-deep); }
-.artizen-fit-fill-good { background: var(--green); }
-.artizen-fit-fill-exploratory { background: var(--reef); }
+.artizen-fit-fill-strong,
+.artizen-fit-fill-good { background: var(--green-deep); }
+.artizen-fit-fill-exploratory { background: color-mix(in srgb, var(--green-deep) 42%, var(--paper)); }
 .artizen-fit-fill-limited { background: var(--line); }
 .artizen-match-fit-value {
   min-width: 1.9rem;
@@ -1107,22 +1119,28 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-content: start;
   gap: 0.35rem;
 }
-/* The readable green, not Moss: this one carries 12px text, where Moss would be 3.0:1. The meter
-   fill below keeps Moss, because a bar has nothing to read. */
-.artizen-fit-strong { color: #fff; background: var(--green-ink); }
-.artizen-fit-good { color: var(--ink); background: var(--success); }
+/* Strong and Good share Moss with Fund details and the history badges. The meter has no type
+   on the fill; the badges put white on the same green so the card stays one colour. */
+.artizen-fit-strong { color: #fff; background: var(--green-deep); }
+.artizen-fit-good { color: #fff; background: var(--green-deep); }
 .artizen-fit-exploratory { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 .artizen-fit-limited { color: var(--muted); background: transparent; border: 1px dashed var(--line); }
-/* Lavender, so "you have already been here" reads as its own category rather than another shade
-   of the green the fit bands own. */
-.artizen-known-relationship { color: var(--ink); background: var(--lavender); }
-/* Curating is the normal state, so it states itself and stops there - Artizen's neutral outline
-   badge. That leaves the greens to mean one thing on a card, which is how well the fund fits.
-   Not curating keeps the warning fill, because it is the exception worth interrupting for. */
-.artizen-status-active { color: var(--ink); background: var(--panel); border: 1px solid var(--line); }
-.artizen-status-inactive { color: var(--ink); background: var(--warn); }
-.artizen-status-available { color: var(--green-ink); background: var(--panel); border: 1px solid var(--line); }
+/* Same filled treatment as Strong / Project: white type on Moss, not Algae. */
+.artizen-known-relationship {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  color: #fff;
+  background: var(--green-deep);
+}
+.artizen-known-relationship .bi {
+  font-size: 0.9em;
+  line-height: 1;
+}
+.artizen-status-inactive { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
+.artizen-status-available { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 .artizen-match-reasons {
+  grid-row: 4;
   margin: 0;
   padding-left: 1.15rem;
   color: var(--muted);
@@ -1131,6 +1149,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-match-reasons li + li { margin-top: 0.25rem; }
 .artizen-match-warnings {
+  grid-row: 5;
   margin: 0;
   padding: 0.55rem 0.7rem 0.55rem 1.75rem;
   border-radius: 0.65rem;
@@ -1145,19 +1164,21 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-items: end;
   justify-content: space-between;
   align-self: end;
-  gap: 0.5rem;
+  grid-row: 6;
+  gap: 0.75rem;
 }
 .artizen-match-card-open {
   padding: 0.5rem 0 0;
   border: 0;
   background: none;
-  color: var(--green-ink);
+  color: var(--green-deep);
   font-size: 0.88rem;
   cursor: pointer;
   text-decoration: underline;
   text-underline-offset: 0.15em;
 }
 .artizen-match-card-star {
+  appearance: none;
   flex: none;
   padding: 0.35rem 0.15rem 0;
   border: 0;
@@ -1168,12 +1189,11 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   cursor: pointer;
 }
 .artizen-match-card-star:hover,
-.artizen-match-card-star[aria-pressed="true"] { color: var(--green-ink); }
-/* Outlined rather than filled: movement is a footnote on the card, not a third status. */
+.artizen-match-card-star[aria-pressed="true"] { color: var(--green-deep); }
+/* Same filled treatment as Strong / Project: Moss can carry white text, Algae cannot. */
 .artizen-match-moved {
-  color: var(--green-ink);
-  background: var(--panel);
-  border: 1px solid var(--green);
+  color: #fff;
+  background: var(--green-deep);
   white-space: nowrap;
 }
 .artizen-match-more-row {
@@ -1189,7 +1209,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   padding: 0;
   border: 0;
   background: none;
-  color: var(--green-ink);
+  color: var(--green-deep);
   font-size: 0.88rem;
   cursor: pointer;
   text-decoration: underline;
@@ -1275,7 +1295,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   cursor: pointer;
 }
 .artizen-fund-dialog-ai:hover { background: var(--paper); }
-.artizen-fund-dialog-ai .bi { color: var(--green-ink); }
+.artizen-fund-dialog-ai .bi { color: var(--green-deep); }
 .artizen-fund-dialog-ai-hint {
   display: block;
   margin-top: 0.35rem !important;
@@ -1294,6 +1314,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   font-size: 0.85rem;
 }
 .artizen-fund-dialog-facts { margin: 0; }
+.artizen-fund-dialog-body > * + .artizen-fund-dialog-facts { margin-top: 0.9rem; }
 .artizen-fund-dialog-row {
   display: grid;
   grid-template-columns: minmax(4rem, 5rem) minmax(0, 1fr);
@@ -1325,7 +1346,12 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   white-space: pre-line;
 }
 
+@container matchout (width < 62rem) {
+  .artizen-match-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @container matchout (width < 34rem) {
+  .artizen-match-results { grid-template-columns: 1fr; }
   .artizen-match-toggle {
     /* `1 1 0` let three toggles share the row evenly and spill their labels outside the pill at
        375px. Growing from the content width instead keeps every label inside its own pill. */
@@ -1334,19 +1360,9 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
     font-size: 0.82rem;
   }
   .artizen-match-toggle > .artizen-match-count { flex: none; }
-  /* Sharing the row with the fit badge left fund names about thirty characters of space, which
-     truncated most of them. Give the title the full width and let the badge drop beneath it. */
-  .artizen-match-card-title { flex-wrap: wrap; row-gap: 0.4rem; }
   .artizen-match-card-title h3 {
-    flex: 1 1 100%;
     -webkit-line-clamp: 4;
     line-clamp: 4;
-  }
-  /* With the title on its own line the marks have room to sit side by side. */
-  .artizen-match-card-marks {
-    flex-direction: row;
-    align-items: center;
-    flex-wrap: wrap;
   }
   .artizen-results-bar { flex-direction: column; gap: 0.5rem; }
   .artizen-semantic-controls { justify-content: start; }
@@ -1522,7 +1538,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   line-height: 1;
   cursor: pointer;
 }
-.artizen-nav-toggle:hover { color: var(--green-ink); }
+.artizen-nav-toggle:hover { color: var(--green-deep); }
 .artizen-nav-toggle .bi { display: block; line-height: 1; }
 @media (max-width: 639px) {
   .artizen-nav-inner {
