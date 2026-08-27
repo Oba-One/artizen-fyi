@@ -46,7 +46,9 @@ const kv = {
 
 const assetTypes = {
   '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
+  '.wasm': 'application/wasm',
 };
 
 function contentType(pathname) {

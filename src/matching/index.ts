@@ -13,6 +13,7 @@ import type {
 import { firstMedia, hidden, int, mapSome, maybeNum, mediaUrl, num, text } from '../artizen/util';
 import { SEMANTIC_CATALOG } from './semantic-config';
 import { cleanNarrative, splitEligibility } from './narrative';
+import { projectVectorText, vectorFingerprint } from './semantic-text';
 import {
   MATCH_FACETS,
   MATCH_TAXONOMY_VERSION,
@@ -22,7 +23,6 @@ import {
 } from './taxonomy';
 
 export const MATCH_INDEX_KEY = 'artizen/matching/v2';
-const NARRATIVE_APPROACH_FOCUS = new Set(['approach:circular-economy', 'approach:systems-change']);
 
 export const DEFAULT_SCORING: ScoringConfig = {
   version: 'context-2026-08-26.1',
@@ -192,18 +192,22 @@ export async function buildMatchIndex(client: Bubble, options: BuildOptions = {}
       team: cleanNarrative(row['Team']) || undefined,
     };
     const tags = uniqueSorted(strings(row['impact tags (impact tag)']).flatMap((tagId) => tagsById.get(tagId) || []));
-    return {
+    const project: ProjectProfile = {
       id,
       slug: text(row['Slug']) || id,
       name,
       description,
       tags,
       context,
-      facets: extractFacetIds(name, description, ...Object.values(context), tags.join(' ')),
+      // Team biographies and progress reports are useful eligibility evidence, but they do not
+      // define what the work is about and must not mint hard project facets.
+      facets: extractFacetIds(name, description, context.description, context.impact, tags.join(' ')),
       image:
         artifactImages.get(id)?.image ||
         firstMedia(row['(old) Artifact Image -crop'], row['Profile image lead creator']),
     };
+    project.semanticFingerprint = vectorFingerprint(projectVectorText(project));
+    return project;
   }).sort((a, b) => a.name.localeCompare(b.name));
 
   const funds: FundProfile[] = [];
@@ -234,16 +238,12 @@ export async function buildMatchIndex(client: Bubble, options: BuildOptions = {}
       ...preferredTerms,
     ].filter(Boolean).join('. ');
     const facets = uniqueSorted(extractFacetIds(profileText));
-    // Long narratives often name problems or example media that the fund is not narrowly for
-    // (for example, AI risk in a systems-change fund). Keep established domain focus grounded in
-    // the headline fields, while allowing the two systems-oriented approaches to be recognized
-    // from the richer published context where fund titles rarely spell them out.
-    const focusFacets = uniqueSorted([
-      ...extractFundFocusFacetIds(name, forTitle, subtitle),
-      ...extractFundFocusFacetIds(description, eligibility.criteria.join(' ')).filter((facetId) =>
-        NARRATIVE_APPROACH_FOCUS.has(facetId),
-      ),
-    ]).filter((facetId) => facets.includes(facetId));
+    // Long narratives often name problems, examples, or adjacent methods that the fund is not
+    // narrowly for. Keep hard focus guards grounded in the headline fields; narrative matches
+    // remain ordinary facets until they have been reviewed across the live catalog.
+    const focusFacets = extractFundFocusFacetIds(name, forTitle, subtitle).filter((facetId) =>
+      facets.includes(facetId),
+    );
     funds.push({
       id,
       slug,
@@ -365,6 +365,9 @@ export function validateMatchIndex(index: MatchIndex): void {
     }
   }
   for (const project of index.projects) {
+    if (project.semanticFingerprint && !/^[a-f0-9]{16}$/.test(project.semanticFingerprint)) {
+      throw new Error(`matching v2 project semantic fingerprint is invalid: ${project.id}`);
+    }
     for (const [fundId] of project.history || []) {
       if (!fundIds.has(fundId)) throw new Error('matching v2 project history references a missing fund');
     }

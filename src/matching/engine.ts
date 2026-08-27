@@ -378,8 +378,6 @@ export function matchFunds(
       scoringInput.description,
       scoringInput.context?.description,
       scoringInput.context?.impact,
-      scoringInput.context?.progress,
-      scoringInput.context?.team,
       scoringInput.tags.join(' '),
     ),
   );

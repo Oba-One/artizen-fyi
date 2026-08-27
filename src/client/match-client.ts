@@ -125,7 +125,12 @@ class BrowserMatcher {
     if (!input.projectId || input.context) return input;
     let pending = this.projectDetails.get(input.projectId);
     if (!pending) {
-      pending = this.fetchProjectDetail(input.projectId).catch(() => undefined);
+      pending = this.fetchProjectDetail(input.projectId)
+        .then((project) => {
+          if (project) this.worker.postMessage({ type: 'projects', projects: [project] });
+          return project;
+        })
+        .catch(() => undefined);
       this.projectDetails.set(input.projectId, pending);
     }
     const project = await pending;
@@ -133,7 +138,6 @@ class BrowserMatcher {
       this.projectDetails.delete(input.projectId);
       return input;
     }
-    this.worker.postMessage({ type: 'projects', projects: [project] });
     return { ...input, context: project.context };
   }
 
@@ -213,7 +217,7 @@ function validIndex(value: unknown): value is BrowserMatchIndex {
 }
 
 /**
- * Fund-only first. The combined document is 3 MB and a first paint uses roughly 250 KB of it, so
+ * Fund-only first. The combined document is 3 MB and a first paint uses roughly 260 KB of it, so
  * the browser starts from the deployment-coupled core document and fetches projects separately.
  */
 async function createMatcher(): Promise<BrowserMatcher> {
@@ -557,7 +561,7 @@ function detailRow(label: string, value: string): HTMLElement {
 
 function breakdownList(recommendation: BrowserRecommendation): HTMLElement | undefined {
   if (!('breakdown' in recommendation)) return undefined;
-  const parts: Array<[string, number | undefined]> = [
+  const parts: Array<[string, number | undefined, ('positive' | 'warning')?]> = [
     ['Shared language', recommendation.breakdown.lexical],
     ['Shared focus', recommendation.breakdown.facets],
     ['Distinctive concepts', recommendation.breakdown.coreCoverage],
@@ -565,12 +569,13 @@ function breakdownList(recommendation: BrowserRecommendation): HTMLElement | und
     [
       'Potential exclusion conflict',
       recommendation.breakdown.exclusionRisk ? recommendation.breakdown.exclusionRisk : undefined,
+      'warning',
     ],
     ['On-device similarity', recommendation.breakdown.semantic],
   ];
   const list = document.createElement('div');
   list.className = 'artizen-fund-dialog-breakdown';
-  for (const [label, value] of parts) {
+  for (const [label, value, tone = 'positive'] of parts) {
     if (value == null) continue;
     const row = document.createElement('div');
     const name = document.createElement('span');
@@ -578,7 +583,7 @@ function breakdownList(recommendation: BrowserRecommendation): HTMLElement | und
     const track = document.createElement('span');
     track.className = 'artizen-match-fit-track';
     const fill = document.createElement('span');
-    fill.className = 'artizen-match-fit-fill artizen-fit-fill-good';
+    fill.className = `artizen-match-fit-fill ${tone === 'warning' ? 'artizen-fit-fill-warning' : 'artizen-fit-fill-good'}`;
     fill.style.width = `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
     track.append(fill);
     row.append(name, track);

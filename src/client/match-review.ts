@@ -5,6 +5,7 @@ import type {
   MatchResult,
   ProjectMatchInput,
 } from '../artizen/types';
+import { matchInputForProject } from '../matching/project-search';
 
 const REVIEW_VERSION = 'cross-domain-review-2026-08-23.1';
 const POOL_TOP = 12;
@@ -117,7 +118,7 @@ function splitFor(projectId: string): 'tuning' | 'holdout' {
 function inputFor(index: MatchIndex, projectId: string): ProjectMatchInput {
   const project = index.projects.find((candidate) => candidate.id === projectId);
   if (!project) throw new Error('Project is missing from the catalog');
-  return { projectId, title: project.name, description: project.description, tags: project.tags };
+  return matchInputForProject(project);
 }
 
 function ranked<T extends FundRecommendation>(recommendations: T[]): Map<string, { rank: number; recommendation: T }> {

@@ -27,6 +27,25 @@ export function matchInputForProject(
   };
 }
 
+/**
+ * Adds hydrated records to the compact picker catalog without dropping projects that arrived in
+ * another message. Omitted narrative data stays attached when a later compact row has the same id.
+ */
+export function mergeProjectProfiles(
+  existing: ProjectProfile[],
+  incoming: ProjectProfile[],
+): ProjectProfile[] {
+  const merged = new Map(existing.map((project) => [project.id, project]));
+  for (const project of incoming) {
+    const current = merged.get(project.id);
+    merged.set(
+      project.id,
+      current ? { ...current, ...project, context: project.context ?? current.context } : project,
+    );
+  }
+  return [...merged.values()];
+}
+
 export function findExactProject(projects: ProjectProfile[], query: string): ProjectProfile | undefined {
   const needle = normalize(query);
   if (!needle) return undefined;

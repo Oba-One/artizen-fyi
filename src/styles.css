@@ -1092,6 +1092,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-fit-fill-strong { background: var(--green-deep); }
 .artizen-fit-fill-good { background: var(--green); }
+.artizen-fit-fill-warning { background: var(--warn); }
 .artizen-fit-fill-exploratory { background: var(--reef); }
 .artizen-fit-fill-limited { background: var(--line); }
 .artizen-match-fit-value {

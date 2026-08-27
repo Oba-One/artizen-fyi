@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest';
 import type { FundProfile, MatchIndex, ProjectHistory, ProjectMatchInput } from '../src/artizen/types';
 import { isMatchIndexStale, MATCH_INDEX_STALE_MS, matchFunds, prepareMatchIndex } from '../src/matching/engine';
 import { DEFAULT_SCORING } from '../src/matching/index';
-import { MATCH_FACETS, MATCH_TAXONOMY_VERSION, extractFacetIds } from '../src/matching/taxonomy';
+import {
+  MATCH_FACETS,
+  MATCH_TAXONOMY_VERSION,
+  extractFacetIds,
+  extractFundFocusFacetIds,
+} from '../src/matching/taxonomy';
 
 const hash = 'a'.repeat(64);
 
@@ -109,6 +114,27 @@ function scores(index: MatchIndex, input: ProjectMatchInput): Array<[string, num
 }
 
 describe('matching engine v2', () => {
+  it('does not treat generic care language as a narrow health focus', () => {
+    expect(extractFacetIds('Care for plants, grow creatures, and restore worlds')).not.toContain(
+      'domain:health-wellness',
+    );
+    expect(extractFacetIds('Community health, healing, and wellness support')).toContain(
+      'domain:health-wellness',
+    );
+  });
+
+  it('keeps unreviewed systems approaches as ordinary facets rather than hard focus guards', () => {
+    const systemsFund = fund(
+      'systems',
+      'Systems Change Fund',
+      'For positive-sum systems change and circular economy experiments.',
+    );
+    expect(systemsFund.facets).toEqual(
+      expect.arrayContaining(['approach:circular-economy', 'approach:systems-change']),
+    );
+    expect(extractFundFocusFacetIds(systemsFund.name, systemsFund.subtitle)).toEqual([]);
+  });
+
   it('uses a monthly freshness guard for deploy-scoped catalogs', () => {
     const generatedAt = '2026-08-01T00:00:00.000Z';
     const generated = Date.parse(generatedAt);
@@ -218,6 +244,30 @@ describe('matching engine v2', () => {
     expect(result.recommendations.find((row) => row.fundId === 'ocean')?.fit).toBe('exploratory');
   });
 
+  it('does not mint project facets from team biographies or progress reports', () => {
+    const index = fixture();
+    index.funds = [
+      fund(
+        'ai',
+        'AI Fund',
+        'For artificial intelligence, machine learning, and software projects.',
+        ['domain:ai-technology'],
+      ),
+    ];
+    index.source.funds = 1;
+    const result = matchFunds(prepareMatchIndex(index), {
+      description: 'A community mural and local arts program',
+      tags: ['Art'],
+      context: {
+        progress: 'Women in Kenya tested the first prototype.',
+        team: 'An AI engineer and machine learning researcher advises the artists.',
+      },
+    });
+
+    expect(result.recommendations[0].supportedFocus).toBe(false);
+    expect(result.recommendations[0].fit).not.toMatch(/strong|good/);
+  });
+
   it('uses positive eligibility as a cautious boost and keeps explicit exclusions separate', () => {
     const index = fixture();
     const eligible = fund('eligible', 'Community Tool Fund', 'For open community coordination tools');
@@ -253,62 +303,6 @@ describe('matching engine v2', () => {
     });
     expect(result.recommendations[0].breakdown.exclusionRisk).toBe(0);
     expect(result.recommendations[0].warnings).toBeUndefined();
-  });
-
-  it('puts the Metacrisis-style systems fund in Green Goods’ first page using general concepts', () => {
-    const index = fixture();
-    const target = fund(
-      'metacrisis',
-      'Metacrisis Fund for Positive-Sum Interventions',
-      'Supports upstream interventions that change generator functions and enable positive-sum systems change.',
-    );
-    target.description =
-      'For collective sensemaking, systemic change, and economic interventions that internalize externalities.';
-    target.eligibilityCriteria = [
-      'Projects may develop circular economy and regenerative economics tools for positive-sum coordination.',
-    ];
-    target.profileText = [target.name, target.subtitle, target.description, ...target.eligibilityCriteria].join('. ');
-    target.facets = extractFacetIds(target.profileText);
-    target.focusFacets = ['approach:circular-economy', 'approach:systems-change'];
-    const decoys = Array.from({ length: 16 }, (_, position) =>
-      fund(
-        `decoy-${position}`,
-        `Creative Community Fund ${position}`,
-        'For local artists, community storytelling, education, and cultural events.',
-      ),
-    );
-    index.funds = [...decoys, target];
-    index.source.funds = index.funds.length;
-
-    const semanticScores = new Map(
-      index.funds.map((candidate) => [candidate.id, candidate.id === target.id ? 0.58 : 0.65]),
-    );
-    const result = matchFunds(
-      prepareMatchIndex(index),
-      {
-        projectId: 'green-goods',
-        title: 'Green Goods',
-        description: 'Tools that fund local regenerative public goods.',
-        tags: ['Circular Economy', 'Regenerative Economics', 'Coordination', 'Commons'],
-        context: {
-          impact:
-            'Builds a circular economy and positive-sum coordination system by internalizing externalities and supporting systems change.',
-          progress: 'Working tools support collective sensemaking and upstream intervention.',
-        },
-      },
-      semanticScores,
-    );
-    const rank = result.recommendations.findIndex((row) => row.fundId === target.id);
-    const recommendation = result.recommendations[rank];
-
-    expect(rank).toBeGreaterThanOrEqual(0);
-    expect(rank).toBeLessThan(12);
-    expect(recommendation.reasons.some((reason) => reason.kind === 'eligibility')).toBe(true);
-    expect(extractFacetIds('Green Goods')).toEqual([]);
-    expect(extractFacetIds('circular economy and positive-sum systems change')).toEqual([
-      'approach:circular-economy',
-      'approach:systems-change',
-    ]);
   });
 
   it('returns insufficient evidence instead of catalog-relative guesses', () => {

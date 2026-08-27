@@ -29,6 +29,26 @@ export function matchInputVectorText(input: ProjectMatchInput): string {
   ].filter(Boolean).join('. ');
 }
 
+/** The canonical fingerprint still travels with compact picker rows whose context was removed. */
+export function projectVectorFingerprint(
+  project: Pick<ProjectProfile, 'name' | 'description' | 'tags' | 'context' | 'semanticFingerprint'>,
+): string {
+  return project.semanticFingerprint || vectorFingerprint(projectVectorText(project));
+}
+
+/**
+ * Context is not editable in the matcher and may be absent from a compact picker row. The fields
+ * a visitor can refine must still match exactly; supplied context is compared when both sides have
+ * it so a genuinely different full input cannot borrow the catalog vector.
+ */
+export function matchesPreparedProjectInput(input: ProjectMatchInput, project: ProjectProfile): boolean {
+  if (input.title !== project.name || input.description !== project.description) return false;
+  if (input.tags.length !== project.tags.length || input.tags.some((tag, index) => tag !== project.tags[index])) {
+    return false;
+  }
+  return !input.context || !project.context || matchInputVectorText(input) === projectVectorText(project);
+}
+
 /**
  * A short non-cryptographic fingerprint of that text, stored beside each precomputed vector.
  * It exists to detect staleness, not to resist tampering: when a project's name, description, or

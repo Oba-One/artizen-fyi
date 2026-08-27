@@ -338,6 +338,8 @@ export type ProjectProfile = {
   description: string;
   tags: string[];
   context?: ProjectNarrative;
+  /** Fingerprint of the full text embedded for this catalog project, including narrative context. */
+  semanticFingerprint?: string;
   facets: string[];
   image?: string;
   history?: ProjectHistory;

@@ -2,7 +2,12 @@
 
 import type { MatchIndex, ProjectMatchInput, ProjectProfile } from '../artizen/types';
 import { semanticManifest } from '../matching/semantic-config';
-import { matchInputVectorText, projectVectorText, vectorBucket, vectorFingerprint } from '../matching/semantic-text';
+import {
+  matchesPreparedProjectInput,
+  projectVectorFingerprint,
+  vectorBucket,
+  vectorFingerprint,
+} from '../matching/semantic-text';
 import { parseVectorCatalog, scoreAgainstFunds } from './vector-catalog';
 
 /**
@@ -38,7 +43,23 @@ export class PrecomputedSemanticScorer {
    */
   private readonly shards = new Map<number, Promise<Map<string, Float32Array> | undefined>>();
 
-  constructor(private readonly index: MatchIndex) {}
+  constructor(private index: MatchIndex) {}
+
+  /**
+   * Keeps loaded fund vectors and unaffected shards when compact or hydrated project records
+   * arrive. A shard is invalidated only when the canonical fingerprints it should contain change.
+   */
+  updateProjects(projects: ProjectProfile[]): void {
+    const manifest = semanticManifest(this.index);
+    if (manifest) {
+      const before = this.projectFingerprintsByBucket(this.index.projects, manifest.projectVectorBuckets);
+      const after = this.projectFingerprintsByBucket(projects, manifest.projectVectorBuckets);
+      for (const bucket of new Set([...before.keys(), ...after.keys()])) {
+        if (before.get(bucket) !== after.get(bucket)) this.shards.delete(bucket);
+      }
+    }
+    this.index = { ...this.index, projects };
+  }
 
   /**
    * Only the fund vectors, which every comparison needs. Project vectors are fetched a shard at a
@@ -77,7 +98,7 @@ export class PrecomputedSemanticScorer {
     if (!project) return {};
     // Checked before the shard is fetched, not after: an edited project is never going to match a
     // stored vector, so there is nothing to download.
-    if (matchInputVectorText(input) !== projectVectorText(project)) return { downgrade: 'edited' };
+    if (!matchesPreparedProjectInput(input, project)) return { downgrade: 'edited' };
     const vectors = await this.shard(manifest, project);
     const vector = vectors?.get(project.id);
     if (!vector) return {};
@@ -96,18 +117,29 @@ export class PrecomputedSemanticScorer {
       const expected = new Map(
         this.index.projects
           .filter((candidate) => vectorBucket(candidate.id, manifest.projectVectorBuckets) === bucket)
-          .map((candidate) => [candidate.id, vectorFingerprint(projectVectorText(candidate))]),
+          .map((candidate) => [candidate.id, projectVectorFingerprint(candidate)]),
       );
-      pending = this.fetchCatalog(manifest, `${manifest.projectVectorPrefix}${bucket}.bin`, expected);
-      pending = pending.then((vectors) => {
+      const load = this.fetchCatalog(manifest, `${manifest.projectVectorPrefix}${bucket}.bin`, expected);
+      pending = load.then((vectors) => {
         // Keep successful shards, including empty but valid ones. A failed request is `undefined`
         // and must be retried by the next comparison rather than memoised for the whole session.
-        if (!vectors) this.shards.delete(bucket);
+        if (!vectors && this.shards.get(bucket) === pending) this.shards.delete(bucket);
         return vectors;
       });
       this.shards.set(bucket, pending);
     }
     return pending;
+  }
+
+  private projectFingerprintsByBucket(projects: ProjectProfile[], buckets: number): Map<number, string> {
+    const grouped = new Map<number, string[]>();
+    for (const project of projects) {
+      const bucket = vectorBucket(project.id, buckets);
+      const fingerprints = grouped.get(bucket) || [];
+      fingerprints.push(`${project.id}:${projectVectorFingerprint(project)}`);
+      grouped.set(bucket, fingerprints);
+    }
+    return new Map([...grouped].map(([bucket, fingerprints]) => [bucket, fingerprints.sort().join('|')]));
   }
 
   private async fetchCatalog(
