@@ -3,7 +3,11 @@
 import type { MatchIndex, ProjectMatchInput, ProjectProfile } from '../artizen/types';
 import { matchFunds, prepareMatchIndex, type PreparedMatchIndex } from '../matching/engine';
 import { mergeProjectProfiles } from '../matching/project-search';
-import { PrecomputedSemanticScorer, type PrecomputedOutcome } from './precomputed-scorer';
+import {
+  PrecomputedSemanticScorer,
+  type PrecomputedFallback,
+  type PrecomputedOutcome,
+} from './precomputed-scorer';
 
 type WorkerRequest =
   | { type: 'init'; index: MatchIndex }
@@ -34,7 +38,7 @@ function initializeIndex(index: MatchIndex): void {
  */
 async function precomputedScores(input: ProjectMatchInput): Promise<PrecomputedOutcome> {
   if (!precomputed || !input.projectId) return {};
-  if (!(await precomputed.load())) return {};
+  if (!(await precomputed.load())) return { fallback: precomputed.loadFallback || 'assets-unavailable' };
   return precomputed.score(input);
 }
 
@@ -110,11 +114,15 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
     let semanticFallback: string | undefined;
     let semanticSource: 'precomputed' | 'on-device' | undefined;
     let semanticDowngrade: 'edited' | undefined;
+    let preparedFallback: PrecomputedFallback | undefined;
     const ready = await precomputedScores(event.data.input);
     semanticDowngrade = ready.downgrade;
+    preparedFallback = ready.fallback;
     if (ready.scores && coversEveryFund(ready.scores, prepared)) {
       result = matchFunds(prepared, event.data.input, ready.scores);
       semanticSource = 'precomputed';
+    } else if (ready.scores) {
+      preparedFallback = 'assets-incomplete';
     }
     if (!result && event.data.semantic) {
       try {
@@ -127,6 +135,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
         if (!coversEveryFund(scores, prepared)) throw new Error('The local model could not score every fund');
         result = matchFunds(prepared, event.data.input, scores);
         semanticSource = 'on-device';
+        preparedFallback = undefined;
       } catch (error) {
         result = matchFunds(prepared, event.data.input);
         semanticFallback = error instanceof Error ? error.message : String(error);
@@ -139,6 +148,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
       result,
       semanticFallback,
       semanticSource,
+      preparedFallback,
       // Only worth reporting when nothing replaced it; an on-device run already covers the gap.
       semanticDowngrade: semanticSource ? undefined : semanticDowngrade,
     });

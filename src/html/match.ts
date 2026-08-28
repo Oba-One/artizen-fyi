@@ -33,37 +33,39 @@ export function renderMatch(): string {
             <label><input type="radio" name="match-source" value="describe"> Describe a project</label>
           </fieldset>
 
-          <section data-source-panel="existing" aria-labelledby="existing-project-title">
-            <h2 class="visually-hidden" id="existing-project-title">Select a project</h2>
-            <div class="artizen-project-picker">
-              <label class="visually-hidden" for="match-project">Search projects by name</label>
-              <div class="artizen-project-field">
-                <i class="bi bi-search artizen-project-icon" aria-hidden="true"></i>
-                <input class="form-control" id="match-project" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="match-project-options" aria-describedby="match-project-help" autocomplete="off" placeholder="Search by project name" data-project-input required>
-                <button class="artizen-project-clear" type="button" data-project-clear aria-label="Clear project search" hidden>&times;</button>
+          <div class="artizen-match-source-panels">
+            <section data-source-panel="existing" aria-labelledby="existing-project-title">
+              <h2 class="visually-hidden" id="existing-project-title">Select a project</h2>
+              <div class="artizen-project-picker">
+                <label class="visually-hidden" for="match-project">Search projects by name</label>
+                <div class="artizen-project-field">
+                  <i class="bi bi-search artizen-project-icon" aria-hidden="true"></i>
+                  <input class="form-control" id="match-project" type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="match-project-options" aria-describedby="match-project-help" autocomplete="off" placeholder="Search by project name" data-project-input required>
+                  <button class="artizen-project-clear" type="button" data-project-clear aria-label="Clear project search" hidden>&times;</button>
+                </div>
+                <ul class="artizen-project-options" id="match-project-options" role="listbox" data-project-options hidden></ul>
               </div>
-              <ul class="artizen-project-options" id="match-project-options" role="listbox" data-project-options hidden></ul>
-            </div>
-            <p class="form-text" id="match-project-help">Start typing, then choose a project or press Enter on the highlighted result.</p>
-            <p class="visually-hidden" role="status" aria-live="polite" data-project-search-status></p>
-            <div class="artizen-match-project-preview" data-project-preview></div>
-            <div class="artizen-tag-prompt" data-tag-prompt hidden></div>
-            <details class="artizen-match-refine" data-match-refine>
-              <summary>Refine this project for this match</summary>
-              <label for="match-existing-description">Project description</label>
-              <textarea class="form-control" id="match-existing-description" maxlength="1000" rows="4" data-existing-description></textarea>
-              ${tagPicker('existing', false)}
-            </details>
-          </section>
+              <p class="form-text" id="match-project-help">Start typing, then choose a project or press Enter on the highlighted result.</p>
+              <p class="visually-hidden" role="status" aria-live="polite" data-project-search-status></p>
+              <div class="artizen-match-project-preview" data-project-preview></div>
+              <div class="artizen-tag-prompt" data-tag-prompt hidden></div>
+              <details class="artizen-match-refine" data-match-refine>
+                <summary>Refine this project for this match</summary>
+                <label for="match-existing-description">Project description</label>
+                <textarea class="form-control" id="match-existing-description" maxlength="1000" rows="4" data-existing-description></textarea>
+                ${tagPicker('existing', false)}
+              </details>
+            </section>
 
-          <section data-source-panel="describe" aria-labelledby="describe-project-title" hidden>
-            <h2 class="visually-hidden" id="describe-project-title">Describe a project</h2>
-            <label for="match-title">Project title <span class="text-muted">(optional)</span></label>
-            <input class="form-control" id="match-title" type="text" maxlength="120" autocomplete="off" data-project-title>
-            <label for="match-description">Project description</label>
-            <textarea class="form-control" id="match-description" maxlength="1000" rows="5" placeholder="What are you making, who is it for, and what change do you hope it creates?" data-project-description></textarea>
-            ${tagPicker('describe')}
-          </section>
+            <section data-source-panel="describe" aria-labelledby="describe-project-title" aria-hidden="true" inert>
+              <h2 class="visually-hidden" id="describe-project-title">Describe a project</h2>
+              <label for="match-title">Project title <span class="text-muted">(optional)</span></label>
+              <input class="form-control" id="match-title" type="text" maxlength="120" autocomplete="off" data-project-title>
+              <label for="match-description">Project description</label>
+              <textarea class="form-control" id="match-description" maxlength="1000" rows="5" placeholder="What are you making, who is it for, and what change do you hope it creates?" data-project-description></textarea>
+              ${tagPicker('describe')}
+            </section>
+          </div>
 
           <datalist id="match-tag-options" data-tag-options></datalist>
           <button class="btn btn-dark artizen-match-submit" type="submit">Find matching funds</button>

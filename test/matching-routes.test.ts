@@ -99,6 +99,31 @@ describe('matching routes', () => {
     expect(cacheReads).toBe(0);
   });
 
+  it('uses the release-scoped static catalog locally when assets are available', async () => {
+    let cacheReads = 0;
+    const env = {
+      CACHE: {
+        async get() {
+          cacheReads += 1;
+          throw new Error('local matching must not mix KV catalog JSON with static vector assets');
+        },
+      },
+      ASSETS: {
+        async fetch(request: Request) {
+          return Response.json({ assetPath: new URL(request.url).pathname });
+        },
+      },
+    } as unknown as Env;
+
+    const core = await worker.fetch(new Request('http://localhost/match/core.json'), env);
+    expect(await core.json()).toEqual({ assetPath: '/match/core.json' });
+    const project = await worker.fetch(new Request('http://localhost/match/project/project-id.json'), env);
+    expect(((await project.json()) as { assetPath: string }).assetPath).toMatch(
+      /^\/match\/project\/[a-f0-9]{64}\.json$/,
+    );
+    expect(cacheReads).toBe(0);
+  });
+
   it('rejects fixture indexes outside local QA', async () => {
     const response = await worker.fetch(
       new Request('https://artizen.fyi/match/index.json'),

@@ -20,6 +20,19 @@ import { parseVectorCatalog, scoreAgainstFunds } from './vector-catalog';
 export type PrecomputedOutcome = {
   scores?: Map<string, number>;
   downgrade?: 'edited';
+  fallback?: PrecomputedFallback;
+};
+
+/** Why an untouched catalog project could not use the semantic assets prepared for this release. */
+export type PrecomputedFallback =
+  | 'assets-unavailable'
+  | 'assets-stale'
+  | 'project-vector-unavailable'
+  | 'assets-incomplete';
+
+type CatalogLoad = {
+  vectors?: Map<string, Float32Array>;
+  fallback?: Exclude<PrecomputedFallback, 'assets-incomplete'>;
 };
 
 /**
@@ -36,12 +49,13 @@ export type PrecomputedOutcome = {
 export class PrecomputedSemanticScorer {
   private funds: Map<string, Float32Array> | undefined;
   private fundLoad: Promise<boolean> | undefined;
+  private fundFallback: PrecomputedFallback | undefined;
   /**
    * One entry per shard the page has actually needed. Keyed by shard rather than by project so two
    * projects that land in the same file share a fetch, and memoised as the promise so two matches
    * racing for the same shard do not both download it.
    */
-  private readonly shards = new Map<number, Promise<Map<string, Float32Array> | undefined>>();
+  private readonly shards = new Map<number, Promise<CatalogLoad>>();
 
   constructor(private index: MatchIndex) {}
 
@@ -86,8 +100,15 @@ export class PrecomputedSemanticScorer {
     manifest: { vectorVersion: string; dimensions: number; vectorsUrl: string },
   ): Promise<boolean> {
     const fingerprints = new Map(this.index.funds.map((fund) => [fund.id, vectorFingerprint(fund.profileText)]));
-    this.funds = await this.fetchCatalog(manifest, manifest.vectorsUrl, fingerprints);
+    const loaded = await this.fetchCatalog(manifest, manifest.vectorsUrl, fingerprints);
+    this.funds = loaded.vectors;
+    this.fundFallback = loaded.fallback;
     return Boolean(this.funds?.size);
+  }
+
+  /** Preserved across the boolean load API so the worker can distinguish baseline from success. */
+  get loadFallback(): PrecomputedFallback | undefined {
+    return this.fundFallback;
   }
 
   /** Scores against funds when this input is an unedited catalog project, and nothing otherwise. */
@@ -99,16 +120,16 @@ export class PrecomputedSemanticScorer {
     // Checked before the shard is fetched, not after: an edited project is never going to match a
     // stored vector, so there is nothing to download.
     if (!matchesPreparedProjectInput(input, project)) return { downgrade: 'edited' };
-    const vectors = await this.shard(manifest, project);
-    const vector = vectors?.get(project.id);
-    if (!vector) return {};
+    const loaded = await this.shard(manifest, project);
+    const vector = loaded.vectors?.get(project.id);
+    if (!vector) return { fallback: loaded.fallback || 'project-vector-unavailable' };
     return { scores: scoreAgainstFunds(vector, this.funds, this.index.funds.map((fund) => fund.id)) };
   }
 
   private shard(
     manifest: { vectorVersion: string; dimensions: number; projectVectorPrefix: string; projectVectorBuckets: number },
     project: ProjectProfile,
-  ): Promise<Map<string, Float32Array> | undefined> {
+  ): Promise<CatalogLoad> {
     const bucket = vectorBucket(project.id, manifest.projectVectorBuckets);
     let pending = this.shards.get(bucket);
     if (!pending) {
@@ -120,11 +141,11 @@ export class PrecomputedSemanticScorer {
           .map((candidate) => [candidate.id, projectVectorFingerprint(candidate)]),
       );
       const load = this.fetchCatalog(manifest, `${manifest.projectVectorPrefix}${bucket}.bin`, expected);
-      pending = load.then((vectors) => {
+      pending = load.then((result) => {
         // Keep successful shards, including empty but valid ones. A failed request is `undefined`
         // and must be retried by the next comparison rather than memoised for the whole session.
-        if (!vectors && this.shards.get(bucket) === pending) this.shards.delete(bucket);
-        return vectors;
+        if (!result.vectors && this.shards.get(bucket) === pending) this.shards.delete(bucket);
+        return result;
       });
       this.shards.set(bucket, pending);
     }
@@ -146,14 +167,20 @@ export class PrecomputedSemanticScorer {
     manifest: { vectorVersion: string; dimensions: number },
     url: string,
     expected: Map<string, string>,
-  ): Promise<Map<string, Float32Array> | undefined> {
+  ): Promise<CatalogLoad> {
     try {
       // Rebuilt with every catalog deployment under a stable filename, so it must revalidate.
       const response = await fetch(url, { cache: 'no-cache' });
-      if (!response.ok) return undefined;
-      return parseVectorCatalog(await response.arrayBuffer(), manifest, expected);
-    } catch {
-      return undefined;
+      if (!response.ok) return { fallback: 'assets-unavailable' };
+      const vectors = parseVectorCatalog(await response.arrayBuffer(), manifest, expected);
+      return { vectors, fallback: vectors.size < expected.size ? 'assets-stale' : undefined };
+    } catch (error) {
+      return {
+        fallback:
+          error instanceof Error && /stale|invalid semantic vector catalog/i.test(error.message)
+            ? 'assets-stale'
+            : 'assets-unavailable',
+      };
     }
   }
 }
