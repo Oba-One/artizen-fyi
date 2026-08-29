@@ -9,7 +9,7 @@ Public leaderboards and private, on-device fund matching for [artizen.fund](http
 artizen.fyi is a Worker plus KV. No D1, R2, Queues, Durable Objects, or Pages.
 
 - **Worker** — HTML routes, static browser assets, Bubble API crawler, hourly cron
-- **KV** — JSON cache (`artizen/leaderboard/…`, `artizen/project/…`, `artizen/fund/…`, `artizen/boosts/…`)
+- **KV** — JSON cache (`artizen/leaderboard/…`, `artizen/project/…`, `artizen/fund/…`, `artizen/boosts/…`), including versioned 24-hour boost-holder registry snapshots
 
 It runs on Workers Paid so a season rebuild has enough CPU (free is 10 ms) and the hourly cron can run up to 15 minutes. Cron refreshes every season and remaining boosts, then drops project/fund pages so they rebuild on next visit. On artizen.fyi, GET `/projects`, `/funds`, `/drives`, `/strategies`, and `/boosts` only read KV — they never crawl Bubble.
 
@@ -78,7 +78,8 @@ Private, on-device matching lives at `/match`. Catalog, ranker, on-device model,
 | `/` | redirect to `/projects` (keeps `?season=`) |
 | `/projects`, `/funds`, `/drives` | season leaderboards (`?season=` optional) |
 | `/strategies` | three strategies, read from V/S, M/S, and P/S (`?season=` optional) |
-| `/boosts` | remaining boosts + top 100 holders |
+| `/boosts` | remaining boosts + searchable holder registry, loaded 100 at a time |
+| `/boosts/holders.json` | one server-filtered holder batch for boost search and expansion |
 | `/search` | project/fund search (`?q=`) |
 | `/match` | private, client-side fund matching |
 | `/match/review` | blind relevance review, local QA server only |

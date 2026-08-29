@@ -173,6 +173,7 @@ export function layout(opts: {
   matching?: boolean;
   matchStyles?: boolean;
   strategies?: boolean;
+  robots?: string;
 }): string {
   const desc = escapeHtml(opts.description || 'Fund and project leaderboards from Artizen');
   const image = escapeHtml(opts.image || 'https://artizen.fyi/og.png');
@@ -209,6 +210,7 @@ export function layout(opts: {
   <meta name="application-name" content="artizen.fyi">
   <title>${escapeHtml(opts.title)}</title>
   <meta name="description" content="${desc}">
+  ${opts.robots ? `<meta name="robots" content="${escapeHtml(opts.robots)}">` : ''}
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="artizen.fyi">
   <meta property="og:title" content="${escapeHtml(opts.title)}">

@@ -3,8 +3,12 @@ import { legacySeasonProjectRows } from './legacy';
 import type {
   BonusChart,
   BonusShareRow,
+  BoostBuild,
   BoostHolder,
-  BoostsPage,
+  BoostHolderPage,
+  BoostHolderQuery,
+  BoostRegistry,
+  BoostRegistryHolder,
   Drive,
   FundRow,
   Leaderboard,
@@ -64,8 +68,8 @@ export async function buildLeaderboard(
   return { seasons, season, drives, projects, funds, error: false };
 }
 
-export async function buildBoosts(client: Bubble): Promise<BoostsPage> {
-  type Candidate = { name: string; image?: string; points: number; admin: boolean };
+export async function buildBoosts(client: Bubble, now = new Date()): Promise<BoostBuild> {
+  type Candidate = { id: string; name: string; search_name: string; image?: string; points: number; admin: boolean };
   const points: number[] = [];
   const candidates: Candidate[] = [];
   const buckets = BOOST_BUCKETS.map((bucket) => ({ label: bucket.label, users: 0, points: 0 }));
@@ -81,8 +85,11 @@ export async function buildBoosts(client: Bubble): Promise<BoostsPage> {
     }
     if (!(value > 0)) return;
 
+    const name = text(row['name']) || unnamedHolder(row['wallet']);
     candidates.push({
-      name: text(row['name']) || unnamedHolder(row['wallet']),
+      id: String(row['_id'] ?? ''),
+      name,
+      search_name: normalizeBoostSearch(name),
       image: mediaUrl(row['profile image']),
       points: value,
       admin: boostAdmin(row['Role']),
@@ -92,24 +99,30 @@ export async function buildBoosts(client: Bubble): Promise<BoostsPage> {
   const remaining = sum(points, (p) => (p > 0 ? p : 0));
   const holders = candidates.length;
   const admin = sum(candidates, (c) => (c.admin ? c.points : 0));
-  const sortedHolders = sortByDesc(candidates, (c) => c.points);
-  const topRows = sortedHolders.slice(0, TOP_BOOST_HOLDERS);
-  const topPoints = sum(topRows, (c) => c.points);
+  const sortedHolders = candidates.sort(
+    (a, b) => b.points - a.points || compareText(a.search_name, b.search_name) || compareText(a.id, b.id),
+  );
   let running = 0;
-  const top = topRows.map((row, i) => {
+  const registryHolders = sortedHolders.map((row, i) => {
     running += row.points;
     return {
+      id: row.id,
       rank: i + 1,
       name: row.name,
+      search_name: row.search_name,
       image: row.image,
       points: row.points,
       share: remaining > 0 ? row.points / remaining : 0,
       cumulative: remaining > 0 ? running / remaining : 0,
       admin: row.admin,
-    } satisfies BoostHolder;
+    } satisfies BoostRegistryHolder;
   });
+  const top = registryHolders.slice(0, TOP_BOOST_HOLDERS).map(publicBoostHolder);
+  const topPoints = sum(top, (holder) => holder.points);
+  const updatedAt = now.toISOString();
+  const snapshot = String(now.getTime());
 
-  return {
+  const summary = {
     remaining,
     accounts: points.length,
     holders,
@@ -120,11 +133,74 @@ export async function buildBoosts(client: Bubble): Promise<BoostsPage> {
     community: remaining - admin,
     top_points: topPoints,
     top_share: remaining > 0 ? topPoints / remaining : 0,
-    updated_at: new Date().toISOString(),
+    updated_at: updatedAt,
     buckets,
     top,
+    snapshot,
     error: false,
   };
+  const registry: BoostRegistry = { snapshot, updated_at: updatedAt, holders: registryHolders };
+  return { summary, registry };
+}
+
+export function normalizeBoostSearch(value: string): string {
+  return value
+    .normalize('NFKD')
+    .replace(/\p{Mark}+/gu, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+export function queryBoostRegistry(registry: BoostRegistry, query: BoostHolderQuery = {}): BoostHolderPage {
+  const normalized = normalizeBoostSearch(query.q ?? '').slice(0, 100);
+  const terms = normalized ? normalized.split(' ') : [];
+  const filtered = terms.length
+    ? registry.holders.filter((holder) => terms.every((term) => holder.search_name.includes(term)))
+    : registry.holders;
+  const sort = query.sort ?? 'boosts';
+  const dir = query.dir ?? 'desc';
+  let ordered: BoostRegistryHolder[];
+  if (sort === 'boosts' && dir === 'desc') {
+    ordered = filtered;
+  } else {
+    ordered = [...filtered].sort((a, b) => compareBoostHolders(a, b, sort, dir));
+  }
+  const offset = Math.max(0, Math.trunc(query.offset ?? 0));
+  const limit = Math.max(1, Math.min(TOP_BOOST_HOLDERS, Math.trunc(query.limit ?? TOP_BOOST_HOLDERS)));
+  const holders = ordered.slice(offset, offset + limit).map(publicBoostHolder);
+  return {
+    snapshot: registry.snapshot,
+    updatedAt: registry.updated_at,
+    total: ordered.length,
+    offset,
+    limit,
+    hasMore: offset + holders.length < ordered.length,
+    holders,
+  };
+}
+
+function compareBoostHolders(
+  a: BoostRegistryHolder,
+  b: BoostRegistryHolder,
+  sort: NonNullable<BoostHolderQuery['sort']>,
+  dir: NonNullable<BoostHolderQuery['dir']>,
+): number {
+  const direction = dir === 'asc' ? 1 : -1;
+  let compared = 0;
+  if (sort === 'name') compared = compareText(a.search_name, b.search_name);
+  else if (sort === 'cumulative') compared = a.cumulative - b.cumulative;
+  else compared = a.points - b.points;
+  return compared * direction || a.rank - b.rank;
+}
+
+function compareText(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+function publicBoostHolder(holder: BoostRegistryHolder): BoostHolder {
+  const { id: _id, search_name: _searchName, ...publicHolder } = holder;
+  return publicHolder;
 }
 
 function unnamedHolder(wallet: unknown): string {

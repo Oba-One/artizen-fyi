@@ -1662,6 +1662,8 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 @media (max-width: 639px) {
   .artizen-shell {
     --shell-gutter: 0.85rem;
+    width: 100vw;
+    max-width: 100vw;
     /* No block padding either: the nav already carries a bottom border, so a strip of paper
        above the first panel is redundant separation, and below the last one it is just dead
        space before the footer. Panels still separate from each other with their own margin. */
@@ -1992,7 +1994,12 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   .artizen-hero-late { transition: none; }
 }
 #artizen-projects-table { table-layout: fixed; width: 100%; min-width: 80rem; border-collapse: collapse; border-spacing: 0; }
-.artizen-table-scroll { -webkit-overflow-scrolling: touch; }
+.artizen-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  -webkit-overflow-scrolling: touch;
+}
 .artizen-panel .dt-container { margin-top: 0.15rem; }
 @media (max-width: 767px) {
   .artizen-dt-ph-search,
@@ -2094,6 +2101,12 @@ table.dataTable.table-sm > thead > tr th.dt-type-date .dt-column-order {
 }
 .artizen-sibling-funds li + li { margin-top: 0.2rem; }
 .artizen-holder { display: inline-flex; align-items: center; gap: 0.55rem; min-width: 0; }
+.artizen-holder-rank {
+  min-width: 3.4rem;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
 .artizen-holder-avatar {
   width: 1.75rem;
   height: 1.75rem;
@@ -2103,6 +2116,60 @@ table.dataTable.table-sm > thead > tr th.dt-type-date .dt-column-order {
   flex: 0 0 auto;
 }
 .artizen-holder-avatar-empty { border: 1px solid var(--line); }
+.artizen-boost-results { margin-top: 1rem; }
+.artizen-boost-search {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.55rem;
+  margin-bottom: 0.45rem;
+}
+.artizen-boost-search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: min(100%, 22rem);
+}
+.artizen-boost-search-field .bi {
+  position: absolute;
+  left: 0.85rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+.artizen-boost-search-field input {
+  width: 100%;
+  min-height: 2.35rem;
+  padding: 0.42rem 0.85rem 0.42rem 2.35rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink);
+  background: var(--panel);
+}
+.artizen-boost-search-field input:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--green) 45%, transparent);
+  outline-offset: 1px;
+}
+.artizen-boost-status {
+  min-height: 1.35rem;
+  margin: 0 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+.artizen-boost-sort {
+  color: inherit;
+  text-decoration: none;
+}
+.artizen-boost-sort:hover { color: var(--ink); text-decoration: underline; }
+.artizen-boost-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 2.5rem;
+  margin-top: 0.75rem;
+}
+.artizen-boost-error { margin: 0; color: var(--bs-danger-text-emphasis); }
+.artizen-boost-error .btn { padding: 0; vertical-align: baseline; }
+.artizen-boost-empty { padding: 2rem 0.75rem !important; color: var(--muted) !important; text-align: center; }
+.artizen-boost-results[aria-busy="true"] tbody { opacity: 0.65; }
 .artizen-boost-dist { font-size: 0.875rem; }
 .artizen-boost-bar-cell { width: 40%; vertical-align: middle; }
 .artizen-bar {
@@ -2117,6 +2184,13 @@ table.dataTable.table-sm > thead > tr th.dt-type-date .dt-column-order {
   height: 100%;
   background: var(--green);
   border-radius: inherit;
+}
+
+@media (max-width: 575px) {
+  .artizen-boost-search { align-items: stretch; flex-direction: column; }
+  .artizen-boost-search-field { width: 100%; }
+  .artizen-boost-search .btn { width: 100%; }
+  .artizen-holder-rank { min-width: 2.8rem; }
 }
 
 .artizen-archetypes {

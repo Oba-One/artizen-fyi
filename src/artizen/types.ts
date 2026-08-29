@@ -464,13 +464,18 @@ export type BoostHolder = {
   admin: boolean;
 };
 
+export type BoostRegistryHolder = BoostHolder & {
+  id: string;
+  search_name: string;
+};
+
 export type BoostBucket = {
   label: string;
   users: number;
   points: number;
 };
 
-export type BoostsPage = {
+export type BoostsSummary = {
   remaining: number;
   accounts: number;
   holders: number;
@@ -484,5 +489,42 @@ export type BoostsPage = {
   updated_at: string;
   buckets: BoostBucket[];
   top: BoostHolder[];
+  snapshot?: string;
   error: boolean;
+};
+
+/** Temporary alias for callers and cached v2 values while v3 rolls out. */
+export type BoostsPage = BoostsSummary;
+
+export type BoostRegistry = {
+  snapshot: string;
+  updated_at: string;
+  holders: BoostRegistryHolder[];
+};
+
+export type BoostBuild = {
+  summary: BoostsSummary;
+  registry: BoostRegistry;
+};
+
+export type BoostSort = 'name' | 'boosts' | 'share' | 'cumulative';
+export type BoostDirection = 'asc' | 'desc';
+
+export type BoostHolderQuery = {
+  snapshot?: string;
+  q?: string;
+  offset?: number;
+  limit?: number;
+  sort?: BoostSort;
+  dir?: BoostDirection;
+};
+
+export type BoostHolderPage = {
+  snapshot: string;
+  updatedAt: string;
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+  holders: BoostHolder[];
 };
