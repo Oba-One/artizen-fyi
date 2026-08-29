@@ -6,8 +6,7 @@ import { build } from 'esbuild';
 import { env, pipeline } from '@huggingface/transformers';
 
 const inputPath = resolve(process.argv[2] || 'public/match/index.json');
-const targetNames = process.argv.slice(3);
-if (targetNames.length === 0) targetNames.push('Green Goods');
+const targetReferences = process.argv.slice(3);
 const index = JSON.parse(await readFile(inputPath, 'utf8'));
 if (index.schemaVersion !== 2 || !index.semantic || !Array.isArray(index.projects) || !Array.isArray(index.funds)) {
   throw new Error('A MatchIndex with semantic projects and funds is required');
@@ -67,13 +66,29 @@ try {
   const preparedIndex = shared.prepareMatchIndex(index);
   const fundIds = index.funds.map((fund) => fund.id);
   const fundsById = new Map(index.funds.map((fund) => [fund.id, fund]));
+  const targetProjects = targetReferences.length
+    ? targetReferences.map((reference) => {
+        const needle = reference.toLowerCase();
+        const project = index.projects.find(
+          (candidate) =>
+            candidate.id === reference ||
+            candidate.name.toLowerCase() === needle ||
+            candidate.slug.toLowerCase() === needle,
+        );
+        if (!project) throw new Error(`Project not found for prepared parity QA: ${reference}`);
+        return project;
+      })
+    : (() => {
+        const candidates = index.projects.filter(
+          (project) =>
+            project.semanticFingerprint &&
+            (project.description || project.context?.description || project.tags.length),
+        );
+        if (!candidates.length) throw new Error('No project is available for prepared parity QA');
+        return [candidates[Math.floor(candidates.length / 2)]];
+      })();
 
-  for (const targetName of targetNames) {
-    const needle = targetName.toLowerCase();
-    const project = index.projects.find(
-      (candidate) => candidate.name.toLowerCase() === needle || candidate.slug.toLowerCase() === needle,
-    );
-    if (!project) throw new Error(`Project not found for prepared parity QA: ${targetName}`);
+  for (const project of targetProjects) {
     const bucket = shared.vectorBucket(project.id, manifest.projectVectorBuckets);
     const expectedProjects = new Map(
       index.projects

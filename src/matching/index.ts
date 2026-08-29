@@ -25,7 +25,7 @@ import {
 export const MATCH_INDEX_KEY = 'artizen/matching/v2';
 
 export const DEFAULT_SCORING: ScoringConfig = {
-  version: 'context-2026-08-26.1',
+  version: 'context-2026-08-29.1',
   lexicalWeight: 0.4,
   facetWeight: 0.4,
   coreCoverageWeight: 0.2,
@@ -37,6 +37,7 @@ export const DEFAULT_SCORING: ScoringConfig = {
   goodThreshold: 0.38,
   exploratoryThreshold: 0.1,
   unsupportedFocusPenalty: 0.35,
+  distinctiveApproachBoost: 0.25,
   eligibilityBoost: 0.15,
   exclusionPenalty: 0.2,
 };
@@ -382,6 +383,7 @@ export function validateMatchIndex(index: MatchIndex): void {
     throw new Error('matching v2 weights must total 1');
   }
   const boundedAdjustments = [
+    index.scoring.distinctiveApproachBoost ?? 0.25,
     index.scoring.eligibilityBoost ?? 0.15,
     index.scoring.exclusionPenalty ?? 0.2,
   ];

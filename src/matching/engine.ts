@@ -9,6 +9,7 @@ import type {
   ProjectFundRelationship,
   ProjectMatchInput,
   ScoreBreakdown,
+  ScoringConfig,
 } from '../artizen/types';
 import { normalizeTerms } from './terms';
 import { extractFacetIds, facetCategory, facetLabel } from './taxonomy';
@@ -44,11 +45,12 @@ function removeText(terms: Terms, value: string): void {
 }
 
 function documentFrequency(documents: Terms[]): Map<string, number> {
+  const populated = documents.filter((document) => document.size > 0);
   const counts = new Map<string, number>();
-  for (const document of documents) {
+  for (const document of populated) {
     for (const term of document.keys()) counts.set(term, (counts.get(term) || 0) + 1);
   }
-  const count = Math.max(1, documents.length);
+  const count = Math.max(1, populated.length);
   return new Map(
     [...counts].map(([term, frequency]) => [term, Math.log(1 + count / Math.max(1, frequency))]),
   );
@@ -210,7 +212,7 @@ function facetAlignment(
   input: Set<string>,
   fund: Set<string>,
   focus: Set<string>,
-): { score: number; shared: string[]; supportedFocus: boolean } {
+): { score: number; shared: string[]; supportedFocus: boolean; distinctiveApproach: boolean } {
   const shared = [...input].filter((id) => fund.has(id));
   const overlapWeight = shared.reduce((sum, id) => sum + facetWeight(id), 0);
   const inputWeight = [...input].reduce((sum, id) => sum + facetWeight(id), 0);
@@ -229,15 +231,17 @@ function facetAlignment(
   const baseScore =
     focus.size > 0 ? focusCoverage * 0.7 + fundCoverage * 0.2 + projectPrecision * 0.1 : balancedOverlap;
   // These two approaches bridge language that otherwise looks unrelated (for example,
-  // regenerative economics and internalized externalities). An exact shared, fund-defining facet
-  // gets a small bonus inside the facet channel; it cannot rescue an unsupported focus.
-  const hasDistinctiveApproach = shared.some((id) => focus.has(id) && DISTINCTIVE_APPROACH_FACETS.has(id));
+  // regenerative economics and internalized externalities). They deliberately remain ordinary
+  // facets rather than hard focus guards. Exact overlap is carried into the shared post-channel
+  // adjustment so the bonus is not diluted by the facet channel's weight.
+  const hasDistinctiveApproach = shared.some((id) => DISTINCTIVE_APPROACH_FACETS.has(id));
   return {
-    score: hasDistinctiveApproach ? baseScore + (1 - baseScore) * 0.2 : baseScore,
+    score: baseScore,
     shared: shared.sort(
       (a, b) => Number(focus.has(b)) - Number(focus.has(a)) || facetWeight(b) - facetWeight(a) || a.localeCompare(b),
     ),
     supportedFocus: focus.size === 0 || focusOverlap > 0,
+    distinctiveApproach: hasDistinctiveApproach,
   };
 }
 
@@ -248,8 +252,6 @@ function normalizedInputPhrases(input: ProjectMatchInput): Set<string> {
       input.description,
       input.context?.description,
       input.context?.impact,
-      input.context?.progress,
-      input.context?.team,
       ...input.tags,
     ]
       .filter(Boolean)
@@ -345,8 +347,7 @@ const GENERIC_ALIGNMENT_FACETS = new Set([
   'domain:culture-identity',
 ]);
 
-function baselineScore(breakdown: ScoreBreakdown, index: MatchIndex): number {
-  const config = index.scoring;
+function baselineScore(breakdown: ScoreBreakdown, config: ScoringConfig): number {
   return (
     breakdown.lexical * config.lexicalWeight +
     breakdown.facets * config.facetWeight +
@@ -354,14 +355,50 @@ function baselineScore(breakdown: ScoreBreakdown, index: MatchIndex): number {
   );
 }
 
-function semanticScore(breakdown: ScoreBreakdown, index: MatchIndex): number {
-  const config = index.scoring;
+function semanticScore(breakdown: ScoreBreakdown, config: ScoringConfig): number {
   return (
     (breakdown.semantic || 0) * config.semanticWeight +
     breakdown.facets * config.semanticFacetWeight +
     breakdown.coreCoverage * config.semanticCoreCoverageWeight +
     breakdown.lexical * config.semanticLexicalWeight
   );
+}
+
+/** Eligibility may reorder peers, but published criteria alone cannot promote a fit label. */
+function eligibilityBandCeiling(score: number, config: ScoringConfig): number | undefined {
+  if (score < config.exploratoryThreshold) return config.exploratoryThreshold;
+  if (score < config.goodThreshold) return config.goodThreshold;
+  if (score < config.strongThreshold) return config.strongThreshold;
+}
+
+export function adjustMatchScore(
+  score: number,
+  breakdown: Pick<ScoreBreakdown, 'distinctiveApproach' | 'eligibility' | 'exclusionRisk'>,
+  supportedFocus: boolean,
+  config: ScoringConfig,
+): number {
+  const distinctiveApproachBoost = config.distinctiveApproachBoost ?? 0.25;
+  const topicalScore =
+    score + (1 - score) * distinctiveApproachBoost * (breakdown.distinctiveApproach || 0);
+  const eligibility = breakdown.eligibility || 0;
+  const eligibilityBoost = config.eligibilityBoost ?? 0.15;
+  const boosted = topicalScore + (1 - topicalScore) * eligibilityBoost * eligibility;
+  const ceiling = eligibilityBandCeiling(topicalScore, config);
+  const bandCap = ceiling == null ? undefined : Math.max(topicalScore, ceiling - 1e-9);
+  const eligibilityAdjusted = bandCap == null ? boosted : Math.min(boosted, bandCap);
+  const focusAdjusted = supportedFocus
+    ? eligibilityAdjusted
+    : eligibilityAdjusted * config.unsupportedFocusPenalty;
+  const exclusionPenalty = config.exclusionPenalty ?? 0.2;
+  return focusAdjusted * (1 - exclusionPenalty * (breakdown.exclusionRisk || 0));
+}
+
+export function semanticRecommendationScore(
+  breakdown: ScoreBreakdown,
+  supportedFocus: boolean,
+  config: ScoringConfig,
+): number {
+  return adjustMatchScore(semanticScore(breakdown, config), breakdown, supportedFocus, config);
 }
 
 export function matchFunds(
@@ -391,7 +428,15 @@ export function matchFunds(
     const alignment = facetAlignment(inputFacets, candidate.facets, candidate.focusFacets);
     const coverage = coreCoverage(inputPhrases, candidate.fund.coreConcepts);
     const semantic = semanticScores?.get(candidate.fund.id);
-    const eligibility = cosine(eligibilityQuery, candidate.eligibilityTerms, prepared.eligibilityIdf);
+    const eligibilitySimilarity = cosine(eligibilityQuery, candidate.eligibilityTerms, prepared.eligibilityIdf);
+    const sharedEligibilityTerms = specificSharedTerms(
+      eligibilityQuery,
+      candidate.eligibilityTerms,
+      prepared.eligibilityIdf,
+    );
+    const eligibility =
+      sharedEligibilityTerms.length >= 2 && eligibilitySimilarity >= 0.18 ? eligibilitySimilarity : 0;
+    const eligibilityEvidence = eligibility ? sharedEligibilityTerms : [];
     const exclusionSimilarity = cosine(eligibilityQuery, candidate.exclusionTerms, prepared.exclusionIdf);
     const exclusionTerms = specificSharedTerms(
       eligibilityQuery,
@@ -403,23 +448,16 @@ export function matchFunds(
       lexical: cosine(query, candidate.terms, prepared.idf),
       facets: alignment.score,
       coreCoverage: coverage.score,
+      ...(alignment.distinctiveApproach ? { distinctiveApproach: 1 } : {}),
       ...(candidate.eligibilityTerms.size ? { eligibility } : {}),
       ...(candidate.exclusionTerms.size ? { exclusionRisk } : {}),
       ...(semantic == null ? {} : { semantic: Math.max(0, Math.min(1, semantic)) }),
     };
-    const combined = semantic == null ? baselineScore(breakdown, prepared.index) : semanticScore(breakdown, prepared.index);
-    const eligibilityBoost = prepared.index.scoring.eligibilityBoost ?? 0.15;
-    const exclusionPenalty = prepared.index.scoring.exclusionPenalty ?? 0.2;
-    const eligibilityAdjusted = combined + (1 - combined) * eligibilityBoost * eligibility;
-    const focusAdjusted = alignment.supportedFocus
-      ? eligibilityAdjusted
-      : eligibilityAdjusted * prepared.index.scoring.unsupportedFocusPenalty;
-    const score = focusAdjusted * (1 - exclusionPenalty * exclusionRisk);
-    const eligibilityEvidence = specificSharedTerms(
-      eligibilityQuery,
-      candidate.eligibilityTerms,
-      prepared.eligibilityIdf,
-    );
+    const combined =
+      semantic == null
+        ? baselineScore(breakdown, prepared.index.scoring)
+        : semanticScore(breakdown, prepared.index.scoring);
+    const score = adjustMatchScore(combined, breakdown, alignment.supportedFocus, prepared.index.scoring);
     const definingEvidence =
       alignment.shared.some((facetId) => !GENERIC_ALIGNMENT_FACETS.has(facetId)) ||
       coverage.matched.length > 0 ||

@@ -25,7 +25,8 @@ if (shouldPrepareMatchingRelease(process.env)) {
   await run('fetch-semantic-assets.mjs');
   await run('build-match-catalog.mjs');
   await run('build-semantic-vectors.mjs', ['public/match/index.json']);
-  await run('verify-prepared-parity.mjs', ['public/match/index.json', 'Green Goods']);
+  await run('verify-prepared-parity.mjs', ['public/match/index.json']);
+  await run('verify-live-ranking.mjs', ['public/match/index.json']);
 } else {
   console.log('Matching release skipped (not a deploy). Catalog, model, and vectors are left as they are.');
 }

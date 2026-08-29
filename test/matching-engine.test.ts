@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { FundProfile, MatchIndex, ProjectHistory, ProjectMatchInput } from '../src/artizen/types';
-import { isMatchIndexStale, MATCH_INDEX_STALE_MS, matchFunds, prepareMatchIndex } from '../src/matching/engine';
+import {
+  adjustMatchScore,
+  isMatchIndexStale,
+  MATCH_INDEX_STALE_MS,
+  matchFunds,
+  prepareMatchIndex,
+} from '../src/matching/engine';
 import { DEFAULT_SCORING } from '../src/matching/index';
 import {
   MATCH_FACETS,
@@ -133,6 +139,28 @@ describe('matching engine v2', () => {
       expect.arrayContaining(['approach:circular-economy', 'approach:systems-change']),
     );
     expect(extractFundFocusFacetIds(systemsFund.name, systemsFund.subtitle)).toEqual([]);
+  });
+
+  it('awards the distinctive-approach bonus without turning those facets into focus guards', () => {
+    const index = fixture();
+    const profile = 'For regenerative community experiments and shared economic infrastructure';
+    index.funds = [
+      fund('ordinary', 'Ordinary Fund', profile, [], ['approach:regenerative']),
+      fund('systems', 'Systems Fund', profile, [], ['approach:systems-change']),
+    ];
+    index.source.funds = 2;
+
+    const result = matchFunds(prepareMatchIndex(index), {
+      description: 'A regenerative systems change experiment for community economics',
+      tags: [],
+    });
+    const ordinary = result.recommendations.find((row) => row.fundId === 'ordinary')!;
+    const systems = result.recommendations.find((row) => row.fundId === 'systems')!;
+
+    expect(systems.breakdown.facets).toBe(ordinary.breakdown.facets);
+    expect(systems.breakdown.distinctiveApproach).toBe(1);
+    expect(systems.score).toBeGreaterThan(ordinary.score);
+    expect(systems.supportedFocus).toBe(true);
   });
 
   it('uses a monthly freshness guard for deploy-scoped catalogs', () => {
@@ -291,6 +319,58 @@ describe('matching engine v2', () => {
     expect(warned.score).toBeLessThan(plain.score);
   });
 
+  it('requires two specific eligibility terms before applying a boost', () => {
+    const index = fixture();
+    const candidate = fund('candidate', 'Community Fund', 'For public community projects');
+    candidate.eligibilityCriteria = ['Applicants should use cooperative governance tools.'];
+    index.funds = [candidate];
+    index.source.funds = 1;
+
+    const oneTerm = matchFunds(prepareMatchIndex(index), {
+      description: 'A cooperative public community project',
+      tags: [],
+    }).recommendations[0];
+    const twoTerms = matchFunds(prepareMatchIndex(index), {
+      description: 'Cooperative governance for a public community project',
+      tags: [],
+    }).recommendations[0];
+
+    expect(oneTerm.breakdown.eligibility).toBe(0);
+    expect(twoTerms.breakdown.eligibility).toBeGreaterThan(0);
+    expect(twoTerms.score).toBeGreaterThan(oneTerm.score);
+  });
+
+  it('computes eligibility IDF over funds that publish criteria, not empty documents', () => {
+    const index = fixture();
+    index.funds = [
+      fund('empty-a', 'Empty A', 'For public art'),
+      fund('empty-b', 'Empty B', 'For public music'),
+      fund('eligible', 'Eligible', 'For public tools'),
+    ];
+    index.funds[2].eligibilityCriteria = ['Cooperative governance'];
+    index.source.funds = 3;
+
+    const prepared = prepareMatchIndex(index);
+    expect(prepared.eligibilityIdf.get('cooperative')).toBeCloseTo(Math.log(2));
+  });
+
+  it('keeps eligibility boosts inside the score band earned by topical evidence', () => {
+    const score = adjustMatchScore(
+      DEFAULT_SCORING.goodThreshold,
+      { eligibility: 1, exclusionRisk: 0 },
+      true,
+      DEFAULT_SCORING,
+    );
+
+    expect(score).toBeGreaterThan(DEFAULT_SCORING.goodThreshold);
+    expect(score).toBeLessThan(DEFAULT_SCORING.strongThreshold);
+
+    const nearBoundary = DEFAULT_SCORING.strongThreshold - 5e-10;
+    expect(
+      adjustMatchScore(nearBoundary, { eligibility: 1, exclusionRisk: 0 }, true, DEFAULT_SCORING),
+    ).toBeGreaterThanOrEqual(nearBoundary);
+  });
+
   it('does not penalize a project for one incidental word from an exclusion', () => {
     const index = fixture();
     const candidate = fund('candidate', 'Community Research Fund', 'For community research and public tools');
@@ -303,6 +383,25 @@ describe('matching engine v2', () => {
     });
     expect(result.recommendations[0].breakdown.exclusionRisk).toBe(0);
     expect(result.recommendations[0].warnings).toBeUndefined();
+  });
+
+  it('does not use team biographies or progress reports for core-concept coverage', () => {
+    const index = fixture();
+    const candidate = fund('ai', 'AI Fund', 'For public-interest technology');
+    candidate.coreConcepts = ['machine learn'];
+    index.funds = [candidate];
+    index.source.funds = 1;
+
+    const result = matchFunds(prepareMatchIndex(index), {
+      description: 'A community mural and local arts program',
+      tags: ['Art'],
+      context: {
+        progress: 'The first machine learning prototype is complete.',
+        team: 'A machine learning researcher advises the artists.',
+      },
+    });
+
+    expect(result.recommendations[0].breakdown.coreCoverage).toBe(0);
   });
 
   it('returns insufficient evidence instead of catalog-relative guesses', () => {

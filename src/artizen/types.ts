@@ -338,7 +338,7 @@ export type ProjectProfile = {
   description: string;
   tags: string[];
   context?: ProjectNarrative;
-  /** Fingerprint of the full text embedded for this catalog project, including narrative context. */
+  /** Fingerprint of the descriptive text embedded for this project; Team and Progress are excluded. */
   semanticFingerprint?: string;
   facets: string[];
   image?: string;
@@ -373,6 +373,7 @@ export type ScoreBreakdown = {
   lexical: number;
   facets: number;
   coreCoverage: number;
+  distinctiveApproach?: number;
   semantic?: number;
   eligibility?: number;
   exclusionRisk?: number;
@@ -391,6 +392,7 @@ export type ScoringConfig = {
   goodThreshold: number;
   exploratoryThreshold: number;
   unsupportedFocusPenalty: number;
+  distinctiveApproachBoost?: number;
   eligibilityBoost?: number;
   exclusionPenalty?: number;
 };

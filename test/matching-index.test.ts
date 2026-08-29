@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Bubble } from '../src/artizen/bubble';
 import type { MatchIndex, Row } from '../src/artizen/types';
 import { DEFAULT_SCORING, buildMatchIndex, validateMatchIndex } from '../src/matching/index';
+import { projectVectorText } from '../src/matching/semantic-text';
 
 class FakeBubble {
   constructor(private readonly rows: Record<string, Row[]>) {}
@@ -103,6 +104,8 @@ describe('matching index v2', () => {
     expect(index.projects[0].facets).not.toContain('audience:women');
     expect(index.projects[0].facets).not.toContain('place:africa');
     expect(index.projects[0].semanticFingerprint).toMatch(/^[a-f0-9]{16}$/);
+    expect(projectVectorText(index.projects[0])).not.toContain('Women in Kenya');
+    expect(projectVectorText(index.projects[0])).not.toContain('AI engineer');
   });
 
   it('folds the relationship table into each project so the split payloads can carry it', async () => {

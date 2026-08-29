@@ -12,8 +12,6 @@ export function projectVectorText(project: Pick<ProjectProfile, 'name' | 'descri
     ...project.tags,
     project.context?.description,
     project.context?.impact,
-    project.context?.progress,
-    project.context?.team,
   ].filter(Boolean).join('. ');
 }
 
@@ -24,8 +22,6 @@ export function matchInputVectorText(input: ProjectMatchInput): string {
     ...input.tags,
     input.context?.description,
     input.context?.impact,
-    input.context?.progress,
-    input.context?.team,
   ].filter(Boolean).join('. ');
 }
 
@@ -50,7 +46,8 @@ export function matchesPreparedProjectInput(input: ProjectMatchInput, project: P
 }
 
 /**
- * A short non-cryptographic fingerprint of that text, stored beside each precomputed vector.
+ * A short non-cryptographic fingerprint of that descriptive text, stored beside each precomputed
+ * vector.
  * It exists to detect staleness, not to resist tampering: when a project's name, description, or
  * tags change, the fingerprint stops matching and the browser falls back to computing the vector
  * itself instead of scoring against text the project no longer has. 64 bits keeps the collision

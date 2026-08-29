@@ -4,6 +4,7 @@ import { MATCH_TAXONOMY_VERSION } from './taxonomy';
 export const SEMANTIC_MODEL_REVISION = 'b0561d9a97e6b298da39f0ef3e7d3cf153b1b29a';
 export const SEMANTIC_MODEL_SHA256 = '952f996d8cf46c311ee8654a750fa942b71c8b94aabe69d043dbb2bcaff5528e';
 export const SEMANTIC_MODEL_BYTES = 24_448_010;
+const SEMANTIC_TEXT_VERSION = 'descriptive-context-2026-08-29.1';
 
 export const SEMANTIC_CATALOG: SemanticCatalogManifest = {
   modelId: 'mixedbread-ai/mxbai-embed-xsmall-v1',
@@ -19,7 +20,7 @@ export const SEMANTIC_CATALOG: SemanticCatalogManifest = {
   // browsing several projects still costs less than the whole catalog did.
   projectVectorPrefix: '/assets/match-project-vectors-',
   projectVectorBuckets: 64,
-  vectorVersion: `${SEMANTIC_MODEL_REVISION.slice(0, 12)}-${MATCH_TAXONOMY_VERSION}-256`,
+  vectorVersion: `${SEMANTIC_MODEL_REVISION.slice(0, 12)}-${MATCH_TAXONOMY_VERSION}-${SEMANTIC_TEXT_VERSION}-256`,
 };
 
 /**

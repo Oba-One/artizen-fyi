@@ -16,6 +16,27 @@ describe('eligibility narrative splitting', () => {
     });
   });
 
+  it('recognizes a plain Exclusions heading and keeps modal bullets negative', () => {
+    expect(
+      splitEligibility(
+        'Eligibility:\n\n- Applicants should publish their work\n\nExclusions:\n\n- Teams may build weapons\n- Applicants must use private surveillance',
+      ),
+    ).toMatchObject({
+      criteria: ['Applicants should publish their work'],
+      exclusions: ['Teams may build weapons', 'Applicants must use private surveillance'],
+    });
+  });
+
+  it.each([
+    ['No weapons research or private surveillance.', ['No weapons research or private surveillance.']],
+    ['Not for speculative token launches.', ['Not for speculative token launches.']],
+    ['Early stage is fine; vaporware is not.', ['vaporware is not.']],
+  ])('recognizes clause-leading no/not exclusions', (text, exclusions) => {
+    const result = splitEligibility(text);
+    expect(result.exclusions).toEqual(exclusions);
+    expect(result.criteria).not.toEqual(expect.arrayContaining(exclusions));
+  });
+
   it.each([
     [
       'Applicants must be nonprofits but cannot conduct weapons research.',

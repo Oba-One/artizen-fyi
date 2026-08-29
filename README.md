@@ -83,7 +83,7 @@ Private, on-device matching lives at `/match`. Catalog, ranker, on-device model,
 | `/match` | private, client-side fund matching |
 | `/match/review` | blind relevance review, local QA server only |
 | `/match/index.json` | the matching catalog, combined |
-| `/match/core.json` | funds, facets, and scoring — what a first paint needs |
+| `/match/core.json` | funds, facets, scoring, and published descriptions and eligibility language — the 1.48 MB first-paint payload |
 | `/match/projects.json` | the project list, fetched when the picker opens |
 | `/match/project/:id.json` | one project record, for a project page |
 | `/projects/:slug`, `/funds/:slug` | detail |
