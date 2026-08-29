@@ -245,20 +245,27 @@ export function assignVenusDrive(tx: Row, drives: Drive[]): Drive | undefined {
   if (inWindow.length > 0) return latestStart(inWindow);
 
   // Ended drives freeze `fund drive sales`. A later Venus buy is not in that
-  // number, so peeling it there zeros Sales. Put it on a drive still open.
+  // number, so peeling it there zeros Sales. Put it on the next drive that
+  // had not ended yet — that field was still moving and absorbed the buy.
+  // Today's `active` drive is the wrong neighbour for an old leftover.
   const open = candidates.filter((drive) => {
     const finish = parseTime(drive.end);
-    return finish == null || created <= finish;
+    return drive.active || finish == null || created <= finish;
   });
-  const pool = open.length > 0 ? open : candidates;
-  return pool.find((drive) => drive.active) ?? latestStart(pool);
+  if (open.length === 0) return undefined;
+  return earliestStart(open);
+}
+
+function startMs(drive: Drive): number {
+  return parseTime(drive.start)?.getTime() ?? 0;
 }
 
 function latestStart(drives: Drive[]): Drive | undefined {
   if (drives.length === 0) return undefined;
-  return drives.reduce((best, drive) => {
-    const a = parseTime(drive.start)?.getTime() ?? 0;
-    const b = parseTime(best.start)?.getTime() ?? 0;
-    return a > b ? drive : best;
-  });
+  return drives.reduce((best, drive) => (startMs(drive) > startMs(best) ? drive : best));
+}
+
+function earliestStart(drives: Drive[]): Drive | undefined {
+  if (drives.length === 0) return undefined;
+  return drives.reduce((best, drive) => (startMs(drive) < startMs(best) ? drive : best));
 }

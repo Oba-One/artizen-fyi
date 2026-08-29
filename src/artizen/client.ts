@@ -8,10 +8,10 @@ import { failed } from './util';
 
 const keys = {
   leaderboard: (season: string | number) => `artizen/leaderboard/v36/${season}`,
-  project: (slug: string) => `artizen/project/v46/${slug}`,
+  project: (slug: string) => `artizen/project/v47/${slug}`,
   fund: (slug: string) => `artizen/fund/v10/${slug}`,
   boosts: 'artizen/boosts/v2',
-  projects: 'artizen/project/v46/',
+  projects: 'artizen/project/v47/',
   funds: 'artizen/fund/v10/',
   matching: MATCH_INDEX_KEY,
 };
