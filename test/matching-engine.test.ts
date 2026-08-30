@@ -385,6 +385,198 @@ describe('matching engine v2', () => {
     expect(result.recommendations[0].warnings).toBeUndefined();
   });
 
+  it('requires the directional condition before applying an exclusion penalty', () => {
+    const index = fixture();
+    const candidate = fund('candidate', 'Community Fund', 'For public community projects in Kenya');
+    candidate.eligibilityExclusions = ['Teams based outside Kenya are not eligible.'];
+    index.funds = [candidate];
+    index.source.funds = 1;
+    const prepared = prepareMatchIndex(index);
+
+    const kenya = matchFunds(prepared, {
+      description: 'A Kenya-based team building public community tools',
+      tags: ['Community'],
+    }).recommendations[0];
+    const basedInKenya = matchFunds(prepared, {
+      description: 'A team based in Kenya building public community tools',
+      tags: ['Community'],
+    }).recommendations[0];
+    const outsideKenya = matchFunds(prepared, {
+      description: 'A team based outside Kenya building public community tools',
+      tags: ['Community'],
+    }).recommendations[0];
+
+    expect(kenya.breakdown.exclusionRisk).toBe(0);
+    expect(kenya.warnings).toBeUndefined();
+    expect(basedInKenya.breakdown.exclusionRisk).toBe(0);
+    expect(basedInKenya.warnings).toBeUndefined();
+    expect(outsideKenya.breakdown.exclusionRisk).toBeGreaterThan(0);
+    expect(outsideKenya.warnings?.[0].kind).toBe('eligibility-exclusion');
+  });
+
+  it('distinguishes having a requirement from being without it', () => {
+    const index = fixture();
+    const candidate = fund('candidate', 'Community Fund', 'For public community projects');
+    candidate.eligibilityExclusions = ['Projects without a fiscal sponsor are ineligible.'];
+    index.funds = [candidate];
+    index.source.funds = 1;
+    const prepared = prepareMatchIndex(index);
+
+    const sponsored = matchFunds(prepared, {
+      description: 'A public community project with an established fiscal sponsor',
+      tags: ['Community'],
+    }).recommendations[0];
+    const unsponsored = matchFunds(prepared, {
+      description: 'A public community project without a fiscal sponsor',
+      tags: ['Community'],
+    }).recommendations[0];
+    const differentCondition = matchFunds(prepared, {
+      description: 'A public community project without fiscal restrictions',
+      tags: ['Community'],
+    }).recommendations[0];
+
+    expect(sponsored.breakdown.exclusionRisk).toBe(0);
+    expect(sponsored.warnings).toBeUndefined();
+    expect(unsponsored.breakdown.exclusionRisk).toBeGreaterThan(0);
+    expect(unsponsored.warnings?.[0].kind).toBe('eligibility-exclusion');
+    expect(differentCondition.breakdown.exclusionRisk).toBe(0);
+    expect(differentCondition.warnings).toBeUndefined();
+  });
+
+  it('scores the prohibited side of an unless condition, not its exception', () => {
+    const index = fixture();
+    const candidate = fund('candidate', 'Community Fund', 'For physical community projects');
+    candidate.eligibilityExclusions = [
+      'Purely digital projects do not qualify unless they are rooted in a physical community.',
+    ];
+    index.funds = [candidate];
+    index.source.funds = 1;
+    const prepared = prepareMatchIndex(index);
+
+    const exception = matchFunds(prepared, {
+      description: 'A digital project rooted in a physical community',
+      tags: ['Community'],
+    }).recommendations[0];
+    const prohibited = matchFunds(prepared, {
+      description: 'A purely digital project for online speculation',
+      tags: ['Community'],
+    }).recommendations[0];
+
+    expect(exception.breakdown.exclusionRisk).toBe(0);
+    expect(exception.warnings).toBeUndefined();
+    expect(prohibited.breakdown.exclusionRisk).toBeGreaterThan(0);
+  });
+
+  it('does not score explanatory text after a short exclusion label', () => {
+    const index = fixture();
+    const candidate = fund('candidate', 'Community Fund', 'For real human communities');
+    candidate.eligibilityExclusions = [
+      'No AI: We believe technology can make change, but this fund supports real humans and communities.',
+    ];
+    index.funds = [candidate];
+    index.source.funds = 1;
+    const prepared = prepareMatchIndex(index);
+
+    const human = matchFunds(prepared, {
+      description: 'Real humans making change in local communities',
+      tags: ['Community'],
+    }).recommendations[0];
+    const ai = matchFunds(prepared, {
+      description: 'An AI system for local communities',
+      tags: ['AI'],
+    }).recommendations[0];
+
+    expect(human.breakdown.exclusionRisk).toBe(0);
+    expect(human.warnings).toBeUndefined();
+    expect(ai.breakdown.exclusionRisk).toBeGreaterThan(0);
+  });
+
+  it('requires the prohibited anchor in a qualified no rule', () => {
+    const index = fixture();
+    const candidate = fund('candidate', 'Creative Fund', 'For independent creative projects');
+    candidate.eligibilityExclusions = ["No AI in the project's conceptual development."];
+    index.funds = [candidate];
+    index.source.funds = 1;
+    const prepared = prepareMatchIndex(index);
+
+    const human = matchFunds(prepared, {
+      description: 'A human-led process with extensive conceptual development',
+      tags: ['Creative'],
+    }).recommendations[0];
+    const ai = matchFunds(prepared, {
+      description: 'AI was used throughout the conceptual development process',
+      tags: ['Creative'],
+    }).recommendations[0];
+
+    expect(human.breakdown.exclusionRisk).toBe(0);
+    expect(human.warnings).toBeUndefined();
+    expect(ai.breakdown.exclusionRisk).toBeGreaterThan(0);
+  });
+
+  it('requires the complete excluded subject instead of a partial compound phrase', () => {
+    const index = fixture();
+    const candidate = fund('candidate', 'Systems Fund', 'For positive-sum systems work');
+    candidate.eligibilityExclusions = [
+      'Single-issue advocacy that treats one crisis in isolation from the others is not eligible.',
+    ];
+    index.funds = [candidate];
+    index.source.funds = 1;
+    const prepared = prepareMatchIndex(index);
+
+    const publication = matchFunds(prepared, {
+      description: 'A digital magazine publishing one single issue about systems change',
+      tags: ['Media'],
+    }).recommendations[0];
+    const advocacy = matchFunds(prepared, {
+      description: 'A single-issue advocacy campaign focused on one isolated crisis',
+      tags: ['Advocacy'],
+    }).recommendations[0];
+
+    expect(publication.breakdown.exclusionRisk).toBe(0);
+    expect(publication.warnings).toBeUndefined();
+    expect(advocacy.breakdown.exclusionRisk).toBeGreaterThan(0);
+  });
+
+  it('does not guess whether a project crosses a numeric exclusion threshold', () => {
+    const index = fixture();
+    const candidate = fund('candidate', 'Research Fund', 'For early-stage research projects');
+    candidate.eligibilityExclusions = ['Applicants must not have received more than $50k to date.'];
+    index.funds = [candidate];
+    index.source.funds = 1;
+
+    const result = matchFunds(prepareMatchIndex(index), {
+      description: 'An early-stage team that has received more support than expected',
+      tags: ['Research'],
+    }).recommendations[0];
+
+    expect(result.breakdown.exclusionRisk).toBe(0);
+    expect(result.warnings).toBeUndefined();
+  });
+
+  it('requires role or organization evidence for time-bounded affiliation exclusions', () => {
+    const index = fixture();
+    const candidate = fund('candidate', 'Open Infrastructure Fund', 'For open public infrastructure');
+    candidate.eligibilityExclusions = [
+      'Current and former (within the past four years) staff of Filecoin Foundation are not eligible.',
+    ];
+    index.funds = [candidate];
+    index.source.funds = 1;
+    const prepared = prepareMatchIndex(index);
+
+    const unrelatedHistory = matchFunds(prepared, {
+      description: 'Four years of research into public infrastructure',
+      tags: ['Open Source'],
+    }).recommendations[0];
+    const actualAffiliation = matchFunds(prepared, {
+      description: 'Former staff of Filecoin Foundation building public infrastructure',
+      tags: ['Open Source'],
+    }).recommendations[0];
+
+    expect(unrelatedHistory.breakdown.exclusionRisk).toBe(0);
+    expect(unrelatedHistory.warnings).toBeUndefined();
+    expect(actualAffiliation.breakdown.exclusionRisk).toBeGreaterThan(0);
+  });
+
   it('does not use team biographies or progress reports for core-concept coverage', () => {
     const index = fixture();
     const candidate = fund('ai', 'AI Fund', 'For public-interest technology');

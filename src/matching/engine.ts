@@ -16,11 +16,22 @@ import { extractFacetIds, facetCategory, facetLabel } from './taxonomy';
 
 type Terms = Map<string, number>;
 
+type PreparedExclusion = {
+  terms: Terms;
+  phrases: string[];
+  qualifierPhrases: string[];
+  requiredTerms: string[];
+  requiredPhrases: string[];
+  scorable: boolean;
+  singleTerm?: string;
+};
+
 type PreparedFund = {
   fund: FundProfile;
   terms: Terms;
   eligibilityTerms: Terms;
   exclusionTerms: Terms;
+  exclusions: PreparedExclusion[];
   facets: Set<string>;
   focusFacets: Set<string>;
 };
@@ -40,8 +51,109 @@ function addText(terms: Terms, value: string | undefined, weight = 1): void {
   for (const term of normalizeTerms(value)) terms.set(term, (terms.get(term) || 0) + weight);
 }
 
+function addTerms(terms: Terms, values: string[]): void {
+  for (const term of values) terms.set(term, (terms.get(term) || 0) + 1);
+}
+
 function removeText(terms: Terms, value: string): void {
   for (const term of normalizeTerms(value)) terms.delete(term);
+}
+
+function adjacentPhrases(values: Array<string | undefined>): Set<string> {
+  const phrases = new Set<string>();
+  for (const value of values) {
+    const terms = normalizeTerms(value || '');
+    for (let index = 0; index < terms.length - 1; index += 1) {
+      phrases.add(`${terms[index]} ${terms[index + 1]}`);
+    }
+  }
+  return phrases;
+}
+
+const EXCLUSION_POLICY_TERMS = new Set([
+  'also',
+  'cant',
+  'cannot',
+  'current',
+  'do',
+  'eligible',
+  'eligibility',
+  'exclud',
+  'fit',
+  'former',
+  'ineligible',
+  'may',
+  'must',
+  'no',
+  'not',
+  'out',
+  'outside',
+  'past',
+  'qualify',
+  'scope',
+  'should',
+  'within',
+  'without',
+  'year',
+]);
+
+function exclusionContentTerms(value: string): string[] {
+  return normalizeTerms(value).filter((term) => !EXCLUSION_POLICY_TERMS.has(term));
+}
+
+function exclusionCoreText(value: string): string {
+  let core = value.split(/\b(?:unless|except when|provided that)\b/i, 1)[0].trim();
+  const colon = core.indexOf(':');
+  if (colon < 0) return core;
+  const prefix = core.slice(0, colon).trim();
+  const suffix = core.slice(colon + 1).trim();
+  if (
+    /^(?:not eligible|ineligible|out of scope|also out)\b/i.test(prefix) ||
+    /\b(?:not eligible|ineligible)\b.*\bfund\b/i.test(prefix)
+  ) {
+    return suffix;
+  }
+  return exclusionContentTerms(prefix).length > 0 ? prefix : suffix;
+}
+
+function phrasesFromTerms(terms: string[]): string[] {
+  return terms.slice(0, -1).map((term, index) => `${term} ${terms[index + 1]}`);
+}
+
+function exclusionRequiredTerms(value: string): string[] {
+  const terms = new Set<string>();
+  for (const match of value.matchAll(/\b(?:no|not(?:\s+(?:a|an|for))?)\s+([\p{L}\p{N}'’-]+)/giu)) {
+    const [term] = exclusionContentTerms(match[1]);
+    if (term) terms.add(term);
+  }
+  return [...terms];
+}
+
+function exclusionRequiredPhrases(value: string): string[] {
+  const relative = value.search(/\b(?:that|which|whose)\b/i);
+  if (relative < 0) return [];
+  const subject = value.slice(0, relative);
+  const terms = exclusionContentTerms(subject);
+  return terms.length >= 3 ? phrasesFromTerms(terms) : [];
+}
+
+// Directional words reverse the nearby subject: mentioning Kenya does not satisfy "outside
+// Kenya", and having a fiscal sponsor does not satisfy "without a fiscal sponsor". Preserve the
+// smallest ordered phrase needed to prove that the project describes the excluded side.
+function exclusionQualifierPhrases(value: string): string[] {
+  const phrases = new Set<string>();
+  const directional =
+    /\b(?:outside(?:\s+of)?|without)\s+(?:(?:a|an|the)\s+)?[\p{L}\p{N}][\p{L}\p{N}'’-]*/giu;
+  for (const match of value.matchAll(directional)) {
+    const terms = normalizeTerms(match[0]);
+    if (terms.length >= 2) phrases.add(`${terms[0]} ${terms[1]}`);
+  }
+  const negatedProperty = /\bnot\s+(?:based|located|operating|registered|living|working)\b/giu;
+  for (const match of value.matchAll(negatedProperty)) {
+    const terms = normalizeTerms(match[0]);
+    if (terms.length >= 2) phrases.add(`${terms[0]} ${terms[1]}`);
+  }
+  return [...phrases];
 }
 
 function documentFrequency(documents: Terms[]): Map<string, number> {
@@ -131,7 +243,23 @@ export function prepareMatchIndex(index: MatchIndex): PreparedMatchIndex {
     addText(terms, fund.forTitle, 1.75);
     addText(terms, fund.description, 1);
     for (const criterion of fund.eligibilityCriteria || []) addText(eligibilityTerms, criterion);
-    for (const exclusion of fund.eligibilityExclusions || []) addText(exclusionTerms, exclusion);
+    const exclusions = (fund.eligibilityExclusions || []).map((exclusion) => {
+      const core = exclusionCoreText(exclusion);
+      const contentTerms = exclusionContentTerms(core);
+      const clauseTerms = new Map<string, number>();
+      addTerms(clauseTerms, contentTerms);
+      addTerms(exclusionTerms, contentTerms);
+      const explicitlyNegative = /^\s*(?:no|not)\b/i.test(core) || /\b(?:is|are)\s+not[.!?]*$/i.test(core);
+      return {
+        terms: clauseTerms,
+        phrases: phrasesFromTerms(contentTerms),
+        qualifierPhrases: exclusionQualifierPhrases(core),
+        requiredTerms: exclusionRequiredTerms(core),
+        requiredPhrases: exclusionRequiredPhrases(core),
+        scorable: !contentTerms.some((term) => /\d/.test(term)),
+        ...(explicitlyNegative && contentTerms.length === 1 ? { singleTerm: contentTerms[0] } : {}),
+      };
+    });
     for (const theme of fund.themes) addText(terms, theme, 1.5);
     for (const alias of fund.aliases) addText(terms, alias, 1.25);
     for (const preferred of fund.preferredTerms) addText(terms, preferred, 1.75);
@@ -141,6 +269,7 @@ export function prepareMatchIndex(index: MatchIndex): PreparedMatchIndex {
       terms,
       eligibilityTerms,
       exclusionTerms,
+      exclusions,
       facets: new Set(fund.facets),
       focusFacets: new Set(fund.focusFacets),
     };
@@ -171,6 +300,18 @@ function eligibilityInputTerms(input: ProjectMatchInput): Terms {
   addText(terms, input.context?.progress, 0.75);
   addText(terms, input.context?.team, 0.75);
   return terms;
+}
+
+function eligibilityInputPhrases(input: ProjectMatchInput): Set<string> {
+  return adjacentPhrases([
+    input.title,
+    input.description,
+    ...input.tags,
+    input.context?.description,
+    input.context?.impact,
+    input.context?.progress,
+    input.context?.team,
+  ]);
 }
 
 function disambiguateProjectInput(input: ProjectMatchInput): ProjectMatchInput {
@@ -331,6 +472,39 @@ function specificSharedTerms(query: Terms, fund: Terms, idf: Map<string, number>
     .sort((a, b) => (idf.get(b) || 0) - (idf.get(a) || 0) || a.localeCompare(b));
 }
 
+function exclusionMatch(
+  query: Terms,
+  phrases: Set<string>,
+  exclusions: PreparedExclusion[],
+  idf: Map<string, number>,
+): { risk: number; terms: string[] } {
+  let best = { risk: 0, terms: [] as string[] };
+  for (const exclusion of exclusions) {
+    if (!exclusion.scorable) continue;
+    if (exclusion.requiredTerms.length > 0 && !exclusion.requiredTerms.some((term) => query.has(term))) {
+      continue;
+    }
+    if (exclusion.requiredPhrases.some((phrase) => !phrases.has(phrase))) continue;
+    // Exclusion warnings are cautious review signals. If an exclusion contains a directional
+    // condition, unordered overlap is not enough to assert that the project meets that condition.
+    if (
+      exclusion.qualifierPhrases.length > 0 &&
+      !exclusion.qualifierPhrases.some((phrase) => phrases.has(phrase))
+    ) {
+      continue;
+    }
+    const shared = specificSharedTerms(query, exclusion.terms, idf);
+    const singleTermMatch = exclusion.singleTerm != null && query.has(exclusion.singleTerm);
+    const phraseMatch = exclusion.phrases.some((phrase) => phrases.has(phrase));
+    if (!singleTermMatch && (shared.length < 2 || !phraseMatch)) continue;
+    const similarity = cosine(query, exclusion.terms, idf);
+    if (similarity >= 0.18 && similarity > best.risk) {
+      best = { risk: similarity, terms: singleTermMatch ? [exclusion.singleTerm!] : shared };
+    }
+  }
+  return best;
+}
+
 function fitFor(score: number, supportedFocus: boolean, definingEvidence: boolean, index: MatchIndex): MatchFit {
   const config = index.scoring;
   if ((!supportedFocus || !definingEvidence) && score >= config.exploratoryThreshold) return 'exploratory';
@@ -409,6 +583,7 @@ export function matchFunds(
   const scoringInput = disambiguateProjectInput(input);
   const query = inputTerms(scoringInput);
   const eligibilityQuery = eligibilityInputTerms(scoringInput);
+  const eligibilityPhrases = eligibilityInputPhrases(scoringInput);
   const inputFacets = new Set(
     extractFacetIds(
       scoringInput.title,
@@ -437,13 +612,14 @@ export function matchFunds(
     const eligibility =
       sharedEligibilityTerms.length >= 2 && eligibilitySimilarity >= 0.18 ? eligibilitySimilarity : 0;
     const eligibilityEvidence = eligibility ? sharedEligibilityTerms : [];
-    const exclusionSimilarity = cosine(eligibilityQuery, candidate.exclusionTerms, prepared.exclusionIdf);
-    const exclusionTerms = specificSharedTerms(
+    const exclusion = exclusionMatch(
       eligibilityQuery,
-      candidate.exclusionTerms,
+      eligibilityPhrases,
+      candidate.exclusions,
       prepared.exclusionIdf,
     );
-    const exclusionRisk = exclusionTerms.length >= 2 && exclusionSimilarity >= 0.18 ? exclusionSimilarity : 0;
+    const exclusionRisk = exclusion.risk;
+    const exclusionTerms = exclusion.terms;
     const breakdown: ScoreBreakdown = {
       lexical: cosine(query, candidate.terms, prepared.idf),
       facets: alignment.score,
