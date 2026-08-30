@@ -355,7 +355,7 @@ export function matchResultsRegion(status: string): string {
             <button class="artizen-match-toggle" type="button" data-filter-available aria-pressed="false">
               Funds available <span class="artizen-match-count" data-count-available></span>
             </button>
-            <button class="artizen-match-toggle" type="button" data-filter-new aria-pressed="false" title="Hide funds this project has already applied to, been curated in, or been funded by">
+            <button class="artizen-match-toggle" type="button" data-filter-new aria-pressed="false" data-tooltip="Hide funds this project has already applied to, been curated in, or been funded by">
               New to me <span class="artizen-match-count" data-count-new></span>
             </button>
           </div>

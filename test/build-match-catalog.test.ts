@@ -11,6 +11,8 @@ describe('deploy matching catalog', () => {
     try {
       const index = JSON.parse(readFileSync('test/fixtures/match-index.json', 'utf8'));
       index.source.kind = 'artizen-api';
+      index.projects[0].context = { impact: 'A detailed impact narrative that is loaded only when selected.' };
+      index.projects[0].semanticFingerprint = 'b'.repeat(16);
       const input = join(temp, 'index.json');
       const output = join(temp, 'match');
       writeFileSync(input, JSON.stringify(index));
@@ -27,6 +29,8 @@ describe('deploy matching catalog', () => {
       expect(core.projects).toEqual([]);
       expect(projects.indexVersion).toBe(index.indexVersion);
       expect(projects.projects).toHaveLength(index.projects.length);
+      expect(projects.projects[0]).not.toHaveProperty('context');
+      expect(projects.projects[0].semanticFingerprint).toBe(index.projects[0].semanticFingerprint);
 
       const first = index.projects[0];
       const key = createHash('sha256').update(first.id).digest('hex');

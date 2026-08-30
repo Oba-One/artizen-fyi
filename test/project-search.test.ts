@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { ProjectProfile } from '../src/artizen/types';
-import { findExactProject, matchInputForProject, searchProjects } from '../src/matching/project-search';
+import {
+  findExactProject,
+  matchInputForProject,
+  mergeProjectProfiles,
+  searchProjects,
+} from '../src/matching/project-search';
 
 const projects: ProjectProfile[] = [
   {
@@ -77,6 +82,21 @@ describe('project search', () => {
     const input = matchInputForProject({ ...projects[0], tags });
     expect(input.tags).toEqual(tags);
     expect(input.tags).toHaveLength(10);
+  });
+
+  it('preserves the stored narrative context when preparing a match', () => {
+    const context = { impact: 'Creates shared infrastructure for a circular economy.' };
+    const input = matchInputForProject({ ...projects[0], context });
+    expect(input.context).toEqual(context);
+  });
+
+  it('merges hydrated projects by id without dropping the picker catalog or full context', () => {
+    const full = { ...projects[0], context: { impact: 'Full impact narrative' } };
+    const compact = { ...projects[0] };
+    const merged = mergeProjectProfiles([full], [compact, projects[1], projects[2]]);
+
+    expect(merged.map((project) => project.id)).toEqual(['green-goods', 'climate-frames', 'water']);
+    expect(merged[0].context).toEqual(full.context);
   });
 
   it('honors deliberately empty description and tag refinements', () => {

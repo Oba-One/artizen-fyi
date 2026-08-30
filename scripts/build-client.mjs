@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { copyFile, mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, join, relative } from 'node:path';
 import { build } from 'esbuild';
+import { verifyMatchingReleaseAssets } from './matching-assets.mjs';
 import { shouldPrepareMatchingRelease } from './matching-release.mjs';
 
 const requireReleaseAssets = shouldPrepareMatchingRelease(process.env);
@@ -14,9 +15,27 @@ function reportMissing(message) {
 
 await mkdir('public/assets', { recursive: true });
 for (const filename of await readdir('public/assets')) {
-  if (/^match-(fund|project)-vectors-v2(?:-|\.)/.test(filename)) {
+  if (/^match-(fund|project)-vectors-v2(?:-|\.)/.test(filename) || /^lazy-.*\.js$/.test(filename)) {
     await rm(join('public/assets', filename), { force: true });
   }
+}
+
+async function sourceSemanticManifest() {
+  const result = await build({
+    stdin: {
+      contents: `export { SEMANTIC_CATALOG as default } from ${JSON.stringify(join(process.cwd(), 'src/matching/semantic-config.ts'))};`,
+      resolveDir: process.cwd(),
+      sourcefile: 'semantic-release-manifest.ts',
+    },
+    bundle: true,
+    platform: 'node',
+    format: 'esm',
+    target: 'node22',
+    write: false,
+    logLevel: 'silent',
+  });
+  const encoded = Buffer.from(result.outputFiles[0].contents).toString('base64');
+  return (await import(`data:text/javascript;base64,${encoded}`)).default;
 }
 
 const qaBuild = process.env.ARTIZEN_MATCH_QA === '1';
@@ -180,35 +199,26 @@ if (!semanticModelReady) {
 }
 
 try {
-  const funds = await stat('public/assets/match-fund-vectors.bin');
-  // Shard zero stands in for all of them: they are written in one pass, so if it is there they are.
-  const shard = await stat('public/assets/match-project-vectors-0.bin');
-  console.log(`Vector catalogs ready: ${funds.size} bytes funds / ${shard.size} bytes per project shard`);
-} catch (error) {
-  if (error?.code !== 'ENOENT') throw error;
-  reportMissing(
-    [
-      'precomputed vector catalogs are missing from public/assets.',
-      '  Fix with: npm run build:semantic-vectors -- <match-index.json | url>',
-      '  Without them, choosing a catalog project falls back to keyword matching for every visitor.',
-    ].join('\n'),
+  const checked = await verifyMatchingReleaseAssets('public', await sourceSemanticManifest());
+  console.log(
+    `Matching release ${checked.indexVersion}: ${checked.projects} projects / ${checked.funds} funds / vectors ${checked.vectorVersion}`,
   );
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (!/\bis missing\b/.test(message)) throw error;
+  reportMissing(`${message}\n  Rebuild locally with: npm run build:match-catalog && npm run build:semantic-vectors -- public/match/index.json`);
 }
 
 try {
-  const core = await stat('public/match/core.json');
-  if (core.size < 1024) {
-    throw new Error(`public/match/core.json is too small to be a matching catalog (${core.size} bytes)`);
+  const core = await readFile('public/match/core.json');
+  const coreGzipBytes = gzipSync(core).byteLength;
+  if (core.byteLength > 1_600_000 || coreGzipBytes > 300_000) {
+    throw new Error(
+      `matching first paint exceeds its 1.6 MB raw / 300 KB gzip budget (${core.byteLength} raw, ${coreGzipBytes} gzip)`,
+    );
   }
-  console.log(`Matching catalog ready: ${core.size} bytes`);
+  console.log(`Matching first paint: ${core.byteLength} bytes raw / ${coreGzipBytes} bytes gzip`);
 } catch (error) {
   if (error?.code !== 'ENOENT') throw error;
-  reportMissing(
-    [
-      'public/match/core.json is missing. Git pushes deploy without it because public/ is gitignored,',
-      'which takes matching offline on artizen.fyi.',
-      '  A production deploy rebuilds it automatically; locally: npm run build:match-catalog',
-    ].join('\n'),
-  );
 }
 console.log(`Matching browser bundles: ${gzipBytes} bytes gzip`);

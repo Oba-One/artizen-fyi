@@ -6,7 +6,7 @@ type FacetDefinition = MatchFacet & {
   narrow?: boolean;
 };
 
-export const MATCH_TAXONOMY_VERSION = '2026-08-23.1';
+export const MATCH_TAXONOMY_VERSION = '2026-08-27.1';
 
 const facet = (
   id: string,
@@ -27,11 +27,41 @@ export const MATCH_FACET_DEFINITIONS: FacetDefinition[] = [
   facet('domain:marine-ocean', 'Marine and ocean', 'domain', ['ocean', 'marine', 'sea', 'reef', 'coral', 'coastal', 'aquatic'], true),
   facet('domain:agriculture-land', 'Agriculture and land', 'domain', ['agriculture', 'agroforestry', 'farm', 'farming', 'food forest', 'land stewardship', 'permaculture', 'soil', 'seed'], true),
   facet('domain:education', 'Education and learning', 'domain', ['education', 'educational', 'learning', 'school', 'teaching', 'curriculum', 'training']),
-  facet('domain:health-wellness', 'Health and wellness', 'domain', ['health', 'wellness', 'mental health', 'healing', 'care', 'neurodivergent', 'neurotech'], true),
+  facet('domain:health-wellness', 'Health and wellness', 'domain', ['health', 'wellness', 'mental health', 'healing', 'neurodivergent', 'neurotech'], true),
   facet('domain:community-economy', 'Community and shared economy', 'domain', ['community', 'local action', 'cooperative', 'collective', 'solidarity economy', 'social economy', 'mutual aid']),
   facet('domain:culture-identity', 'Culture and identity', 'domain', ['culture', 'cultural', 'heritage', 'ancestral', 'identity', 'language preservation']),
   facet('approach:public-goods', 'Public goods', 'approach', ['public good', 'public goods', 'commons', 'shared benefit']),
   facet('approach:regenerative', 'Regenerative practice', 'approach', ['regenerative', 'regeneration', 'refi', 'solarpunk', 'greenpill']),
+  facet(
+    'approach:circular-economy',
+    'Circular and regenerative economics',
+    'approach',
+    [
+      'circular economy',
+      'circular economies',
+      'regenerative economics',
+      'closed loop',
+      'closed-loop',
+      'internalized externalities',
+      'externality-producing economics',
+    ],
+    false,
+  ),
+  facet(
+    'approach:systems-change',
+    'Systems change and positive-sum coordination',
+    'approach',
+    [
+      'positive sum',
+      'positive-sum',
+      'systems change',
+      'systemic change',
+      'upstream intervention',
+      'generator functions',
+      'collective sensemaking',
+    ],
+    false,
+  ),
   facet('approach:decentralized', 'Decentralized coordination', 'approach', ['decentralized', 'decentralised', 'web3', 'blockchain', 'dao', 'onchain']),
   facet('audience:women', 'Women creators', 'audience', ['women', 'woman', 'female-led'], true),
   facet('audience:queer', 'Queer creators', 'audience', ['queer', 'lgbt', 'lgbtq'], true),

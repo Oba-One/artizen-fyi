@@ -7,6 +7,8 @@
   --line: #D9DBE0;
   --green: #1ACC6C;
   --green-deep: #06AA59;
+  --warn: #D6C52D;
+  --lavender: #C2B6DC;
   --shadow: 0 8px 18px rgba(16, 18, 18, 0.08);
   --radius: 1.15rem;
   --shell: 90rem;
@@ -366,13 +368,20 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   outline: 2px solid var(--green);
   outline-offset: 1px;
 }
+.artizen-match-source-panels {
+  display: grid;
+}
 .artizen-match-page [data-source-panel] {
+  grid-area: 1 / 1;
   padding: 1rem;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--paper);
 }
-.artizen-match-page [data-source-panel][hidden] { display: none; }
+.artizen-match-page [data-source-panel][aria-hidden="true"] {
+  visibility: hidden;
+  pointer-events: none;
+}
 
 .artizen-match-page label:not(.artizen-match-mode label) {
   margin-bottom: 0.3rem;
@@ -783,6 +792,34 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   font-size: 0.82rem;
 }
 .artizen-ai-note:empty { display: none; }
+.artizen-ai-note-warning {
+  margin-top: 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid color-mix(in srgb, var(--warn) 72%, var(--ink));
+  border-radius: 0.65rem;
+  background: color-mix(in srgb, var(--warn) 42%, var(--panel));
+  color: var(--ink);
+}
+.artizen-tooltip {
+  position: fixed;
+  z-index: 1200;
+  width: max-content;
+  max-width: min(19rem, calc(100vw - 1rem));
+  padding: 0.4rem 0.55rem;
+  border-radius: 0.45rem;
+  background: var(--slate);
+  box-shadow: var(--shadow);
+  color: #fff;
+  font-size: 0.78rem;
+  line-height: 1.35;
+  pointer-events: none;
+  text-wrap: pretty;
+}
+.artizen-tooltip[hidden] { display: none; }
+[data-tooltip]:focus-visible {
+  outline: 2px solid var(--green);
+  outline-offset: 2px;
+}
 /* Refinements are the only reason the prepared comparison stops applying, so the way back is to
    drop them - offered beside the sentence that explains what happened. */
 .artizen-ai-undo {
@@ -1001,9 +1038,9 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   row-gap: 0.5rem;
 }
 .artizen-match-card {
-  grid-row: span 5;
+  grid-row: span 6;
   display: grid;
-  grid-template-rows: auto auto auto auto auto;
+  grid-template-rows: auto auto auto auto auto auto;
   grid-template-rows: subgrid;
   min-width: 0;
   margin-bottom: 0.5rem;
@@ -1025,6 +1062,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-items: start;
   gap: 0.7rem;
   grid-row: 1;
+  min-width: 0;
 }
 .artizen-match-card-title {
   display: flex;
@@ -1053,21 +1091,25 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-match-thumb-empty,
 .artizen-match-preview-thumb-empty { border: 1px solid var(--line); }
 .artizen-match-card h3 {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  width: 100%;
+  max-width: 100%;
   overflow: hidden;
   margin: 0;
   font-size: 1.05rem;
   min-width: 0;
   align-self: stretch;
-  overflow-wrap: anywhere;
-  text-wrap: balance;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .artizen-match-card h3 a {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
   color: var(--ink);
+  text-overflow: ellipsis;
   text-decoration: none;
+  white-space: nowrap;
 }
 .artizen-match-card-subtitle {
   display: -webkit-box;
@@ -1104,6 +1146,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 }
 .artizen-fit-fill-strong,
 .artizen-fit-fill-good { background: var(--green-deep); }
+.artizen-fit-fill-warning { background: var(--warn); }
 .artizen-fit-fill-exploratory { background: color-mix(in srgb, var(--green-deep) 42%, var(--paper)); }
 .artizen-fit-fill-limited { background: var(--line); }
 .artizen-match-fit-value {
@@ -1119,19 +1162,18 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-content: start;
   gap: 0.35rem;
 }
-/* Strong and Good share Moss with Fund details and the history badges. The meter has no type
-   on the fill; the badges put white on the same green so the card stays one colour. */
+/* Fit quality owns green; relationship history uses a separate category colour below. */
 .artizen-fit-strong { color: #fff; background: var(--green-deep); }
 .artizen-fit-good { color: #fff; background: var(--green-deep); }
 .artizen-fit-exploratory { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 .artizen-fit-limited { color: var(--muted); background: transparent; border: 1px dashed var(--line); }
-/* Same filled treatment as Strong / Project: white type on Moss, not Algae. */
+/* Applied, Curated, and Funded are all relationship history, distinct from match quality. */
 .artizen-known-relationship {
   display: inline-flex;
   align-items: center;
   gap: 0.35em;
-  color: #fff;
-  background: var(--green-deep);
+  color: var(--ink);
+  background: var(--lavender);
 }
 .artizen-known-relationship .bi {
   font-size: 0.9em;
@@ -1148,12 +1190,23 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   text-wrap: pretty;
 }
 .artizen-match-reasons li + li { margin-top: 0.25rem; }
+.artizen-match-warnings {
+  grid-row: 5;
+  margin: 0;
+  padding: 0.55rem 0.7rem 0.55rem 1.75rem;
+  border-radius: 0.65rem;
+  background: var(--warn);
+  color: var(--ink);
+  font-size: 0.85rem;
+  text-wrap: pretty;
+}
+.artizen-match-warnings li + li { margin-top: 0.25rem; }
 .artizen-match-card-actions {
   display: flex;
   align-items: end;
   justify-content: space-between;
   align-self: end;
-  grid-row: 5;
+  grid-row: 6;
   gap: 0.75rem;
 }
 .artizen-match-card-open {
@@ -1313,6 +1366,27 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-fund-dialog-row + .artizen-fund-dialog-row { margin-top: 0.35rem; }
 .artizen-fund-dialog-row dt { color: var(--muted); font-weight: 400; }
 .artizen-fund-dialog-row dd { margin: 0; text-wrap: pretty; }
+.artizen-fund-dialog-published {
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.artizen-fund-dialog-published summary {
+  color: var(--ink);
+  cursor: pointer;
+  font-weight: 600;
+}
+.artizen-fund-dialog-published h3 {
+  margin: 0.8rem 0 0.25rem;
+  color: var(--ink);
+  font-size: 0.9rem;
+}
+.artizen-fund-dialog-published p {
+  margin: 0;
+  white-space: pre-line;
+}
 
 @container matchout (width < 62rem) {
   .artizen-match-results { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1328,10 +1402,6 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
     font-size: 0.82rem;
   }
   .artizen-match-toggle > .artizen-match-count { flex: none; }
-  .artizen-match-card-title h3 {
-    -webkit-line-clamp: 4;
-    line-clamp: 4;
-  }
   .artizen-results-bar { flex-direction: column; gap: 0.5rem; }
   .artizen-semantic-controls { justify-content: start; }
   .artizen-ai-note { text-align: start; }

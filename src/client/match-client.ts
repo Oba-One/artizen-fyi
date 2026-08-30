@@ -11,6 +11,7 @@ import { isMatchIndexStale } from '../matching/engine';
 import { moveActive, pickerState } from '../matching/project-picker';
 import { semanticManifest } from '../matching/semantic-config';
 import { matchInputForProject } from '../matching/project-search';
+import type { PrecomputedFallback } from './precomputed-scorer';
 
 const INITIAL_RESULTS = 12;
 const PROJECTS_URL = '/match/projects.json';
@@ -30,6 +31,7 @@ type WorkerResponse =
       semanticFallback?: string;
       semanticSource?: 'precomputed' | 'on-device';
       semanticDowngrade?: 'edited';
+      preparedFallback?: PrecomputedFallback;
     }
   | { type: 'semantic-progress'; requestId: number; progress: number }
   | { type: 'semantic-ready'; requestId: number }
@@ -41,6 +43,8 @@ type MatchOutcome = {
   semanticSource?: 'precomputed' | 'on-device';
   /** Set when a prepared comparison existed but this input no longer matches the embedded text. */
   semanticDowngrade?: 'edited';
+  /** Set when an untouched catalog project had to fall back to the lexical/facet ranker. */
+  preparedFallback?: PrecomputedFallback;
 };
 
 type Pending = {
@@ -60,6 +64,7 @@ class BrowserMatcher {
   private readonly semanticPending = new Map<number, SemanticPending>();
   private projectList: ProjectProfile[];
   private projectsPromise: Promise<ProjectProfile[]> | undefined;
+  private readonly projectDetails = new Map<string, Promise<ProjectProfile | undefined>>();
 
   constructor(
     readonly index: BrowserMatchIndex,
@@ -77,6 +82,7 @@ class BrowserMatcher {
           semanticFallback: event.data.semanticFallback,
           semanticSource: event.data.semanticSource,
           semanticDowngrade: event.data.semanticDowngrade,
+          preparedFallback: event.data.preparedFallback,
         });
       } else if (event.data.type === 'semantic-progress') {
         this.semanticPending.get(event.data.requestId)?.onProgress(event.data.progress);
@@ -106,12 +112,50 @@ class BrowserMatcher {
     });
   }
 
-  match(input: ProjectMatchInput, semantic = false): Promise<MatchOutcome> {
+  async match(input: ProjectMatchInput, semantic = false): Promise<MatchOutcome> {
+    const hydratedInput = await this.hydrateProjectInput(input);
     const requestId = ++this.requestId;
     return new Promise((resolve, reject) => {
       this.pending.set(requestId, { resolve, reject });
-      this.worker.postMessage({ type: 'match', requestId, input, semantic });
+      this.worker.postMessage({ type: 'match', requestId, input: hydratedInput, semantic });
     });
+  }
+
+  /**
+   * Picker rows intentionally omit the large narrative fields. Fetch the selected record before
+   * scoring, then give the worker the same full profile used by the precomputed vector catalog.
+   * A transient failure degrades to the compact input instead of blocking matching altogether.
+   */
+  private async hydrateProjectInput(input: ProjectMatchInput): Promise<ProjectMatchInput> {
+    if (!input.projectId || input.context) return input;
+    let pending = this.projectDetails.get(input.projectId);
+    if (!pending) {
+      pending = this.fetchProjectDetail(input.projectId)
+        .then((project) => {
+          if (project) this.worker.postMessage({ type: 'projects', projects: [project] });
+          return project;
+        })
+        .catch(() => undefined);
+      this.projectDetails.set(input.projectId, pending);
+    }
+    const project = await pending;
+    if (!project) {
+      this.projectDetails.delete(input.projectId);
+      return input;
+    }
+    return { ...input, context: project.context };
+  }
+
+  private async fetchProjectDetail(projectId: string): Promise<ProjectProfile | undefined> {
+    const response = await fetch(`/match/project/${encodeURIComponent(projectId)}.json`, {
+      cache: 'no-cache',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) return undefined;
+    const value = (await response.json()) as { indexVersion?: unknown; projects?: unknown };
+    if (value.indexVersion !== this.index.indexVersion) return undefined;
+    const projects = Array.isArray(value.projects) ? (value.projects as ProjectProfile[]) : [];
+    return projects.find((project) => project.id === projectId);
   }
 
   loadSemantic(onProgress: (progress: number) => void): Promise<void> {
@@ -177,7 +221,7 @@ function validIndex(value: unknown): value is BrowserMatchIndex {
 }
 
 /**
- * Fund-only first. The combined document is 3 MB and a first paint uses roughly 250 KB of it, so
+ * Fund-only first. The combined document is 3 MB and a first paint uses roughly 260 KB of it, so
  * the browser starts from the deployment-coupled core document and fetches projects separately.
  */
 async function createMatcher(): Promise<BrowserMatcher> {
@@ -217,6 +261,91 @@ function find<T extends Element>(root: ParentNode, selector: string): T | null {
   return root.querySelector<T>(selector);
 }
 
+const TOOLTIP_DELAY_MS = 100;
+let tooltipSequence = 0;
+
+/** Native `title` bubbles wait for the browser's long, fixed delay; this keeps help fast and focusable. */
+function setQuickTooltip(element: HTMLElement, message?: string): void {
+  element.removeAttribute('title');
+  if (!message) {
+    delete element.dataset.tooltip;
+    return;
+  }
+  element.dataset.tooltip = message;
+  if (!element.matches('a[href], button, input, select, textarea, [tabindex]')) element.tabIndex = 0;
+}
+
+/** One delegated tooltip serves cards rendered now and cards rebuilt by filters later. */
+function installQuickTooltips(root: HTMLElement): void {
+  if (root.dataset.quickTooltips === 'true') return;
+  root.dataset.quickTooltips = 'true';
+  const tooltip = document.createElement('div');
+  tooltip.id = `artizen-tooltip-${++tooltipSequence}`;
+  tooltip.className = 'artizen-tooltip';
+  tooltip.setAttribute('role', 'tooltip');
+  tooltip.hidden = true;
+  document.body.append(tooltip);
+  let active: HTMLElement | undefined;
+  let timer: number | undefined;
+
+  const hide = (target?: HTMLElement) => {
+    if (target && active !== target) return;
+    if (timer != null) window.clearTimeout(timer);
+    timer = undefined;
+    active?.removeAttribute('aria-describedby');
+    active = undefined;
+    tooltip.hidden = true;
+  };
+  const position = (target: HTMLElement) => {
+    const anchor = target.getBoundingClientRect();
+    const box = tooltip.getBoundingClientRect();
+    const gap = 7;
+    const left = Math.min(
+      Math.max(8, anchor.left + anchor.width / 2 - box.width / 2),
+      window.innerWidth - box.width - 8,
+    );
+    const above = anchor.top - box.height - gap;
+    tooltip.style.left = `${Math.round(left)}px`;
+    tooltip.style.top = `${Math.round(above >= 8 ? above : anchor.bottom + gap)}px`;
+  };
+  const show = (target: HTMLElement, delay: number) => {
+    if (!target.dataset.tooltip) return;
+    hide();
+    active = target;
+    timer = window.setTimeout(() => {
+      if (active !== target || !target.dataset.tooltip) return;
+      tooltip.textContent = target.dataset.tooltip;
+      tooltip.hidden = false;
+      target.setAttribute('aria-describedby', tooltip.id);
+      position(target);
+      timer = undefined;
+    }, delay);
+  };
+  const tooltipTarget = (value: EventTarget | null): HTMLElement | undefined =>
+    value instanceof Element ? value.closest<HTMLElement>('[data-tooltip]') || undefined : undefined;
+
+  root.addEventListener('pointerover', (event) => {
+    const target = tooltipTarget(event.target);
+    if (!target || target === active) return;
+    show(target, TOOLTIP_DELAY_MS);
+  });
+  root.addEventListener('pointerout', (event) => {
+    const target = tooltipTarget(event.target);
+    if (!target || (event.relatedTarget instanceof Node && target.contains(event.relatedTarget))) return;
+    hide(target);
+  });
+  root.addEventListener('focusin', (event) => {
+    const target = tooltipTarget(event.target);
+    if (target) show(target, 0);
+  });
+  root.addEventListener('focusout', (event) => hide(tooltipTarget(event.target)));
+  root.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') hide();
+  });
+  window.addEventListener('resize', () => (active && !tooltip.hidden ? position(active) : undefined));
+  window.addEventListener('scroll', () => hide(), { capture: true, passive: true });
+}
+
 function setStatus(root: Element, message: string): void {
   const status = find<HTMLElement>(root, '[data-match-status]');
   if (status) status.textContent = message;
@@ -247,7 +376,7 @@ function badge(label: string, className: string, title?: string): HTMLElement {
   const element = document.createElement('span');
   element.className = `badge ${className}`;
   element.textContent = label;
-  if (title) element.title = title;
+  if (title) setQuickTooltip(element, title);
   return element;
 }
 
@@ -379,7 +508,7 @@ function availabilityBadge(recommendation: BrowserRecommendation): HTMLElement |
 function relationshipBadge(kind: keyof typeof RELATIONSHIP_LABELS): HTMLElement {
   const element = document.createElement('span');
   element.className = 'badge artizen-known-relationship';
-  element.title = RELATIONSHIP_TITLES[kind];
+  setQuickTooltip(element, RELATIONSHIP_TITLES[kind]);
   if (kind === 'submitted') {
     const icon = document.createElement('i');
     icon.className = 'bi bi-send';
@@ -420,13 +549,19 @@ function shortlistButton(fund: BrowserFund, extras: CardExtras): HTMLButtonEleme
   star.className = 'artizen-match-card-star';
   star.setAttribute('aria-pressed', String(extras.shortlisted));
   star.setAttribute('aria-label', `${extras.shortlisted ? 'Remove' : 'Add'} ${fund.name} ${extras.shortlisted ? 'from' : 'to'} your shortlist`);
-  star.title = extras.shortlisted ? 'On your shortlist' : 'Add to your shortlist';
+  setQuickTooltip(star, extras.shortlisted ? 'On your shortlist' : 'Add to your shortlist');
   const icon = document.createElement('i');
   icon.className = extras.shortlisted ? 'bi bi-star-fill' : 'bi bi-star';
   icon.setAttribute('aria-hidden', 'true');
   star.append(icon);
   star.addEventListener('click', () => extras.onShortlist());
   return star;
+}
+
+function syncFundNameTooltip(link: HTMLElement): void {
+  const fullName = link.dataset.fundName;
+  if (!fullName) return;
+  setQuickTooltip(link, link.scrollWidth > link.clientWidth ? fullName : undefined);
 }
 
 function recommendationCard(
@@ -450,6 +585,7 @@ function recommendationCard(
   const link = document.createElement('a');
   link.href = `/funds/${encodeURIComponent(fund.slug)}`;
   link.textContent = fund.name;
+  link.dataset.fundName = fund.name;
   title.append(link);
   // Fit, money, history, and inactivity sit together under the title.
   const marks = document.createElement('div');
@@ -484,6 +620,17 @@ function recommendationCard(
     article.append(list);
   }
 
+  if (recommendation.warnings?.length) {
+    const warnings = document.createElement('ul');
+    warnings.className = 'artizen-match-warnings';
+    for (const warning of recommendation.warnings) {
+      const item = document.createElement('li');
+      item.textContent = warning.label;
+      warnings.append(item);
+    }
+    article.append(warnings);
+  }
+
   // Always the last subgrid row, so Fund details and the star sit at the bottom
   // of every card even when reasons are missing.
   const actions = document.createElement('div');
@@ -512,15 +659,21 @@ function detailRow(label: string, value: string): HTMLElement {
 
 function breakdownList(recommendation: BrowserRecommendation): HTMLElement | undefined {
   if (!('breakdown' in recommendation)) return undefined;
-  const parts: Array<[string, number | undefined]> = [
+  const parts: Array<[string, number | undefined, ('positive' | 'warning')?]> = [
     ['Shared language', recommendation.breakdown.lexical],
     ['Shared focus', recommendation.breakdown.facets],
     ['Distinctive concepts', recommendation.breakdown.coreCoverage],
+    ['Published criteria', recommendation.breakdown.eligibility],
+    [
+      'Potential exclusion conflict',
+      recommendation.breakdown.exclusionRisk ? recommendation.breakdown.exclusionRisk : undefined,
+      'warning',
+    ],
     ['On-device similarity', recommendation.breakdown.semantic],
   ];
   const list = document.createElement('div');
   list.className = 'artizen-fund-dialog-breakdown';
-  for (const [label, value] of parts) {
+  for (const [label, value, tone = 'positive'] of parts) {
     if (value == null) continue;
     const row = document.createElement('div');
     const name = document.createElement('span');
@@ -528,7 +681,7 @@ function breakdownList(recommendation: BrowserRecommendation): HTMLElement | und
     const track = document.createElement('span');
     track.className = 'artizen-match-fit-track';
     const fill = document.createElement('span');
-    fill.className = 'artizen-match-fit-fill artizen-fit-fill-good';
+    fill.className = `artizen-match-fit-fill ${tone === 'warning' ? 'artizen-fit-fill-warning' : 'artizen-fit-fill-good'}`;
     fill.style.width = `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%`;
     track.append(fill);
     row.append(name, track);
@@ -599,6 +752,40 @@ function fundDetailNodes(
     nodes.push(reasons);
   }
 
+  if (recommendation.warnings?.length) {
+    const warnings = document.createElement('ul');
+    warnings.className = 'artizen-match-warnings';
+    for (const warning of recommendation.warnings) {
+      const item = document.createElement('li');
+      item.textContent = warning.label;
+      warnings.append(item);
+    }
+    nodes.push(warnings);
+  }
+
+  if (fund.description || fund.eligibility) {
+    const published = document.createElement('details');
+    published.className = 'artizen-fund-dialog-published';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Published fund context';
+    published.append(summary);
+    if (fund.description) {
+      const heading = document.createElement('h3');
+      heading.textContent = 'About this fund';
+      const description = document.createElement('p');
+      description.textContent = fund.description;
+      published.append(heading, description);
+    }
+    if (fund.eligibility) {
+      const heading = document.createElement('h3');
+      heading.textContent = 'Eligibility';
+      const eligibility = document.createElement('p');
+      eligibility.textContent = fund.eligibility;
+      published.append(heading, eligibility);
+    }
+    nodes.push(published);
+  }
+
   if (semantic?.state() === 'available') {
     const upgrade = document.createElement('button');
     upgrade.type = 'button';
@@ -625,14 +812,19 @@ function fundDetailNodes(
 
   const note = document.createElement('p');
   note.className = 'artizen-match-note';
-  note.textContent = 'Alignment describes thematic fit. It is not a guarantee of eligibility, an open application, or a current deadline.';
+  note.textContent =
+    'The ranking uses thematic alignment and published eligibility language. Exclusion warnings are cautious signals to review, not eligibility decisions or guarantees of an open application or current deadline.';
   nodes.push(note);
   return nodes;
 }
 
 type SemanticControl = {
   setInput(input: ProjectMatchInput): void;
-  setSource(source: MatchOutcome['semanticSource'], downgrade?: MatchOutcome['semanticDowngrade']): void;
+  setSource(
+    source: MatchOutcome['semanticSource'],
+    downgrade?: MatchOutcome['semanticDowngrade'],
+    fallback?: MatchOutcome['preparedFallback'],
+  ): void;
   /** 'available' when the on-device model could still be switched on for these results. */
   state(): 'available' | 'applied' | 'unavailable';
   enable(): void;
@@ -642,7 +834,8 @@ type SemanticControl = {
 
 function infoParagraphs(source: MatchOutcome['semanticSource']): string[] {
   const shared = [
-    'Every fund is scored on how closely its own published wording matches your project: the words it uses, the focus areas it names, and the ideas that make it distinctive.',
+    'Every fund is scored on how closely its published description and positive eligibility criteria match your project: the words it uses, the focus areas it names, and the ideas that make it distinctive.',
+    'Clear overlap with eligibility criteria can add a small boost. If a project also shares several specific terms with an explicit exclusion, the ranking applies a cautious penalty and shows a warning so you can review the source language.',
     'Nothing about your history counts. Whether a fund has backed you before, whether it is curating, and how much money it holds are shown on the card but never change the ranking.',
   ];
   if (source === 'precomputed') {
@@ -775,8 +968,8 @@ function installFundDialog(
 
 type SortMode = 'fit' | 'available' | 'name';
 
-/** `compare` marks what the on-device model just changed; nothing else claims credit for it. */
-type ShowOptions = { compare?: boolean };
+/** `compare` marks what local AI changed; `baselineOnly` makes a prepared-asset failure explicit. */
+type ShowOptions = { compare?: boolean; baselineOnly?: boolean };
 
 type ResultsView = {
   show(result: BrowserMatchResult, options?: ShowOptions): void;
@@ -842,9 +1035,19 @@ function installResults(
   let projectKey = '';
   let shortlist = new Set<string>();
   let previousOrder: string[] | undefined;
+  let baselineOnly = false;
   /** Set by a new result set, cleared by the render that consumes it. */
   let stagger = false;
   const movement = new Map<string, 'up' | 'new'>();
+
+  const syncFundNameTooltips = (): void => {
+    results?.querySelectorAll<HTMLElement>('[data-fund-name]').forEach(syncFundNameTooltip);
+  };
+  if (results && typeof ResizeObserver !== 'undefined') {
+    const fundNameResizeObserver = new ResizeObserver(syncFundNameTooltips);
+    fundNameResizeObserver.observe(results);
+  }
+  void document.fonts.ready.then(syncFundNameTooltips);
 
   const pressed = (toggle: HTMLButtonElement | null) => toggle?.getAttribute('aria-pressed') === 'true';
 
@@ -1006,6 +1209,7 @@ function installResults(
       if (stagger) card.style.setProperty('--card-index', String(position));
       results.append(card);
     });
+    syncFundNameTooltips();
     stagger = false;
     // `filtered` is exactly what opening the catalog would render, so promise that number and
     // not the unfiltered total.
@@ -1035,6 +1239,7 @@ function installResults(
     const backed = shown.filter(isEvidenceBacked).length;
     const moved = shown.filter((row) => movement.has(row.fundId)).length;
     const movedNote = moved ? ` Local AI moved ${moved} of them.` : '';
+    const modeNote = baselineOnly ? 'Baseline only — prepared semantic matching did not load. ' : '';
     // Filling down through the bands means the list can hold three kinds of card at once, so name
     // each kind rather than leaving the count short of what is on screen.
     const extras: Array<[number, string]> = [
@@ -1045,13 +1250,13 @@ function installResults(
       .filter(([count]) => count > 0)
       .map(([count, label]) => `${count} ${label}`)
       .join(' and ');
-    setStatus(root, catalogOpen
+    setStatus(root, modeNote + (catalogOpen
       ? `Showing ${shown.length} of ${filtered.length} funds ranked by alignment, including limited-evidence results.${facetNote}`
       : backed
         ? `${backed} evidence-backed match${backed === 1 ? '' : 'es'}${tail ? `, plus ${tail}` : ''}.${facetNote}${movedNote}`
         : tail
           ? `No fund clears the evidence bar. Showing ${tail}.${facetNote}${movedNote}`
-          : `No fund in the catalog aligns clearly with this project.${facetNote}`);
+          : `No fund in the catalog aligns clearly with this project.${facetNote}`));
   }
 
   function emptyMessage(source: BrowserRecommendation[], statusPassed: BrowserRecommendation[]): string {
@@ -1149,6 +1354,7 @@ function installResults(
     },
     show(result, options) {
       markMovement(result, options?.compare === true);
+      baselineOnly = options?.baselineOnly === true;
       stagger = true;
       recommendations = result.recommendations;
       catalogOpen = false;
@@ -1242,11 +1448,12 @@ function installSemanticControl(
       size.hidden = !showSize;
     }
   };
-  button.title = `Runs a ${download} on this device. Nothing leaves the browser.`;
+  setQuickTooltip(button, `Runs a ${download} model on this device. Nothing leaves the browser.`);
   setLabel(idleLabel, true);
   let modelReady = false;
   let lastSource: MatchOutcome['semanticSource'];
   let lastDowngrade: MatchOutcome['semanticDowngrade'];
+  let lastPreparedFallback: MatchOutcome['preparedFallback'];
   /**
    * Editing the description or the tags means the input is no longer the text that was embedded at
    * build time, so the prepared comparison silently stops applying and the results drop back to
@@ -1256,6 +1463,7 @@ function installSemanticControl(
   const applySource = (): void => {
     const precomputed = lastSource === 'precomputed';
     const edited = !lastSource && lastDowngrade === 'edited';
+    const preparedFailed = !lastSource && Boolean(lastPreparedFallback);
     button.hidden = precomputed;
     if (progress) progress.hidden = progress.hidden || precomputed;
     if (undo) undo.hidden = !edited || !undoHandler;
@@ -1265,11 +1473,23 @@ function installSemanticControl(
     // matched yet so there are no results to improve.
     controls.hidden = precomputed || !modelReady || !input;
     if (!status) return;
+    status.classList.toggle('artizen-ai-note-warning', edited || preparedFailed);
     if (edited) {
       status.textContent = modelReady
         ? 'Your edits mean the prepared comparison no longer applies. Turn on local AI to compare meaning again.'
         : 'Your edits mean the prepared comparison no longer applies, so these results compare words rather than meaning.';
-    } else if (status.textContent.startsWith('Your edits')) {
+    } else if (preparedFailed) {
+      const stale = lastPreparedFallback === 'assets-stale' || lastPreparedFallback === 'assets-incomplete';
+      const reason = stale
+        ? 'The prepared semantic data does not match this release.'
+        : 'The prepared semantic data could not be loaded.';
+      status.textContent = modelReady
+        ? `${reason} These are baseline word-and-facet results. Use local AI to restore semantic matching.`
+        : `${reason} These are baseline word-and-facet results, not the full semantic ranking.`;
+    } else if (
+      status.textContent.startsWith('Your edits') ||
+      status.textContent.startsWith('The prepared semantic data')
+    ) {
       status.textContent = '';
     }
   };
@@ -1322,8 +1542,15 @@ function installSemanticControl(
       }
       button.disabled = true;
       setLabel('Local AI applied', false);
+      lastSource = outcome.semanticSource;
+      lastDowngrade = outcome.semanticDowngrade;
+      lastPreparedFallback = outcome.preparedFallback;
+      applySource();
       render(outcome.result, { compare: true });
-      if (status) status.textContent = 'Recommendations now include private on-device semantic similarity.';
+      if (status) {
+        status.classList.remove('artizen-ai-note-warning');
+        status.textContent = 'Recommendations now include private on-device semantic similarity.';
+      }
     } catch (error) {
       // cancelSemantic rejects synchronously, so this catch runs after the cancel branch has
       // already restored the idle state - do not overwrite it with a failure message.
@@ -1340,6 +1567,9 @@ function installSemanticControl(
     setInput(value) {
       const first = !input;
       input = value;
+      lastSource = undefined;
+      lastDowngrade = undefined;
+      lastPreparedFallback = undefined;
       // A new project or description has not been through the model, so the control must stop
       // claiming it has - otherwise it reads "Local AI applied" over baseline results.
       if (loading || !button.disabled) {
@@ -1359,9 +1589,10 @@ function installSemanticControl(
     },
     // A catalog project is already scored against build-time embeddings, so offering a 50 MB
     // download that would reproduce the same answer would be worse than useless.
-    setSource(source, downgrade) {
+    setSource(source, downgrade, fallback) {
       lastSource = source;
       lastDowngrade = downgrade;
+      lastPreparedFallback = fallback;
       applySource();
     },
   };
@@ -1699,9 +1930,9 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
       semantic.setInput(input);
       const outcome = await engine.match(input);
       if (token !== matchToken) return;
-      semantic.setSource(outcome.semanticSource, outcome.semanticDowngrade);
+      semantic.setSource(outcome.semanticSource, outcome.semanticDowngrade, outcome.preparedFallback);
       setInfoSource(outcome.semanticSource);
-      view.show(outcome.result);
+      view.show(outcome.result, { baselineOnly: Boolean(outcome.preparedFallback) });
       if (reveal) revealResults();
     } catch {
       if (token === matchToken) setStatus(root, 'The matching engine could not finish. Reload the page and try again.');
@@ -1809,7 +2040,10 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
   function syncMode(next: string): void {
     source = next;
     root.querySelectorAll<HTMLElement>('[data-source-panel]').forEach((panel) => {
-      panel.hidden = panel.dataset.sourcePanel !== source;
+      const active = panel.dataset.sourcePanel === source;
+      panel.toggleAttribute('inert', !active);
+      if (active) panel.removeAttribute('aria-hidden');
+      else panel.setAttribute('aria-hidden', 'true');
     });
     if (projectInput) projectInput.required = source === 'existing';
     if (source !== 'existing') projectInput?.setCustomValidity('');
@@ -1929,6 +2163,7 @@ function initializeForm(root: Element, engine: BrowserMatcher): void {
 async function initialize(root: Element): Promise<void> {
   if (initialized.has(root)) return;
   initialized.add(root);
+  if (root instanceof HTMLElement) installQuickTooltips(root);
   try {
     const engine = await matcher();
     initializeForm(root, engine);

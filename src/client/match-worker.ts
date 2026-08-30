@@ -2,7 +2,12 @@
 
 import type { MatchIndex, ProjectMatchInput, ProjectProfile } from '../artizen/types';
 import { matchFunds, prepareMatchIndex, type PreparedMatchIndex } from '../matching/engine';
-import { PrecomputedSemanticScorer, type PrecomputedOutcome } from './precomputed-scorer';
+import { mergeProjectProfiles } from '../matching/project-search';
+import {
+  PrecomputedSemanticScorer,
+  type PrecomputedFallback,
+  type PrecomputedOutcome,
+} from './precomputed-scorer';
 
 type WorkerRequest =
   | { type: 'init'; index: MatchIndex }
@@ -17,8 +22,8 @@ let semanticLoad: Promise<void> | undefined;
 let semanticEpoch = 0;
 let precomputed: PrecomputedSemanticScorer | undefined;
 
-/** Rebuilt whenever the project list changes, because both depend on which projects are known. */
-function refreshProjectState(index: MatchIndex): void {
+/** Initializes the release-scoped state. Subsequent project hydration preserves vector caches. */
+function initializeIndex(index: MatchIndex): void {
   prepared = prepareMatchIndex(index);
   precomputed = index.semantic ? new PrecomputedSemanticScorer(index) : undefined;
 }
@@ -33,7 +38,7 @@ function refreshProjectState(index: MatchIndex): void {
  */
 async function precomputedScores(input: ProjectMatchInput): Promise<PrecomputedOutcome> {
   if (!precomputed || !input.projectId) return {};
-  if (!(await precomputed.load())) return {};
+  if (!(await precomputed.load())) return { fallback: precomputed.loadFallback || 'assets-unavailable' };
   return precomputed.score(input);
 }
 
@@ -49,16 +54,19 @@ function coversEveryFund(scores: Map<string, number>, prepared: PreparedMatchInd
 self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
   try {
     if (event.data.type === 'init') {
-      refreshProjectState(event.data.index);
+      initializeIndex(event.data.index);
       self.postMessage({ type: 'ready', indexVersion: event.data.index.indexVersion });
       return;
     }
     // The project list arrives separately from the core catalog - on the first use of the picker,
-    // or as a single record on a project page - so relationships and embedding fingerprints are
-    // rebuilt when it lands rather than at init.
+    // or as a single hydrated record on a project page. Messages can overlap, so merge by id
+    // instead of replacing the list and keep the scorer's fund and shard caches intact.
     if (event.data.type === 'projects') {
       if (!prepared) return;
-      refreshProjectState({ ...prepared.index, projects: event.data.projects });
+      const projects = mergeProjectProfiles(prepared.index.projects, event.data.projects);
+      const nextIndex = { ...prepared.index, projects };
+      prepared = prepareMatchIndex(nextIndex);
+      precomputed?.updateProjects(projects);
       return;
     }
     if (event.data.type === 'semantic-cancel') {
@@ -106,11 +114,15 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
     let semanticFallback: string | undefined;
     let semanticSource: 'precomputed' | 'on-device' | undefined;
     let semanticDowngrade: 'edited' | undefined;
+    let preparedFallback: PrecomputedFallback | undefined;
     const ready = await precomputedScores(event.data.input);
     semanticDowngrade = ready.downgrade;
+    preparedFallback = ready.fallback;
     if (ready.scores && coversEveryFund(ready.scores, prepared)) {
       result = matchFunds(prepared, event.data.input, ready.scores);
       semanticSource = 'precomputed';
+    } else if (ready.scores) {
+      preparedFallback = 'assets-incomplete';
     }
     if (!result && event.data.semantic) {
       try {
@@ -123,6 +135,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
         if (!coversEveryFund(scores, prepared)) throw new Error('The local model could not score every fund');
         result = matchFunds(prepared, event.data.input, scores);
         semanticSource = 'on-device';
+        preparedFallback = undefined;
       } catch (error) {
         result = matchFunds(prepared, event.data.input);
         semanticFallback = error instanceof Error ? error.message : String(error);
@@ -135,6 +148,7 @@ self.addEventListener('message', async (event: MessageEvent<WorkerRequest>) => {
       result,
       semanticFallback,
       semanticSource,
+      preparedFallback,
       // Only worth reporting when nothing replaced it; an on-device run already covers the gap.
       semanticDowngrade: semanticSource ? undefined : semanticDowngrade,
     });

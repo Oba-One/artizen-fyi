@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Bubble } from '../src/artizen/bubble';
 import type { MatchIndex, Row } from '../src/artizen/types';
 import { DEFAULT_SCORING, buildMatchIndex, validateMatchIndex } from '../src/matching/index';
+import { projectVectorText } from '../src/matching/semantic-text';
 
 class FakeBubble {
   constructor(private readonly rows: Record<string, Row[]>) {}
@@ -22,6 +23,10 @@ function source(): Record<string, Row[]> {
         Slug: 'project-science',
         Name: 'Open Biology Lab',
         Logline: 'A decentralized laboratory for open scientific research',
+        Description: '[b]A public laboratory[/b] coordinating open biology.',
+        Impact: '<p>Shared scientific infrastructure.</p>',
+        Progress: 'Women in Kenya tested a working prototype with ten partner labs.',
+        Team: 'An AI engineer and community stewards maintain the tools.',
         'impact tags (impact tag)': ['tag-science', 'tag-ocean'],
         '(old) Artifact Image -crop': '//media.example/project-science.jpg',
       },
@@ -32,6 +37,10 @@ function source(): Record<string, Row[]> {
         'full title': 'DeSci Fund for Open Biology Research',
         subtitle: 'Supporting decentralized laboratories and scientific researchers without truncation',
         'for title': 'For biology, laboratory research, and citizen science',
+        description:
+          '[b]We support open scientific infrastructure. Systems change and circular economy examples may be considered.[/b]',
+        eligibility:
+          'Applicants should build public-interest research tools. Applicants must not create surveillance systems.\nWe do not fund:\n- Private laboratories\n- Weapons research',
       },
       {
         _id: 'extended-film',
@@ -65,11 +74,38 @@ describe('matching index v2', () => {
     expect(index.semantic?.modelRevision).toMatch(/^[a-f0-9]{40}$/);
     const fund = index.funds.find((candidate) => candidate.id === 'fund-science')!;
     expect(fund.profileText).toContain('Supporting decentralized laboratories and scientific researchers without truncation');
+    expect(fund.description).toBe(
+      'We support open scientific infrastructure. Systems change and circular economy examples may be considered.',
+    );
+    expect(fund.eligibilityCriteria).toEqual(['Applicants should build public-interest research tools.']);
+    expect(fund.eligibilityExclusions).toEqual([
+      'Applicants must not create surveillance systems.',
+      'Private laboratories',
+      'Weapons research',
+    ]);
+    expect(fund.profileText).not.toContain('weapons research');
     expect(fund).not.toHaveProperty('derivedThemes');
     expect(fund.focusFacets).toContain('domain:science-research');
+    expect(fund.facets).toEqual(
+      expect.arrayContaining(['approach:circular-economy', 'approach:systems-change']),
+    );
+    expect(fund.focusFacets).not.toContain('approach:circular-economy');
+    expect(fund.focusFacets).not.toContain('approach:systems-change');
     expect(fund.profileHash).toMatch(/^[a-f0-9]{64}$/);
     expect(index.projects[0].tags).toEqual(['Ocean', 'Science']);
+    expect(index.projects[0].context).toEqual({
+      description: 'A public laboratory coordinating open biology.',
+      impact: 'Shared scientific infrastructure.',
+      progress: 'Women in Kenya tested a working prototype with ten partner labs.',
+      team: 'An AI engineer and community stewards maintain the tools.',
+    });
     expect(index.projects[0].facets).toContain('domain:science-research');
+    expect(index.projects[0].facets).not.toContain('domain:ai-technology');
+    expect(index.projects[0].facets).not.toContain('audience:women');
+    expect(index.projects[0].facets).not.toContain('place:africa');
+    expect(index.projects[0].semanticFingerprint).toMatch(/^[a-f0-9]{16}$/);
+    expect(projectVectorText(index.projects[0])).not.toContain('Women in Kenya');
+    expect(projectVectorText(index.projects[0])).not.toContain('AI engineer');
   });
 
   it('folds the relationship table into each project so the split payloads can carry it', async () => {

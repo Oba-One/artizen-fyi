@@ -10,6 +10,7 @@
     "build:match-catalog": "node scripts/build-match-catalog.mjs",
     "prepare:semantic": "node scripts/fetch-semantic-assets.mjs",
     "build:semantic-vectors": "node scripts/build-semantic-vectors.mjs",
+    "verify:prepared-parity": "node scripts/verify-prepared-parity.mjs",
     "typecheck": "tsc && tsc -p tsconfig.client.json",
     "test": "vitest run",
     "test:watch": "vitest",

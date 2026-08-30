@@ -23,7 +23,9 @@ if (!inputPath) {
   try {
     await build({
       stdin: {
-        contents: `export { prepareMatchIndex, matchFunds } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine.ts'))};`,
+        contents: `export { prepareMatchIndex, matchFunds } from ${JSON.stringify(join(process.cwd(), 'src/matching/engine.ts'))};
+                   export { matchInputForProject } from ${JSON.stringify(join(process.cwd(), 'src/matching/project-search.ts'))};
+                   export { projectVectorText } from ${JSON.stringify(join(process.cwd(), 'src/matching/semantic-text.ts'))};`,
         resolveDir: process.cwd(),
         sourcefile: 'semantic-calibrate-entry.ts',
       },
@@ -34,7 +36,8 @@ if (!inputPath) {
       target: 'node22',
       logLevel: 'silent',
     });
-    const { prepareMatchIndex, matchFunds } = await import(`${pathToFileURL(outfile).href}?v=${Date.now()}`);
+    const { prepareMatchIndex, matchFunds, matchInputForProject, projectVectorText } =
+      await import(`${pathToFileURL(outfile).href}?v=${Date.now()}`);
     const prepared = prepareMatchIndex(index);
 
     env.allowRemoteModels = false;
@@ -91,14 +94,14 @@ if (!inputPath) {
     const all = [];
     for (let start = 0; start < sampled.length; start += 16) {
       const batch = sampled.slice(start, start + 16);
-      const vectors = await embed(batch.map((p) => [p.name, p.description, ...p.tags].filter(Boolean).join('. ')));
+      const vectors = await embed(batch.map(projectVectorText));
       batch.forEach((project, i) => {
         const scores = new Map();
         for (const fund of index.funds) {
           const vector = fundVectors.get(fund.id);
           if (vector) scores.set(fund.id, cosine(vectors[i], vector));
         }
-        const result = matchFunds(prepared, { title: project.name, description: project.description, tags: project.tags }, scores);
+        const result = matchFunds(prepared, matchInputForProject(project), scores);
         if (!result.sufficient || !result.recommendations.length) return;
         const ranked = result.recommendations.map((row) => row.score);
         rank1.push(ranked[0]);

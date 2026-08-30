@@ -23,7 +23,16 @@ describe('precomputed semantic vectors', () => {
   it('retries transient fund-catalog and project-shard failures', async () => {
     const index = JSON.parse(readFileSync('test/fixtures/match-index.json', 'utf8')) as MatchIndex;
     const manifest = semanticManifest(index)!;
-    const project = index.projects[0];
+    const fullProject = index.projects.find((project) => project.context)!;
+    const project = {
+      ...fullProject,
+      context: undefined,
+      semanticFingerprint: vectorFingerprint(projectVectorText(fullProject)),
+    };
+    const compactIndex = {
+      ...index,
+      projects: index.projects.map((candidate) => (candidate.id === project.id ? project : candidate)),
+    };
     const shardUrl = `${manifest.projectVectorPrefix}${vectorBucket(project.id, manifest.projectVectorBuckets)}.bin`;
     const fundCatalog = serializeVectorCatalog(
       manifest.vectorVersion,
@@ -37,7 +46,7 @@ describe('precomputed semantic vectors', () => {
     const projectCatalog = serializeVectorCatalog(manifest.vectorVersion, manifest.dimensions, [
       {
         id: project.id,
-        fingerprint: vectorFingerprint(projectVectorText(project)),
+        fingerprint: vectorFingerprint(projectVectorText(fullProject)),
         vector: vector(manifest.dimensions, 0),
       },
     ]);
@@ -55,9 +64,10 @@ describe('precomputed semantic vectors', () => {
       }
       return new Response(null, { status: 404 });
     }) as typeof fetch;
-    const scorer = new PrecomputedSemanticScorer(index);
+    const scorer = new PrecomputedSemanticScorer(compactIndex);
 
     expect(await scorer.load()).toBe(false);
+    expect(scorer.loadFallback).toBe('assets-unavailable');
     expect(await scorer.load()).toBe(true);
 
     const input = {
@@ -66,11 +76,33 @@ describe('precomputed semantic vectors', () => {
       description: project.description,
       tags: project.tags,
     };
-    expect(await scorer.score(input)).toEqual({});
+    expect(await scorer.score(input)).toEqual({ fallback: 'assets-unavailable' });
     const recovered = await scorer.score(input);
 
     expect(recovered.scores?.size).toBe(index.funds.length);
+    scorer.updateProjects(index.projects);
+    expect((await scorer.score(input)).scores?.size).toBe(index.funds.length);
+    expect(await scorer.score({ ...input, description: 'An edited description' })).toEqual({ downgrade: 'edited' });
     expect(fundAttempts).toBe(2);
     expect(shardAttempts).toBe(2);
+  });
+
+  it('reports stale prepared assets instead of silently looking like a baseline success', async () => {
+    const index = JSON.parse(readFileSync('test/fixtures/match-index.json', 'utf8')) as MatchIndex;
+    const manifest = semanticManifest(index)!;
+    const staleCatalog = serializeVectorCatalog(
+      'an-older-vector-version',
+      manifest.dimensions,
+      index.funds.map((fund, position) => ({
+        id: fund.id,
+        fingerprint: vectorFingerprint(fund.profileText),
+        vector: vector(manifest.dimensions, position),
+      })),
+    );
+    globalThis.fetch = vi.fn(async () => new Response(staleCatalog)) as typeof fetch;
+    const scorer = new PrecomputedSemanticScorer(index);
+
+    expect(await scorer.load()).toBe(false);
+    expect(scorer.loadFallback).toBe('assets-stale');
   });
 });

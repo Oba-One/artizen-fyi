@@ -5,16 +5,49 @@ import type { ProjectMatchInput, ProjectProfile } from '../artizen/types';
  * agree on it character for character, or a precomputed vector would silently describe different
  * text than the one being matched.
  */
-export function projectVectorText(project: Pick<ProjectProfile, 'name' | 'description' | 'tags'>): string {
-  return [project.name, project.description, ...project.tags].filter(Boolean).join('. ');
+export function projectVectorText(project: Pick<ProjectProfile, 'name' | 'description' | 'tags' | 'context'>): string {
+  return [
+    project.name,
+    project.description,
+    ...project.tags,
+    project.context?.description,
+    project.context?.impact,
+  ].filter(Boolean).join('. ');
 }
 
 export function matchInputVectorText(input: ProjectMatchInput): string {
-  return [input.title, input.description, ...input.tags].filter(Boolean).join('. ');
+  return [
+    input.title,
+    input.description,
+    ...input.tags,
+    input.context?.description,
+    input.context?.impact,
+  ].filter(Boolean).join('. ');
+}
+
+/** The canonical fingerprint still travels with compact picker rows whose context was removed. */
+export function projectVectorFingerprint(
+  project: Pick<ProjectProfile, 'name' | 'description' | 'tags' | 'context' | 'semanticFingerprint'>,
+): string {
+  return project.semanticFingerprint || vectorFingerprint(projectVectorText(project));
 }
 
 /**
- * A short non-cryptographic fingerprint of that text, stored beside each precomputed vector.
+ * Context is not editable in the matcher and may be absent from a compact picker row. The fields
+ * a visitor can refine must still match exactly; supplied context is compared when both sides have
+ * it so a genuinely different full input cannot borrow the catalog vector.
+ */
+export function matchesPreparedProjectInput(input: ProjectMatchInput, project: ProjectProfile): boolean {
+  if (input.title !== project.name || input.description !== project.description) return false;
+  if (input.tags.length !== project.tags.length || input.tags.some((tag, index) => tag !== project.tags[index])) {
+    return false;
+  }
+  return !input.context || !project.context || matchInputVectorText(input) === projectVectorText(project);
+}
+
+/**
+ * A short non-cryptographic fingerprint of that descriptive text, stored beside each precomputed
+ * vector.
  * It exists to detect staleness, not to resist tampering: when a project's name, description, or
  * tags change, the fingerprint stops matching and the browser falls back to computing the vector
  * itself instead of scoring against text the project no longer has. 64 bits keeps the collision

@@ -9,5 +9,7 @@ describe('page CSS delivery', () => {
 
     expect(styles.base).not.toContain('.artizen-match-card');
     expect(styles.matching).toContain('.artizen-match-card');
+    expect(source).toContain('--warn: #D6C52D');
+    expect(styles.matching).toContain('.artizen-fit-fill-warning { background: var(--warn); }');
   });
 });

@@ -1,5 +1,6 @@
 import type { FundRecommendation, MatchIndex, ScoringConfig } from '../artizen/types';
-import { matchFunds, prepareMatchIndex } from './engine';
+import { matchFunds, prepareMatchIndex, semanticRecommendationScore } from './engine';
+import { matchInputForProject } from './project-search';
 
 export type HumanMatchRating = {
   projectId: string;
@@ -90,12 +91,7 @@ export function baselineRankings(index: MatchIndex): Map<string, Ranking[]> {
   const prepared = prepareMatchIndex(index);
   return new Map(
     index.projects.map((project) => {
-      const result = matchFunds(prepared, {
-        projectId: project.id,
-        title: project.name,
-        description: project.description,
-        tags: project.tags,
-      });
+      const result = matchFunds(prepared, matchInputForProject(project));
       return [project.id, result.recommendations.map((row) => ({ fundId: row.fundId, score: row.score }))];
     }),
   );
@@ -106,6 +102,13 @@ function satisfies(metrics: HumanMatchMetrics, constraints: Constraints): boolea
     metrics.precisionAt7 >= (constraints.minPrecisionAt7 || 0) &&
     metrics.gradeZeroRateAt7 <= (constraints.maxGradeZeroRateAt7 ?? 1)
   );
+}
+
+export function semanticTuningScore(
+  recommendation: Pick<FundRecommendation, 'breakdown' | 'supportedFocus'>,
+  scoring: ScoringConfig,
+): number {
+  return semanticRecommendationScore(recommendation.breakdown, recommendation.supportedFocus, scoring);
 }
 
 export function tuneBaselineWeights(
@@ -147,12 +150,14 @@ export function tuneSemanticWeights(
         const rankings = new Map<string, Ranking[]>();
         for (const rating of complete) {
           const breakdown = rating.semantic!.breakdown;
-          const raw =
-            breakdown.semantic! * semantic * 0.05 +
-            breakdown.facets * facets * 0.05 +
-            breakdown.coreCoverage * core * 0.05 +
-            breakdown.lexical * lexical * 0.05;
-          const score = rating.semantic!.supportedFocus ? raw : raw * scoring.unsupportedFocusPenalty;
+          const candidateScoring = {
+            ...scoring,
+            semanticWeight: semantic * 0.05,
+            semanticFacetWeight: facets * 0.05,
+            semanticCoreCoverageWeight: core * 0.05,
+            semanticLexicalWeight: lexical * 0.05,
+          };
+          const score = semanticTuningScore(rating.semantic!, candidateScoring);
           const rows = rankings.get(rating.projectId) || [];
           rows.push({ fundId: rating.fundId, score });
           rankings.set(rating.projectId, rows);

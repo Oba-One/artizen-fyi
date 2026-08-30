@@ -150,6 +150,12 @@
       "slug": "project-science",
       "name": "Open Biology Lab",
       "description": "A decentralized laboratory for open scientific research",
+      "context": {
+        "description": "A public laboratory coordinating open biology tools and community research.",
+        "impact": "Shared scientific infrastructure helps communities participate in research.",
+        "progress": "The team has a working prototype and ten partner laboratories.",
+        "team": "Researchers and community stewards build the tools together."
+      },
       "tags": [
         "Ocean",
         "Science"
@@ -196,13 +202,21 @@
       "name": "DeSci Fund for Open Biology Research",
       "subtitle": "Supporting decentralized laboratories and scientific researchers without truncation",
       "forTitle": "For biology, laboratory research, and citizen science",
+      "description": "We support open scientific infrastructure and community-led biology research.",
+      "eligibility": "Applicants should build public-interest research tools. Applicants must not create surveillance systems.",
+      "eligibilityCriteria": [
+        "Applicants should build public-interest research tools."
+      ],
+      "eligibilityExclusions": [
+        "Applicants must not create surveillance systems."
+      ],
       "active": true,
       "available": 4200,
       "themes": [],
       "aliases": [],
       "preferredTerms": [],
       "excludedTerms": [],
-      "profileText": "DeSci Fund for Open Biology Research. Supporting decentralized laboratories and scientific researchers without truncation. For biology, laboratory research, and citizen science",
+      "profileText": "DeSci Fund for Open Biology Research. Supporting decentralized laboratories and scientific researchers without truncation. For biology, laboratory research, and citizen science. We support open scientific infrastructure and community-led biology research. Applicants should build public-interest research tools.",
       "profileHash": "a577fc807a6a5820e6a863bb54bceaa9142295d465653bcee8eafb22e91ac2f2",
       "facets": [
         "approach:decentralized",
