@@ -27,7 +27,7 @@ type ListOpts = {
 };
 
 export class Bubble {
-  private venusId: string | undefined;
+  private venusIds: string[] | undefined;
   private seasonsMemo: Promise<Season[]> | undefined;
 
   async list(type: string, opts: ListOpts = {}): Promise<Row[]> {
@@ -185,16 +185,13 @@ export class Bubble {
   }
 
   async venusTransactions(opts: { seasonId?: string | null; projectId?: string | null } = {}): Promise<Row[]> {
-    const id = await this.venusAccountId();
-    if (!id) return [];
+    const buyers = await this.venusAccountIds();
+    if (buyers.length === 0) return [];
 
-    const constraints: Constraint[] = [
-      { key: 'Buyer (User account)', constraint_type: 'equals', value: id },
-      { key: 'confirmed', constraint_type: 'equals', value: true },
-    ];
-    if (opts.seasonId) constraints.push({ key: 'Season', constraint_type: 'equals', value: opts.seasonId });
-    if (opts.projectId) constraints.push({ key: 'project', constraint_type: 'equals', value: opts.projectId });
-    return this.list('transaction', { constraints });
+    const extra: Constraint[] = [{ key: 'confirmed', constraint_type: 'equals', value: true }];
+    if (opts.seasonId) extra.push({ key: 'Season', constraint_type: 'equals', value: opts.seasonId });
+    if (opts.projectId) extra.push({ key: 'project', constraint_type: 'equals', value: opts.projectId });
+    return this.listWhereIn('transaction', 'Buyer (User account)', buyers, extra);
   }
 
   private applySeasonNames(drives: Drive[], seasonsMeta: Record<string, Season>): void {
@@ -281,11 +278,20 @@ export class Bubble {
     return out;
   }
 
-  private async venusAccountId(): Promise<string> {
-    if (this.venusId !== undefined) return this.venusId;
+  // Venus is the S7 house buyer. S6 house artifact buys were booked on the
+  // Artizen admin account before that user existed. Other "Artizen" accounts
+  // are people / fund admins, not house.
+  private async venusAccountIds(): Promise<string[]> {
+    if (this.venusIds !== undefined) return this.venusIds;
 
-    const rows = await this.findBy('useraccount', 'name', 'Venus');
-    this.venusId = String(rows[0]?.['_id'] ?? '');
-    return this.venusId;
+    const [venus, artizen] = await Promise.all([
+      this.findBy('useraccount', 'name', 'Venus', 5),
+      this.findBy('useraccount', 'name', 'Artizen', 5),
+    ]);
+    this.venusIds = ids([
+      ...venus.map((row) => row['_id']),
+      ...artizen.filter((row) => text(row['Role']) === 'Artizen admin').map((row) => row['_id']),
+    ]);
+    return this.venusIds;
   }
 }
