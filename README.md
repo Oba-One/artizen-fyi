@@ -59,14 +59,6 @@ curl "http://localhost:8788/cdn-cgi/local/scheduled"
 
 A full run crawls every season and can take several minutes. Watch the Wrangler log for `[Artizen] refreshed`.
 
-## Design tokens
-
-Colours come from the [Artizen style guide](https://play.artizen.fund/style-guide/), which splits the palette in three: Brand (Algae, Moss), Interface (Night, Slate, Barracuda, Moon, Stone, Wash, UI Alert, UI Warning, UI Success), and Illustrations (Reef, Gravel, Coral, Truffle, Lavender). The UI uses Brand and Interface only. Illustration colours stay off chrome - they are for drawings. Tokens in `src/styles.css` map Night (`--ink`), Slate, Barracuda (`--muted`), Moon (`--paper`), white (`--panel`), Stone (`--line`), Algae (`--green`), and Moss (`--green-deep`). Buttons follow the guide's three roles - Primary is Slate darkening to Night, Secondary is a Slate outline filling with Moon, and both are pill-shaped at weight 500. Bootstrap's `btn-dark` and `btn-outline-dark` are retargeted onto those roles once, rather than being overridden per call site.
-
-A fund card uses one green, Moss (`--green-deep`), for every fill that has to carry type or sit next to type that does: Strong and Good (badge and meter), Applied, Curated, and Funded. Algae on the meter and Moss on the badges would be two greens on the same card. Worth a look is a wash of Moss on Moon; limited evidence is a dashed Stone outline. White type on Moss is about 6.9:1. Applied uses a send mark rather than a check, because a tick reads as acceptance. Available money and Not curating are Stone outlines on Moon. Curating is the default, so it is not labelled.
-
-Algae cannot carry white type (2.1:1 on white). Moss can, so filled chrome uses Moss rather than a darkened green outside the palette. Moss as text on white is 3.0:1, which is what the brand gives you for links. A pressed filter is still Slate rather than Algae: it is Artizen's Primary treatment, which is what a pressed control is, and it puts the label at 16:1 instead of 2.1:1.
-
 ## Fund matching
 
 Private, on-device matching lives at `/match`. Catalog, ranker, on-device model, and local commands are in [MATCHING.md](MATCHING.md).

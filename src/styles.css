@@ -1,3 +1,9 @@
+/* From the Artizen style guide (https://play.artizen.fund/style-guide/). Brand (Algae, Moss) and
+   Interface (Night, Slate, Barracuda, Moon, Stone, Wash, UI Alert, UI Warning, UI Success) only —
+   Illustration colours (Reef, Gravel, Coral, Truffle, Lavender) stay off chrome. Night `--ink`,
+   Slate `--slate`, Barracuda `--muted`, Moon `--paper`, white `--panel`, Stone `--line`, Algae
+   `--green`, Moss `--green-deep`. Algae cannot carry white type (2.1:1); Moss can (~6.9:1), so
+   filled chrome uses Moss rather than a darkened green outside the palette. */
 :root {
   --ink: #101212;
   --slate: #202222;
@@ -85,6 +91,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 h1 { font-size: 2.15rem; }
 h2 { font-size: 1.45rem; }
+/* Moss as text on white is 3.0:1, which is what the brand gives you for links. */
 a { color: var(--green-deep); text-underline-offset: 0.15em; }
 a:hover { color: var(--ink); }
 a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
@@ -1144,9 +1151,11 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   border-radius: 999px;
   background: var(--muted);
 }
+/* One green on the card: Moss. Algae on the meter next to Moss badges would be two greens. */
 .artizen-fit-fill-strong,
 .artizen-fit-fill-good { background: var(--green-deep); }
 .artizen-fit-fill-warning { background: var(--warn); }
+/* Worth a look: a wash of Moss on Moon. */
 .artizen-fit-fill-exploratory { background: color-mix(in srgb, var(--green-deep) 42%, var(--paper)); }
 .artizen-fit-fill-limited { background: var(--line); }
 .artizen-match-fit-value {
@@ -1162,10 +1171,11 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   align-content: start;
   gap: 0.35rem;
 }
-/* Fit quality owns green; relationship history uses a separate category colour below. */
+/* White on Moss is ~6.9:1. Fit quality owns green; relationship history uses a separate colour. */
 .artizen-fit-strong { color: #fff; background: var(--green-deep); }
 .artizen-fit-good { color: #fff; background: var(--green-deep); }
 .artizen-fit-exploratory { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
+/* Limited evidence: a dashed Stone outline. */
 .artizen-fit-limited { color: var(--muted); background: transparent; border: 1px dashed var(--line); }
 /* Applied, Curated, and Funded are all relationship history, distinct from match quality. */
 .artizen-known-relationship {
@@ -1179,6 +1189,7 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
   font-size: 0.9em;
   line-height: 1;
 }
+/* Available money and Not curating: Stone outlines on Moon. Curating is the default, so it is not labelled. */
 .artizen-status-inactive { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 .artizen-status-available { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 .artizen-match-reasons {

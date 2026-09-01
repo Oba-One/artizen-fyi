@@ -510,6 +510,7 @@ function relationshipBadge(kind: keyof typeof RELATIONSHIP_LABELS): HTMLElement 
   element.className = 'badge artizen-known-relationship';
   setQuickTooltip(element, RELATIONSHIP_TITLES[kind]);
   if (kind === 'submitted') {
+    // A send mark, not a check: a tick reads as acceptance.
     const icon = document.createElement('i');
     icon.className = 'bi bi-send';
     icon.setAttribute('aria-hidden', 'true');
@@ -523,6 +524,7 @@ function relationshipBadge(kind: keyof typeof RELATIONSHIP_LABELS): HTMLElement 
 function statusBadges(recommendation: BrowserRecommendation, withAvailability = true): HTMLElement[] {
   const badges: HTMLElement[] = [];
   if (!recommendation.active) {
+    // Curating is the default, so only the exception is labelled.
     badges.push(badge('Not curating', 'artizen-status-inactive'));
   }
   const available = withAvailability ? availabilityBadge(recommendation) : undefined;
