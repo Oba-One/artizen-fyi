@@ -20,7 +20,7 @@
     "subrequests": 10000
   },
   "triggers": {
-    "crons": ["0 * * * *"]
+    "crons": ["*/10 * * * *"]
   },
   "routes": [
     { "pattern": "artizen.fyi", "custom_domain": true },

@@ -8,10 +8,10 @@ Public leaderboards and private, on-device fund matching for [artizen.fund](http
 
 artizen.fyi is a Worker plus KV. No D1, R2, Queues, Durable Objects, or Pages.
 
-- **Worker** — HTML routes, static browser assets, Bubble API crawler, hourly cron
+- **Worker** — HTML routes, static browser assets, Bubble API crawler, 10-minute cron
 - **KV** — JSON cache (`artizen/leaderboard/…`, `artizen/project/…`, `artizen/fund/…`, `artizen/boosts/…`)
 
-It runs on Workers Paid so a season rebuild has enough CPU (free is 10 ms) and the hourly cron can run up to 15 minutes. Cron refreshes every season and remaining boosts, then drops project/fund pages so they rebuild on next visit. On artizen.fyi, GET `/projects`, `/funds`, `/drives`, `/strategies`, and `/boosts` only read KV — they never crawl Bubble.
+It runs on Workers Paid so a season rebuild has enough CPU (free is 10 ms) and the cron can run up to 15 minutes. Cron refreshes every season and remaining boosts, then drops project/fund pages so they rebuild on next visit. On artizen.fyi, GET `/projects`, `/funds`, `/drives`, `/strategies`, and `/boosts` only read KV — they never crawl Bubble.
 
 Git-push auto-deploy runs `wrangler deploy`, which rebuilds the matching catalog, vectors, and pinned model before upload (`public/` is gitignored, so a clone does not have them). That crawl takes several minutes. `wrangler dev` does not.
 
