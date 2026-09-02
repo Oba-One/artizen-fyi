@@ -29,10 +29,10 @@ Follow the `artizen-design-system` skill. Brand and Interface colours only on ch
 
 ## Commits and pull requests
 
-- Subject: one sentence, imperative, with the reason in it. Upstream's own example: "Use Moss for filled green chrome instead of a custom ink, so badges and links stay in the brand palette." Conventional prefixes such as `fix(client):` are acceptable on fork-only branches; pull requests to upstream match upstream's style.
+- Subject: one sentence, imperative, with the reason in it, as the log already does: "Use Moss for filled green chrome instead of a custom ink, so badges and links stay in the brand palette." Not a conventional prefix such as `fix(client):`.
 - One concern per commit. Agent configuration (AGENTS.md, skills, ADRs) goes in its own commits.
 - Never commit `public/`, `.wrangler/`, or machine-specific editor config.
-- Before opening a PR upstream: `npm run check`, then `review` from a fresh session against `upstream/main`.
+- Before opening a pull request: `npm run check`, then `review` from a fresh session against `main`.
 
 ## Decisions
 

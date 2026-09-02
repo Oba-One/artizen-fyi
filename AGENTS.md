@@ -18,10 +18,6 @@ Skills live in `.agents/skills/`, which Codex and Cursor read directly; `.claude
 
 - Before building a feature, run `grill-with-docs` (grilling plus domain-modeling) so the decision and its vocabulary land in CONTEXT.md and docs/adr/ first.
 - Build test-first at seams agreed up front with `tdd`. Design module shapes in the `codebase-design` vocabulary: module, interface, seam, depth.
-- Review every diff with `review` from a fresh session, against `upstream/main` or the branch point. It reads CONTRIBUTING.md, CONTEXT.md and the three artizen skills as standards.
+- Review every diff with `review` from a fresh session, against `main` or the branch point. It reads CONTRIBUTING.md, CONTEXT.md and the three artizen skills as standards.
 - Every few weeks, from Claude Code, run `improve-codebase-architecture`, one candidate per session.
 - `artizen-context`, `artizen-design-system` and `artizen-voice` load on their own when a task touches scope and ethos, CSS and markup, or prose. Load one by name when in doubt.
-
-## Upstream
-
-This repo is a fork of stephenreid321/artizen-fyi. Keep agent configuration in its own commits so feature pull requests upstream stay clean.

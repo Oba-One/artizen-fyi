@@ -36,4 +36,4 @@ The site explains a game to the people playing it. It sounds like a sharp friend
 
 ## Commits and pull requests
 
-Subject: one sentence, imperative, carrying the reason. "Use Moss for filled green chrome instead of a custom ink, so badges and links stay in the brand palette." Add a body only when the subject cannot hold the why. `CONTRIBUTING.md` holds the upstream convention.
+Subject: one sentence, imperative, carrying the reason. "Use Moss for filled green chrome instead of a custom ink, so badges and links stay in the brand palette." Add a body only when the subject cannot hold the why. `CONTRIBUTING.md` holds the convention.
