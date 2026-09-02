@@ -29,10 +29,16 @@ Follow the `artizen-design-system` skill. Brand and Interface colours only on ch
 
 ## Commits and pull requests
 
-- Subject: one sentence, imperative, with the reason in it, as the log already does: "Use Moss for filled green chrome instead of a custom ink, so badges and links stay in the brand palette." Not a conventional prefix such as `fix(client):`.
-- One concern per commit. Agent configuration (AGENTS.md, skills, ADRs) goes in its own commits.
+The canonical repo is [stephenreid321/artizen-fyi](https://github.com/stephenreid321/artizen-fyi). Work on a branch in your fork and open pull requests against its `main`. Name the canonical repo `upstream` locally so the commands below work as written:
+
+```bash
+git remote add upstream https://github.com/stephenreid321/artizen-fyi.git
+```
+
+- Subject: one sentence, imperative, with the reason in it, as the upstream log already does: "Use Moss for filled green chrome instead of a custom ink, so badges and links stay in the brand palette." Not a conventional prefix such as `fix(client):`.
+- One concern per commit. Agent configuration (AGENTS.md, skills, ADRs) goes in its own commits, so a feature pull request stays about the feature.
 - Never commit `public/`, `.wrangler/`, or machine-specific editor config.
-- Before opening a pull request: `npm run check`, then `review` from a fresh session against `main`.
+- Before opening a pull request: fetch `upstream` and bring `upstream/main` into your branch, run `npm run check`, then run `review` from a fresh session against `upstream/main`.
 
 ## Decisions
 
