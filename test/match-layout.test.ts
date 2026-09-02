@@ -43,9 +43,10 @@ describe('matching layout', () => {
     expect(styles).toMatch(/\.artizen-ai-note-warning\s*\{[^}]*background:/);
   });
 
-  it('uses lavender for relationship history while fit quality remains green', () => {
-    expect(styles).toContain('--lavender: #C2B6DC');
+  it('uses UI Alert for relationship history while fit quality remains green', () => {
+    expect(styles).toContain('--alert: #D62D6A');
+    expect(styles).not.toContain('--lavender');
     expect(styles).toMatch(/\.artizen-fit-strong\s*\{[^}]*background:\s*var\(--green-deep\);/);
-    expect(styles).toMatch(/\.artizen-known-relationship\s*\{[^}]*background:\s*var\(--lavender\);/);
+    expect(styles).toMatch(/\.artizen-known-relationship\s*\{[^}]*background:\s*var\(--alert\);/);
   });
 });

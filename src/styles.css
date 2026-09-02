@@ -2,8 +2,9 @@
    Interface (Night, Slate, Barracuda, Moon, Stone, Wash, UI Alert, UI Warning, UI Success) only —
    Illustration colours (Reef, Gravel, Coral, Truffle, Lavender) stay off chrome. Night `--ink`,
    Slate `--slate`, Barracuda `--muted`, Moon `--paper`, white `--panel`, Stone `--line`, Algae
-   `--green`, Moss `--green-deep`. Algae cannot carry white type (2.1:1); Moss can (~6.9:1), so
-   filled chrome uses Moss rather than a darkened green outside the palette. */
+   `--green`, Moss `--green-deep`, UI Alert `--alert`, UI Warning `--warn`. Algae cannot carry
+   white type (2.1:1); Moss can (~6.9:1), so filled chrome uses Moss rather than a darkened green
+   outside the palette. UI Alert (~4.8:1 with white) is the other filled Interface colour. */
 :root {
   --ink: #101212;
   --slate: #202222;
@@ -14,7 +15,7 @@
   --green: #1ACC6C;
   --green-deep: #06AA59;
   --warn: #D6C52D;
-  --lavender: #C2B6DC;
+  --alert: #D62D6A;
   --shadow: 0 8px 18px rgba(16, 18, 18, 0.08);
   --radius: 1.15rem;
   --shell: 90rem;
@@ -1177,13 +1178,14 @@ a.text-dark, a.text-dark:hover { color: var(--ink) !important; }
 .artizen-fit-exploratory { color: var(--ink); background: var(--paper); border: 1px solid var(--line); }
 /* Limited evidence: a dashed Stone outline. */
 .artizen-fit-limited { color: var(--muted); background: transparent; border: 1px dashed var(--line); }
-/* Applied, Curated, and Funded are all relationship history, distinct from match quality. */
+/* Applied, Curated, and Funded are all relationship history, distinct from match quality.
+   White on UI Alert, not Night: the fill is ~4.0:1 with Night and ~4.8:1 with white. */
 .artizen-known-relationship {
   display: inline-flex;
   align-items: center;
   gap: 0.35em;
-  color: var(--ink);
-  background: var(--lavender);
+  color: #fff;
+  background: var(--alert);
 }
 .artizen-known-relationship .bi {
   font-size: 0.9em;
